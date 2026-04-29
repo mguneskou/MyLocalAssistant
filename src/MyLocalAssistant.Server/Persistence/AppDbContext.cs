@@ -79,7 +79,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
         b.Entity<Message>(e =>
         {
-            e.HasOne(x => x.Conversation).WithMany(x => x.Messages).HasForeignKey(x => x.ConversationId);
+            e.HasOne(x => x.Conversation).WithMany(x => x.Messages)
+                .HasForeignKey(x => x.ConversationId)
+                .OnDelete(DeleteBehavior.Cascade);
             e.HasIndex(x => x.CreatedAt);
         });
 

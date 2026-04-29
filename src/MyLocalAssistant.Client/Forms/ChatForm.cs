@@ -13,6 +13,10 @@ internal sealed class ChatForm : Form
     private readonly ToolStripLabel _agentDescription;
     private readonly ToolStripButton _changePwdBtn;
     private readonly ToolStripButton _signOutBtn;
+    private readonly SplitContainer _split;
+    private readonly ListBox _conversationList;
+    private readonly Button _newChatBtn;
+    private readonly Button _deleteChatBtn;
     private readonly RichTextBox _history;
     private readonly TextBox _input;
     private readonly Button _send;
@@ -23,24 +27,27 @@ internal sealed class ChatForm : Form
     private CancellationTokenSource? _streamCts;
     private bool _streaming;
     private List<AgentDto> _agents = new();
+    private List<ConversationSummaryDto> _conversations = new();
+    private Guid? _currentConversationId;
+    private bool _suppressConversationSelection;
 
     public ChatForm(ChatApiClient client, ClientSettingsStore store)
     {
         _client = client;
         _store = store;
 
-        Text = $"MyLocalAssistant — {_client.CurrentUser?.DisplayName ?? "?"} @ {_client.BaseUrl}";
+        Text = $"MyLocalAssistant \u2014 {_client.CurrentUser?.DisplayName ?? "?"} @ {_client.BaseUrl}";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(720, 520);
-        Size = new Size(960, 700);
+        MinimumSize = new Size(820, 560);
+        Size = new Size(1080, 720);
         Font = new Font("Segoe UI", 10F);
 
         _toolbar = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top, ImageScalingSize = new Size(16, 16) };
         _agentCombo = new ToolStripComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 240 };
         _agentCombo.ComboBox!.DisplayMember = nameof(AgentDto.Name);
-        _agentCombo.SelectedIndexChanged += (_, _) => OnAgentChanged();
+        _agentCombo.SelectedIndexChanged += async (_, _) => await OnAgentChangedAsync();
         _agentDescription = new ToolStripLabel("") { ForeColor = SystemColors.GrayText };
-        _changePwdBtn = new ToolStripButton("Change password…");
+        _changePwdBtn = new ToolStripButton("Change password\u2026");
         _changePwdBtn.Click += (_, _) => { using var d = new ChangePasswordForm(_client, forced: false); d.ShowDialog(this); };
         _signOutBtn = new ToolStripButton("Sign out");
         _signOutBtn.Click += (_, _) => { DialogResult = DialogResult.Retry; Close(); };
@@ -57,6 +64,50 @@ internal sealed class ChatForm : Form
         _changePwdBtn.Alignment = ToolStripItemAlignment.Right;
         _signOutBtn.Alignment = ToolStripItemAlignment.Right;
 
+        _split = new SplitContainer
+        {
+            Dock = DockStyle.Fill,
+            FixedPanel = FixedPanel.Panel1,
+            Panel1MinSize = 180,
+            Panel2MinSize = 380,
+        };
+
+        // Left pane: conversations.
+        var leftHeader = new Label
+        {
+            Text = "Conversations",
+            Dock = DockStyle.Top,
+            Height = 24,
+            Padding = new Padding(8, 4, 0, 0),
+            Font = new Font(Font, FontStyle.Bold),
+        };
+        var leftButtons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Bottom,
+            Height = 36,
+            FlowDirection = FlowDirection.LeftToRight,
+            Padding = new Padding(4),
+        };
+        _newChatBtn = new Button { Text = "New chat", Width = 100, Height = 26 };
+        _newChatBtn.Click += (_, _) => StartNewChat();
+        _deleteChatBtn = new Button { Text = "Delete", Width = 80, Height = 26, Enabled = false };
+        _deleteChatBtn.Click += async (_, _) => await OnDeleteConversationAsync();
+        leftButtons.Controls.Add(_newChatBtn);
+        leftButtons.Controls.Add(_deleteChatBtn);
+
+        _conversationList = new ListBox
+        {
+            Dock = DockStyle.Fill,
+            IntegralHeight = false,
+            BorderStyle = BorderStyle.None,
+            DisplayMember = nameof(ConversationSummaryDto.Title),
+        };
+        _conversationList.SelectedIndexChanged += async (_, _) => await OnConversationSelectedAsync();
+        _split.Panel1.Controls.Add(_conversationList);
+        _split.Panel1.Controls.Add(leftButtons);
+        _split.Panel1.Controls.Add(leftHeader);
+
+        // Right pane: history + input.
         _history = new RichTextBox
         {
             Dock = DockStyle.Fill,
@@ -66,7 +117,6 @@ internal sealed class ChatForm : Form
             BackColor = Color.White,
             DetectUrls = false,
         };
-
         var inputPanel = new Panel { Dock = DockStyle.Bottom, Height = 110, Padding = new Padding(8) };
         _input = new TextBox
         {
@@ -81,6 +131,8 @@ internal sealed class ChatForm : Form
         _send.Click += async (_, _) => await OnSendOrCancelAsync();
         inputPanel.Controls.Add(_input);
         inputPanel.Controls.Add(_send);
+        _split.Panel2.Controls.Add(_history);
+        _split.Panel2.Controls.Add(inputPanel);
 
         _statusLabel = new ToolStripStatusLabel("Ready");
         _statsLabel = new ToolStripStatusLabel("") { Spring = true, TextAlign = ContentAlignment.MiddleRight };
@@ -88,11 +140,10 @@ internal sealed class ChatForm : Form
         _status.Items.Add(_statusLabel);
         _status.Items.Add(_statsLabel);
 
-        // Z-order: Fill control first, then Top/Bottom-docked siblings.
-        Controls.Add(_history);
-        Controls.Add(inputPanel);
+        Controls.Add(_split);
         Controls.Add(_status);
         Controls.Add(_toolbar);
+        _split.SplitterDistance = 240;
 
         Load += async (_, _) => await ReloadAgentsAsync();
         FormClosing += (_, _) => _streamCts?.Cancel();
@@ -102,7 +153,7 @@ internal sealed class ChatForm : Form
     {
         try
         {
-            _statusLabel.Text = "Loading agents…";
+            _statusLabel.Text = "Loading agents\u2026";
             _agents = await _client.ListAgentsAsync();
             _agentCombo.ComboBox!.DataSource = _agents;
             if (_agents.Count == 0)
@@ -126,7 +177,7 @@ internal sealed class ChatForm : Form
         }
     }
 
-    private void OnAgentChanged()
+    private async Task OnAgentChangedAsync()
     {
         var a = _agentCombo.SelectedItem as AgentDto;
         _agentDescription.Text = a is null ? "" : "  " + a.Description;
@@ -135,6 +186,104 @@ internal sealed class ChatForm : Form
             var s = _store.Load();
             s.LastAgentId = a.Id;
             _store.Save(s);
+            StartNewChat();
+            await ReloadConversationsAsync();
+        }
+    }
+
+    private async Task ReloadConversationsAsync()
+    {
+        var agent = _agentCombo.SelectedItem as AgentDto;
+        if (agent is null) return;
+        try
+        {
+            _conversations = await _client.ListConversationsAsync(agent.Id);
+            _suppressConversationSelection = true;
+            _conversationList.BeginUpdate();
+            _conversationList.Items.Clear();
+            foreach (var c in _conversations)
+                _conversationList.Items.Add(c);
+            if (_currentConversationId is Guid cid)
+            {
+                var idx = _conversations.FindIndex(c => c.Id == cid);
+                if (idx >= 0) _conversationList.SelectedIndex = idx;
+            }
+            _conversationList.EndUpdate();
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = "Failed to load conversations: " + ex.Message;
+        }
+        finally
+        {
+            _suppressConversationSelection = false;
+            _deleteChatBtn.Enabled = _conversationList.SelectedIndex >= 0;
+        }
+    }
+
+    private void StartNewChat()
+    {
+        _currentConversationId = null;
+        _suppressConversationSelection = true;
+        _conversationList.ClearSelected();
+        _suppressConversationSelection = false;
+        _deleteChatBtn.Enabled = false;
+        _history.Clear();
+        _statusLabel.Text = "New chat.";
+    }
+
+    private async Task OnConversationSelectedAsync()
+    {
+        if (_suppressConversationSelection) return;
+        if (_streaming) return;
+        if (_conversationList.SelectedItem is not ConversationSummaryDto sel) return;
+        _currentConversationId = sel.Id;
+        _deleteChatBtn.Enabled = true;
+        try
+        {
+            _statusLabel.Text = "Loading conversation\u2026";
+            var detail = await _client.GetConversationAsync(sel.Id);
+            _history.Clear();
+            if (detail is null) { _statusLabel.Text = "Conversation not found."; return; }
+            var agent = _agents.FirstOrDefault(a => a.Id == detail.AgentId);
+            var assistantName = agent?.Name ?? "Assistant";
+            foreach (var m in detail.Messages)
+            {
+                if (string.Equals(m.Role, "User", StringComparison.OrdinalIgnoreCase))
+                {
+                    AppendRoleLine("You", Color.SteelBlue);
+                    AppendBody((m.Body ?? "(empty)") + "\n\n");
+                }
+                else if (string.Equals(m.Role, "Assistant", StringComparison.OrdinalIgnoreCase))
+                {
+                    AppendRoleLine(assistantName, Color.SeaGreen);
+                    AppendBody((m.Body ?? "(empty)") + "\n\n");
+                }
+            }
+            _statusLabel.Text = $"{detail.Messages.Count} message(s) loaded.";
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = "Failed to load conversation: " + ex.Message;
+        }
+    }
+
+    private async Task OnDeleteConversationAsync()
+    {
+        if (_conversationList.SelectedItem is not ConversationSummaryDto sel) return;
+        var ok = MessageBox.Show(this,
+            $"Delete conversation '{sel.Title}'? This cannot be undone.",
+            "Delete conversation", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning);
+        if (ok != DialogResult.OK) return;
+        try
+        {
+            await _client.DeleteConversationAsync(sel.Id);
+            if (_currentConversationId == sel.Id) StartNewChat();
+            await ReloadConversationsAsync();
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = "Delete failed: " + ex.Message;
         }
     }
 
@@ -163,22 +312,27 @@ internal sealed class ChatForm : Form
         AppendRoleLine("You", Color.SteelBlue);
         AppendBody(message + "\n\n");
         AppendRoleLine(agent.Name, Color.SeaGreen);
-        var assistantStart = _history.TextLength;
 
         SetStreaming(true);
         var sw = Stopwatch.StartNew();
         var tokens = 0;
+        var wasNew = _currentConversationId is null;
         try
         {
             _streamCts = new CancellationTokenSource();
-            await foreach (var frame in _client.StreamChatAsync(new ChatRequest(agent.Id, message), _streamCts.Token))
+            var req = new ChatRequest(agent.Id, message, ConversationId: _currentConversationId);
+            await foreach (var frame in _client.StreamChatAsync(req, _streamCts.Token))
             {
-                if (frame.Kind == TokenStreamFrameKind.Token && frame.Text is not null)
+                if (frame.Kind == TokenStreamFrameKind.Meta && frame.ConversationId is Guid mid)
+                {
+                    _currentConversationId = mid;
+                }
+                else if (frame.Kind == TokenStreamFrameKind.Token && frame.Text is not null)
                 {
                     AppendBody(frame.Text);
                     tokens++;
                     var rate = sw.Elapsed.TotalSeconds > 0 ? tokens / sw.Elapsed.TotalSeconds : 0;
-                    _statsLabel.Text = $"{tokens} tokens · {rate:F1} tok/s";
+                    _statsLabel.Text = $"{tokens} tokens \u00b7 {rate:F1} tok/s";
                 }
                 else if (frame.Kind == TokenStreamFrameKind.Error)
                 {
@@ -210,6 +364,9 @@ internal sealed class ChatForm : Form
                 _statusLabel.Text = $"Done in {sw.Elapsed.TotalSeconds:F1}s ({tokens} tokens).";
             else
                 _statusLabel.Text = "Done.";
+
+            if (wasNew || tokens > 0)
+                await ReloadConversationsAsync();
         }
     }
 
@@ -241,6 +398,8 @@ internal sealed class ChatForm : Form
         _send.Text = streaming ? "Cancel" : "Send";
         _agentCombo.Enabled = !streaming;
         _input.Enabled = !streaming;
-        if (streaming) { _statusLabel.Text = "Generating…"; _statsLabel.Text = ""; }
+        _newChatBtn.Enabled = !streaming;
+        _conversationList.Enabled = !streaming;
+        if (streaming) { _statusLabel.Text = "Generating\u2026"; _statsLabel.Text = ""; }
     }
 }

@@ -3,8 +3,10 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using MyLocalAssistant.Server.Auth;
 using MyLocalAssistant.Server.Llm;
+using MyLocalAssistant.Server.Persistence;
 using MyLocalAssistant.Server.Rag;
 using MyLocalAssistant.Shared.Contracts;
 
@@ -14,6 +16,7 @@ public static class ChatEndpoints
 {
     private const int DefaultMaxTokens = 512;
     private const int MaxAllowedTokens = 4096;
+    private const int HistoryWindow = 16; // last N messages fed back as context
 
     private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web);
 
@@ -31,6 +34,7 @@ public static class ChatEndpoints
         ChatService chat,
         RagAuthorizationService authz,
         AuditWriter audit,
+        AppDbContext db,
         ILoggerFactory loggerFactory,
         CancellationToken ct)
     {
@@ -59,6 +63,50 @@ public static class ChatEndpoints
             return;
         }
 
+        // Resolve or create conversation. Ownership + agent-match are enforced.
+        Conversation? conversation = null;
+        if (req.ConversationId is Guid cid)
+        {
+            conversation = await db.Conversations
+                .FirstOrDefaultAsync(c => c.Id == cid && c.UserId == userId && c.AgentId == req.AgentId, ct);
+            if (conversation is null)
+            {
+                http.Response.StatusCode = StatusCodes.Status404NotFound;
+                await http.Response.WriteAsJsonAsync(new { detail = "Conversation not found." }, ct);
+                return;
+            }
+        }
+
+        var history = conversation is null
+            ? new List<ChatService.HistoryTurn>(0)
+            : await db.Messages
+                .Where(m => m.ConversationId == conversation.Id && m.Body != null)
+                .OrderByDescending(m => m.CreatedAt)
+                .Take(HistoryWindow)
+                .OrderBy(m => m.CreatedAt)
+                .Select(m => new ChatService.HistoryTurn(m.Role, m.Body!))
+                .ToListAsync(ct);
+
+        if (conversation is null)
+        {
+            conversation = new Conversation
+            {
+                UserId = userId,
+                AgentId = req.AgentId,
+                Title = MakeTitle(req.Message),
+            };
+            db.Conversations.Add(conversation);
+        }
+        var userMsg = new Message
+        {
+            ConversationId = conversation.Id,
+            Role = MessageRole.User,
+            Body = req.Message,
+        };
+        db.Messages.Add(userMsg);
+        conversation.UpdatedAt = DateTimeOffset.UtcNow;
+        await db.SaveChangesAsync(ct);
+
         var maxTokens = Math.Clamp(req.MaxTokens ?? DefaultMaxTokens, 1, MaxAllowedTokens);
 
         // Open the SSE response.
@@ -69,20 +117,25 @@ public static class ChatEndpoints
         http.Response.Headers["X-Accel-Buffering"] = "no";
         await http.Response.Body.FlushAsync(ct);
 
+        // Tell the client the conversation id (new or echoed).
+        await WriteFrameAsync(http.Response, new TokenStreamFrame(TokenStreamFrameKind.Meta, ConversationId: conversation.Id), ct);
+
         var sw = Stopwatch.StartNew();
         var totalChars = 0;
         var tokenCount = 0;
         string? error = null;
         RagRetrievalResult? lastRetrieval = null;
+        var assistantBuffer = new StringBuilder();
         try
         {
             // Resolve principal from DB (NOT JWT) so revocations apply immediately.
             var principal = await authz.ResolveAsync(userId, username, isAdmin, ct);
             await foreach (var token in chat.StreamAsync(check.Agent, principal, req.Message, maxTokens,
-                onRetrieval: r => lastRetrieval = r, ct))
+                history, onRetrieval: r => lastRetrieval = r, ct))
             {
                 tokenCount++;
                 totalChars += token.Length;
+                assistantBuffer.Append(token);
                 await WriteFrameAsync(http.Response, new TokenStreamFrame(TokenStreamFrameKind.Token, Text: token), ct);
             }
             await WriteFrameAsync(http.Response, new TokenStreamFrame(TokenStreamFrameKind.End), ct);
@@ -105,7 +158,31 @@ public static class ChatEndpoints
         finally
         {
             sw.Stop();
-            var detail = $"tokens={tokenCount}; chars={totalChars}; ms={sw.ElapsedMilliseconds}";
+
+            // Persist assistant turn (even partial) so history is intact.
+            try
+            {
+                var assistantText = assistantBuffer.ToString();
+                if (assistantText.Length > 0 || error is not null)
+                {
+                    db.Messages.Add(new Message
+                    {
+                        ConversationId = conversation.Id,
+                        Role = MessageRole.Assistant,
+                        Body = assistantText.Length > 0 ? assistantText : null,
+                        CompletionTokens = tokenCount,
+                        LatencyMs = (int)sw.ElapsedMilliseconds,
+                    });
+                    conversation.UpdatedAt = DateTimeOffset.UtcNow;
+                    await db.SaveChangesAsync(CancellationToken.None);
+                }
+            }
+            catch (Exception saveEx)
+            {
+                log.LogWarning(saveEx, "Failed to persist assistant message.");
+            }
+
+            var detail = $"tokens={tokenCount}; chars={totalChars}; ms={sw.ElapsedMilliseconds}; convo={conversation.Id}";
             if (error is not null) detail += $"; error={error}";
             await audit.WriteAsync(
                 action: error is null ? "chat.send" : "chat.error",
@@ -150,5 +227,12 @@ public static class ChatEndpoints
         var bytes = Encoding.UTF8.GetBytes($"data: {json}\n\n");
         await resp.Body.WriteAsync(bytes, ct);
         await resp.Body.FlushAsync(ct);
+    }
+
+    private static string MakeTitle(string firstMessage)
+    {
+        var t = firstMessage.Trim().ReplaceLineEndings(" ");
+        if (t.Length > 60) t = t[..60].TrimEnd() + "\u2026";
+        return t.Length == 0 ? "(untitled)" : t;
     }
 }

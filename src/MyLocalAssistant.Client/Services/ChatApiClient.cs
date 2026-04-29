@@ -65,6 +65,31 @@ public sealed class ChatApiClient : IDisposable
         return await resp.Content.ReadFromJsonAsync<List<AgentDto>>(s_json, ct) ?? new();
     }
 
+    public async Task<List<ConversationSummaryDto>> ListConversationsAsync(string? agentId = null, CancellationToken ct = default)
+    {
+        var path = string.IsNullOrEmpty(agentId)
+            ? "api/chat/conversations/"
+            : $"api/chat/conversations/?agentId={Uri.EscapeDataString(agentId)}";
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, path, null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<ConversationSummaryDto>>(s_json, ct) ?? new();
+    }
+
+    public async Task<ConversationDetailDto?> GetConversationAsync(Guid id, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, $"api/chat/conversations/{id}", null, ct);
+        if (resp.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<ConversationDetailDto>(s_json, ct);
+    }
+
+    public async Task DeleteConversationAsync(Guid id, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Delete, $"api/chat/conversations/{id}", null, ct);
+        if (resp.StatusCode == System.Net.HttpStatusCode.NotFound) return;
+        await EnsureSuccessAsync(resp, ct);
+    }
+
     /// <summary>
     /// Streams chat tokens. Yields each <see cref="TokenStreamFrame"/> as it arrives over SSE.
     /// Cancellation closes the underlying HTTP connection.

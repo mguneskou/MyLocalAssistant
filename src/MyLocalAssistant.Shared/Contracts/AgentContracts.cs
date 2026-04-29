@@ -33,9 +33,11 @@ public enum TokenStreamFrameKind
     Token,
     End,
     Error,
+    Meta,
 }
 
 public sealed record TokenStreamFrame(
     TokenStreamFrameKind Kind,
     string? Text = null,
-    string? ErrorMessage = null);
+    string? ErrorMessage = null,
+    System.Guid? ConversationId = null);

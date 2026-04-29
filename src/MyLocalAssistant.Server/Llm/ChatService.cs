@@ -36,11 +36,14 @@ public sealed class ChatService(
     /// Streams generated tokens for a single chat turn. The caller is responsible for
     /// already having validated agent visibility. Throws if no model is loaded.
     /// </summary>
+    public sealed record HistoryTurn(MessageRole Role, string Body);
+
     public async IAsyncEnumerable<string> StreamAsync(
         Agent agent,
         UserPrincipals principal,
         string userMessage,
         int maxTokens,
+        IReadOnlyList<HistoryTurn> history,
         Action<RagRetrievalResult>? onRetrieval,
         [EnumeratorCancellation] CancellationToken ct)
     {
@@ -49,10 +52,10 @@ public sealed class ChatService(
 
         var retrieval = await rag.RetrieveAsync(agent, principal, userMessage, k: 4, ct);
         onRetrieval?.Invoke(retrieval);
-        var prompt = BuildPrompt(agent.SystemPrompt, userMessage, retrieval.Chunks);
-        log.LogDebug("Chat: agent={AgentId}, user={User}, ragChunks={Chunks}, allowed={Allow}/{Total}, promptChars={Chars}",
+        var prompt = BuildPrompt(agent.SystemPrompt, userMessage, retrieval.Chunks, history);
+        log.LogDebug("Chat: agent={AgentId}, user={User}, ragChunks={Chunks}, allowed={Allow}/{Total}, history={Hist}, promptChars={Chars}",
             agent.Id, principal.Username ?? principal.UserId.ToString(),
-            retrieval.Chunks.Count, retrieval.Allowed.Count, retrieval.Requested.Count, prompt.Length);
+            retrieval.Chunks.Count, retrieval.Allowed.Count, retrieval.Requested.Count, history.Count, prompt.Length);
 
         using var lease = await queue.AcquireAsync(ct);
         await foreach (var token in provider.GenerateAsync(prompt, maxTokens, ct).ConfigureAwait(false))
@@ -61,7 +64,11 @@ public sealed class ChatService(
         }
     }
 
-    private static string BuildPrompt(string systemPrompt, string userMessage, IReadOnlyList<RagContextChunk> chunks)
+    private static string BuildPrompt(
+        string systemPrompt,
+        string userMessage,
+        IReadOnlyList<RagContextChunk> chunks,
+        IReadOnlyList<HistoryTurn> history)
     {
         var sb = new StringBuilder();
         sb.Append(systemPrompt.Trim());
@@ -75,6 +82,13 @@ public sealed class ChatService(
                 sb.Append(c.Text.Trim());
                 sb.Append("\n\n");
             }
+        }
+        sb.Append('\n');
+        foreach (var turn in history)
+        {
+            if (string.IsNullOrWhiteSpace(turn.Body)) continue;
+            var label = turn.Role == MessageRole.Assistant ? "Assistant" : "User";
+            sb.Append(label).Append(": ").Append(turn.Body.Trim()).Append('\n');
         }
         sb.Append("User: ").Append(userMessage.Trim()).Append("\nAssistant:");
         return sb.ToString();
