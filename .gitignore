@@ -1,0 +1,29 @@
+# Build artifacts
+bin/
+obj/
+out/
+publish/
+
+# VS / Rider / VSCode
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# Runtime data
+logs/
+models/
+config/
+*.log
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Test results
+TestResults/
+*.trx
+coverage*.xml
+*.coverage

@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/MyLocalAssistant.App/MyLocalAssistant.App.csproj" />
+    <Project Path="src/MyLocalAssistant.Core/MyLocalAssistant.Core.csproj" />
+  </Folder>
+  <Folder Name="/src/tests/">
+    <Project Path="src/tests/MyLocalAssistant.Core.Tests/MyLocalAssistant.Core.Tests.csproj" />
+  </Folder>
+</Solution>

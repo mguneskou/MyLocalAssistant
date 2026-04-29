@@ -1,0 +1,374 @@
+[
+  {
+    "id": "tinyllama-1.1b-q5km",
+    "displayName": "TinyLlama 1.1B Chat",
+    "tier": "lightweight",
+    "huggingFaceRepo": "TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF",
+    "quantization": "Q5_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/TinyLlama/TinyLlama-1.1B-Chat-v1.0",
+    "recommendedContextSize": 2048,
+    "minRamGb": 2,
+    "description": "Tiny 1.1B chat model. Demo / fallback tier. Runs on virtually any CPU.",
+    "files": [
+      {
+        "fileName": "tinyllama-1.1b-chat-v1.0.Q5_K_M.gguf",
+        "url": "https://huggingface.co/TheBloke/TinyLlama-1.1B-Chat-v1.0-GGUF/resolve/main/tinyllama-1.1b-chat-v1.0.Q5_K_M.gguf",
+        "sizeBytes": 782044640,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "qwen3-1.7b-q5km",
+    "displayName": "Qwen3 1.7B",
+    "tier": "lightweight",
+    "huggingFaceRepo": "unsloth/Qwen3-1.7B-GGUF",
+    "quantization": "Q5_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-1.7B",
+    "recommendedContextSize": 4096,
+    "minRamGb": 2,
+    "description": "Best-in-class small model from Alibaba. Strong chat and reasoning for size.",
+    "files": [
+      {
+        "fileName": "Qwen3-1.7B-Q5_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/Qwen3-1.7B-GGUF/resolve/main/Qwen3-1.7B-Q5_K_M.gguf",
+        "sizeBytes": 1450000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "gemma3-1b-q5km",
+    "displayName": "Gemma 3 1B Instruct",
+    "tier": "lightweight",
+    "huggingFaceRepo": "unsloth/gemma-3-1b-it-GGUF",
+    "quantization": "Q5_K_M",
+    "license": "Gemma Terms",
+    "licenseUrl": "https://ai.google.dev/gemma/terms",
+    "recommendedContextSize": 4096,
+    "minRamGb": 2,
+    "description": "Google Gemma 3 1B (multilingual). License is permissive but not OSI-approved.",
+    "files": [
+      {
+        "fileName": "gemma-3-1b-it-Q5_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/gemma-3-1b-it-GGUF/resolve/main/gemma-3-1b-it-Q5_K_M.gguf",
+        "sizeBytes": 850000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "llama32-3b-q4km",
+    "displayName": "Llama 3.2 3B Instruct",
+    "tier": "lightweight",
+    "huggingFaceRepo": "unsloth/Llama-3.2-3B-Instruct-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Llama 3.2 Community",
+    "licenseUrl": "https://www.llama.com/llama3_2/license/",
+    "recommendedContextSize": 8192,
+    "minRamGb": 4,
+    "description": "Meta Llama 3.2 3B, edge-optimized. Permissive license with 700M MAU clause.",
+    "files": [
+      {
+        "fileName": "Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/Llama-3.2-3B-Instruct-GGUF/resolve/main/Llama-3.2-3B-Instruct-Q4_K_M.gguf",
+        "sizeBytes": 2020000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "phi4-mini-q4km",
+    "displayName": "Phi-4-mini 3.8B",
+    "tier": "lightweight",
+    "huggingFaceRepo": "unsloth/Phi-4-mini-instruct-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "MIT",
+    "licenseUrl": "https://huggingface.co/microsoft/Phi-4-mini-instruct/blob/main/LICENSE",
+    "recommendedContextSize": 8192,
+    "minRamGb": 4,
+    "description": "Microsoft Phi-4-mini. Excellent reasoning per parameter; MIT-licensed.",
+    "files": [
+      {
+        "fileName": "Phi-4-mini-instruct-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/Phi-4-mini-instruct-GGUF/resolve/main/Phi-4-mini-instruct-Q4_K_M.gguf",
+        "sizeBytes": 2490000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "qwen3-4b-q4km",
+    "displayName": "Qwen3 4B",
+    "tier": "lightweight",
+    "huggingFaceRepo": "unsloth/Qwen3-4B-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-4B",
+    "recommendedContextSize": 8192,
+    "minRamGb": 4,
+    "description": "Sweet spot for CPU-only inference. Strong all-rounder.",
+    "files": [
+      {
+        "fileName": "Qwen3-4B-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/Qwen3-4B-GGUF/resolve/main/Qwen3-4B-Q4_K_M.gguf",
+        "sizeBytes": 2500000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "mistral-7b-instruct-v03-q4km",
+    "displayName": "Mistral 7B Instruct v0.3",
+    "tier": "mid",
+    "huggingFaceRepo": "bartowski/Mistral-7B-Instruct-v0.3-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/mistralai/Mistral-7B-Instruct-v0.3",
+    "recommendedContextSize": 8192,
+    "minRamGb": 8,
+    "description": "Workhorse 7B model with function-calling support.",
+    "files": [
+      {
+        "fileName": "Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+        "url": "https://huggingface.co/bartowski/Mistral-7B-Instruct-v0.3-GGUF/resolve/main/Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
+        "sizeBytes": 4370000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "granite-3.3-8b-q4km",
+    "displayName": "Granite 3.3 8B Instruct",
+    "tier": "mid",
+    "huggingFaceRepo": "ibm-granite/granite-3.3-8b-instruct-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/ibm-granite/granite-3.3-8b-instruct",
+    "recommendedContextSize": 8192,
+    "minRamGb": 8,
+    "description": "IBM Granite. Tuned for enterprise / RAG / tool use.",
+    "files": [
+      {
+        "fileName": "granite-3.3-8b-instruct-Q4_K_M.gguf",
+        "url": "https://huggingface.co/ibm-granite/granite-3.3-8b-instruct-GGUF/resolve/main/granite-3.3-8b-instruct-Q4_K_M.gguf",
+        "sizeBytes": 4900000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "qwen3-8b-q4km",
+    "displayName": "Qwen3 8B",
+    "tier": "mid",
+    "huggingFaceRepo": "unsloth/Qwen3-8B-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-8B",
+    "recommendedContextSize": 8192,
+    "minRamGb": 8,
+    "description": "Mid-range Qwen3 with strong multilingual + coding ability.",
+    "files": [
+      {
+        "fileName": "Qwen3-8B-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/Qwen3-8B-GGUF/resolve/main/Qwen3-8B-Q4_K_M.gguf",
+        "sizeBytes": 4920000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "gemma3-12b-q4km",
+    "displayName": "Gemma 3 12B Instruct",
+    "tier": "mid",
+    "huggingFaceRepo": "unsloth/gemma-3-12b-it-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Gemma Terms",
+    "licenseUrl": "https://ai.google.dev/gemma/terms",
+    "recommendedContextSize": 8192,
+    "minRamGb": 12,
+    "description": "Google Gemma 3 12B. Multimodal capability (text-only via GGUF).",
+    "files": [
+      {
+        "fileName": "gemma-3-12b-it-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/gemma-3-12b-it-GGUF/resolve/main/gemma-3-12b-it-Q4_K_M.gguf",
+        "sizeBytes": 7300000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "phi4-14b-q4km",
+    "displayName": "Phi-4 14B",
+    "tier": "mid",
+    "huggingFaceRepo": "unsloth/phi-4-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "MIT",
+    "licenseUrl": "https://huggingface.co/microsoft/phi-4/blob/main/LICENSE",
+    "recommendedContextSize": 16384,
+    "minRamGb": 12,
+    "description": "Microsoft Phi-4 14B. Outstanding reasoning per parameter; MIT-licensed.",
+    "files": [
+      {
+        "fileName": "phi-4-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/phi-4-GGUF/resolve/main/phi-4-Q4_K_M.gguf",
+        "sizeBytes": 8430000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "qwen3-14b-q4km",
+    "displayName": "Qwen3 14B",
+    "tier": "mid",
+    "huggingFaceRepo": "unsloth/Qwen3-14B-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-14B",
+    "recommendedContextSize": 8192,
+    "minRamGb": 12,
+    "description": "Qwen3 14B. Best mid-tier general model in the lineup.",
+    "files": [
+      {
+        "fileName": "Qwen3-14B-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/Qwen3-14B-GGUF/resolve/main/Qwen3-14B-Q4_K_M.gguf",
+        "sizeBytes": 8990000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "mistral-small-3.2-24b-q4km",
+    "displayName": "Mistral Small 3.2 24B",
+    "tier": "heavy",
+    "huggingFaceRepo": "unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/mistralai/Mistral-Small-3.2-24B-Instruct-2506",
+    "recommendedContextSize": 16384,
+    "minRamGb": 24,
+    "description": "Mistral Small 3.2. Top-tier 24B model; needs a 24 GB GPU.",
+    "files": [
+      {
+        "fileName": "Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/Mistral-Small-3.2-24B-Instruct-2506-GGUF/resolve/main/Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf",
+        "sizeBytes": 14300000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "qwen3-32b-q4km",
+    "displayName": "Qwen3 32B",
+    "tier": "heavy",
+    "huggingFaceRepo": "unsloth/Qwen3-32B-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-32B",
+    "recommendedContextSize": 16384,
+    "minRamGb": 24,
+    "description": "Qwen3 32B. Heavy model with frontier-class quality.",
+    "files": [
+      {
+        "fileName": "Qwen3-32B-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/Qwen3-32B-GGUF/resolve/main/Qwen3-32B-Q4_K_M.gguf",
+        "sizeBytes": 19800000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "deepseek-r1-distill-qwen-32b-q4km",
+    "displayName": "DeepSeek-R1-Distill Qwen 32B",
+    "tier": "heavy",
+    "huggingFaceRepo": "unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "MIT",
+    "licenseUrl": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
+    "recommendedContextSize": 16384,
+    "minRamGb": 24,
+    "description": "DeepSeek R1 distilled into Qwen 32B. Strong reasoning chain-of-thought.",
+    "files": [
+      {
+        "fileName": "DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/DeepSeek-R1-Distill-Qwen-32B-GGUF/resolve/main/DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf",
+        "sizeBytes": 19850000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "mixtral-8x7b-instruct-q4ks",
+    "displayName": "Mixtral 8x7B Instruct",
+    "tier": "workstation",
+    "huggingFaceRepo": "TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF",
+    "quantization": "Q4_K_S",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1",
+    "recommendedContextSize": 8192,
+    "minRamGb": 32,
+    "description": "Mixture-of-Experts 47B (13B active). Workstation-class.",
+    "files": [
+      {
+        "fileName": "mixtral-8x7b-instruct-v0.1.Q4_K_S.gguf",
+        "url": "https://huggingface.co/TheBloke/Mixtral-8x7B-Instruct-v0.1-GGUF/resolve/main/mixtral-8x7b-instruct-v0.1.Q4_K_S.gguf",
+        "sizeBytes": 26440000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "llama-3.3-70b-q4ks",
+    "displayName": "Llama 3.3 70B Instruct",
+    "tier": "workstation",
+    "huggingFaceRepo": "unsloth/Llama-3.3-70B-Instruct-GGUF",
+    "quantization": "Q4_K_S",
+    "license": "Llama 3.3 Community",
+    "licenseUrl": "https://www.llama.com/llama3_3/license/",
+    "recommendedContextSize": 8192,
+    "minRamGb": 48,
+    "description": "Meta Llama 3.3 70B. Near GPT-4 quality. Multi-shard download.",
+    "files": [
+      {
+        "fileName": "Llama-3.3-70B-Instruct-Q4_K_S-00001-of-00002.gguf",
+        "url": "https://huggingface.co/unsloth/Llama-3.3-70B-Instruct-GGUF/resolve/main/Llama-3.3-70B-Instruct-Q4_K_S-00001-of-00002.gguf",
+        "sizeBytes": 32000000000,
+        "sha256": ""
+      },
+      {
+        "fileName": "Llama-3.3-70B-Instruct-Q4_K_S-00002-of-00002.gguf",
+        "url": "https://huggingface.co/unsloth/Llama-3.3-70B-Instruct-GGUF/resolve/main/Llama-3.3-70B-Instruct-Q4_K_S-00002-of-00002.gguf",
+        "sizeBytes": 8800000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "gpt-oss-120b-q4ks",
+    "displayName": "OpenAI gpt-oss-120b",
+    "tier": "workstation",
+    "huggingFaceRepo": "unsloth/gpt-oss-120b-GGUF",
+    "quantization": "Q4_K_S",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/openai/gpt-oss-120b",
+    "recommendedContextSize": 8192,
+    "minRamGb": 80,
+    "description": "OpenAI's open-weights flagship. ~65 GB; needs >=80 GB VRAM or heavy CPU offload.",
+    "files": [
+      {
+        "fileName": "gpt-oss-120b-Q4_K_S-00001-of-00002.gguf",
+        "url": "https://huggingface.co/unsloth/gpt-oss-120b-GGUF/resolve/main/gpt-oss-120b-Q4_K_S-00001-of-00002.gguf",
+        "sizeBytes": 32000000000,
+        "sha256": ""
+      },
+      {
+        "fileName": "gpt-oss-120b-Q4_K_S-00002-of-00002.gguf",
+        "url": "https://huggingface.co/unsloth/gpt-oss-120b-GGUF/resolve/main/gpt-oss-120b-Q4_K_S-00002-of-00002.gguf",
+        "sizeBytes": 33000000000,
+        "sha256": ""
+      }
+    ]
+  }
+]
