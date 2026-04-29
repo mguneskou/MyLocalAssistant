@@ -7,7 +7,7 @@ namespace MyLocalAssistant.Core.Catalog;
 
 public sealed class ModelCatalogService
 {
-    public const string EmbeddedResourceName = "MyLocalAssistant.App.Resources.model-catalog.json";
+    public const string EmbeddedResourceName = "MyLocalAssistant.Server.Resources.model-catalog.json";
 
     private static readonly JsonSerializerOptions s_json = new()
     {

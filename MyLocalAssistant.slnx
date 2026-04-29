@@ -1,7 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/MyLocalAssistant.Admin/MyLocalAssistant.Admin.csproj" />
-    <Project Path="src/MyLocalAssistant.App/MyLocalAssistant.App.csproj" />
     <Project Path="src/MyLocalAssistant.Client/MyLocalAssistant.Client.csproj" />
     <Project Path="src/MyLocalAssistant.Core/MyLocalAssistant.Core.csproj" />
     <Project Path="src/MyLocalAssistant.Server/MyLocalAssistant.Server.csproj" />

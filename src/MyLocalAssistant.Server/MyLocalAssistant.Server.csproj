@@ -20,9 +20,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="..\MyLocalAssistant.App\Resources\model-catalog.json">
-      <Link>Resources\model-catalog.json</Link>
-      <LogicalName>MyLocalAssistant.App.Resources.model-catalog.json</LogicalName>
+    <EmbeddedResource Include="Resources\model-catalog.json">
+      <LogicalName>MyLocalAssistant.Server.Resources.model-catalog.json</LogicalName>
     </EmbeddedResource>
   </ItemGroup>
 

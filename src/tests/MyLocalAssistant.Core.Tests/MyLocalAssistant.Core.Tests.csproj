@@ -25,7 +25,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="..\..\MyLocalAssistant.App\Resources\model-catalog.json" Link="model-catalog.json">
+    <None Include="..\..\MyLocalAssistant.Server\Resources\model-catalog.json" Link="model-catalog.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
