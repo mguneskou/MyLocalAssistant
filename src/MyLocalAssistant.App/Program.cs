@@ -51,6 +51,13 @@ internal class Program
             var settingsStore = services.GetRequiredService<SettingsStore>();
             var settings = settingsStore.Load();
             var catalog = services.GetRequiredService<ModelCatalogService>();
+            var orphans = catalog.CleanOrphans(
+                Paths.ModelsDirectory,
+                (name, ex) => startupLog.LogWarning(ex, "Failed to remove orphan model folder {Name}", name));
+            foreach (var name in orphans)
+            {
+                startupLog.LogInformation("Removed orphan model folder {Name}", name);
+            }
             var installed = catalog.GetInstalled(Paths.ModelsDirectory);
 
             if (!settings.FirstRunCompleted || installed.Count == 0)

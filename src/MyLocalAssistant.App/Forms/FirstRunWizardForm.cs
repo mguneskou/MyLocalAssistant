@@ -62,16 +62,37 @@ internal sealed class FirstRunWizardForm : Form
         };
         foreach (var g in groups.Values) _list.Groups.Add(g);
 
+        var installedIds = new HashSet<string>(
+            _catalog.GetInstalled(Paths.ModelsDirectory).Select(m => m.Catalog.Id),
+            StringComparer.OrdinalIgnoreCase);
+
         foreach (var entry in _catalog.Entries)
         {
-            var item = new ListViewItem(entry.DisplayName) { Tag = entry, Group = groups[entry.Tier] };
+            var isInstalled = installedIds.Contains(entry.Id);
+            var displayName = isInstalled ? entry.DisplayName + "  (installed)" : entry.DisplayName;
+            var item = new ListViewItem(displayName) { Tag = entry, Group = groups[entry.Tier] };
             item.SubItems.Add(entry.Quantization);
             item.SubItems.Add(FormatSize(entry.TotalBytes));
             item.SubItems.Add(entry.MinRamGb > 0 ? $"{entry.MinRamGb} GB" : "—");
             item.SubItems.Add(entry.License);
             item.SubItems.Add(entry.Description);
+            if (isInstalled)
+            {
+                item.ForeColor = SystemColors.GrayText;
+                item.Checked = true; // visually shows it's already there; locked below
+            }
             _list.Items.Add(item);
         }
+
+        // Lock installed entries: revert any check toggle the user attempts.
+        _list.ItemCheck += (_, e) =>
+        {
+            var entry = (CatalogEntry)_list.Items[e.Index].Tag!;
+            if (installedIds.Contains(entry.Id))
+            {
+                e.NewValue = CheckState.Checked; // always stays checked & ignored downstream
+            }
+        };
         _list.ItemChecked += (_, _) => UpdateSummary();
 
         _summary = new Label
@@ -103,10 +124,19 @@ internal sealed class FirstRunWizardForm : Form
         Controls.Add(header);
     }
 
+    private IEnumerable<CatalogEntry> GetSelectedForDownload()
+    {
+        var installedIds = new HashSet<string>(
+            _catalog.GetInstalled(Paths.ModelsDirectory).Select(m => m.Catalog.Id),
+            StringComparer.OrdinalIgnoreCase);
+        return _list.CheckedItems.Cast<ListViewItem>()
+            .Select(i => (CatalogEntry)i.Tag!)
+            .Where(e => !installedIds.Contains(e.Id));
+    }
+
     private void UpdateSummary()
     {
-        var selected = _list.CheckedItems.Cast<ListViewItem>()
-            .Select(i => (CatalogEntry)i.Tag!).ToList();
+        var selected = GetSelectedForDownload().ToList();
         long total = selected.Sum(e => e.TotalBytes);
         _summary.Text = $"{selected.Count} model(s) selected, {FormatSize(total)} to download";
         _continue.Enabled = selected.Count > 0;
@@ -114,8 +144,7 @@ internal sealed class FirstRunWizardForm : Form
 
     private async void OnContinue(object? sender, EventArgs e)
     {
-        var selected = _list.CheckedItems.Cast<ListViewItem>()
-            .Select(i => (CatalogEntry)i.Tag!).ToList();
+        var selected = GetSelectedForDownload().ToList();
         if (selected.Count == 0) return;
 
         Hide();

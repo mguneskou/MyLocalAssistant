@@ -102,4 +102,31 @@ public sealed class ModelCatalogService
 
     public static string ResolveDestinationPath(string modelsDir, CatalogEntry entry, CatalogFile file)
         => Path.Combine(modelsDir, entry.Id, file.FileName);
+
+    /// <summary>
+    /// Removes subfolders under <paramref name="modelsDir"/> whose name does not match any catalog entry id.
+    /// Best-effort: returns the list of deleted folder names; failures are logged via <paramref name="onError"/>.
+    /// </summary>
+    public IReadOnlyList<string> CleanOrphans(string modelsDir, Action<string, Exception>? onError = null)
+    {
+        var deleted = new List<string>();
+        if (!Directory.Exists(modelsDir)) return deleted;
+
+        var ids = new HashSet<string>(_entries.Select(e => e.Id), StringComparer.OrdinalIgnoreCase);
+        foreach (var dir in Directory.EnumerateDirectories(modelsDir))
+        {
+            var name = Path.GetFileName(dir);
+            if (ids.Contains(name)) continue;
+            try
+            {
+                Directory.Delete(dir, recursive: true);
+                deleted.Add(name);
+            }
+            catch (Exception ex)
+            {
+                onError?.Invoke(name, ex);
+            }
+        }
+        return deleted;
+    }
 }
