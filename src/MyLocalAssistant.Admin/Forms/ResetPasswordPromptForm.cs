@@ -18,9 +18,9 @@ internal sealed class ResetPasswordPromptForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;
-        Size = new Size(420, 250);
+        ClientSize = new Size(420, 220);
         Font = new Font("Segoe UI", 9F);
-        Padding = new Padding(20);
+        Padding = new Padding(16, 16, 16, 8);
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 4 };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 150));
@@ -48,9 +48,13 @@ internal sealed class ResetPasswordPromptForm : Form
         layout.SetColumnSpan(_status, 2);
         layout.Controls.Add(_status, 0, 3);
 
-        Controls.Add(layout);
-
-        var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Bottom, Height = 44, Padding = new Padding(0, 6, 0, 0) };
+        var buttons = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.RightToLeft,
+            Dock = DockStyle.Bottom,
+            Height = 48,
+            Padding = new Padding(16, 8, 16, 8),
+        };
         var ok = new Button { Text = "Reset password", Width = 130, Height = 30 };
         var cancel = new Button { Text = "Cancel", Width = 90, Height = 30, Margin = new Padding(8, 0, 0, 0), DialogResult = DialogResult.Cancel };
         ok.Click += (_, _) =>
@@ -63,7 +67,9 @@ internal sealed class ResetPasswordPromptForm : Form
         };
         buttons.Controls.Add(ok);
         buttons.Controls.Add(cancel);
+
         Controls.Add(buttons);
+        Controls.Add(layout);
 
         AcceptButton = ok;
         CancelButton = cancel;

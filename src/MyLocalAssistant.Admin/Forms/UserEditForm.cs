@@ -31,14 +31,14 @@ internal sealed class UserEditForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;
-        Size = new Size(460, 380);
+        ClientSize = new Size(440, 360);
         Font = new Font("Segoe UI", 9F);
-        Padding = new Padding(20);
+        Padding = new Padding(16, 16, 16, 8);
 
         var layout = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, RowCount = 8 };
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 130));
         layout.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-        for (int i = 0; i < 8; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+        for (int i = 0; i < 8; i++) layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
 
         layout.Controls.Add(MakeLabel("Username"), 0, 0);
         _username = new TextBox
@@ -91,15 +91,22 @@ internal sealed class UserEditForm : Form
         layout.SetColumnSpan(_status, 2);
         layout.Controls.Add(_status, 0, 7);
 
-        Controls.Add(layout);
-
-        var buttons = new FlowLayoutPanel { FlowDirection = FlowDirection.RightToLeft, Dock = DockStyle.Bottom, Height = 44, Padding = new Padding(0, 6, 0, 0) };
-        _save = new Button { Text = _isCreate ? "Create" : "Save", Width = 100, Height = 30 };
+        var buttons = new FlowLayoutPanel
+        {
+            FlowDirection = FlowDirection.RightToLeft,
+            Dock = DockStyle.Bottom,
+            Height = 48,
+            Padding = new Padding(16, 8, 16, 8),
+        };
+        _save = new Button { Text = _isCreate ? "Create" : "Save", Width = 110, Height = 30 };
         _cancel = new Button { Text = "Cancel", Width = 90, Height = 30, Margin = new Padding(8, 0, 0, 0), DialogResult = DialogResult.Cancel };
         _save.Click += (_, _) => OnSave();
         buttons.Controls.Add(_save);
         buttons.Controls.Add(_cancel);
+
+        // Add Bottom-docked panel BEFORE the Fill panel so the bottom area is reserved.
         Controls.Add(buttons);
+        Controls.Add(layout);
 
         AcceptButton = _save;
         CancelButton = _cancel;
