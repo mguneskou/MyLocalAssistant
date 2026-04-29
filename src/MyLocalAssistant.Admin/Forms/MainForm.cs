@@ -30,7 +30,11 @@ internal sealed class MainForm : Form
         Controls.Add(menu);
 
         _tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
-        _tabs.TabPages.Add(MakePlaceholder("Users", "User management — coming next."));
+
+        var usersPage = new TabPage("Users") { UseVisualStyleBackColor = true };
+        usersPage.Controls.Add(new UsersTab(_client));
+        _tabs.TabPages.Add(usersPage);
+
         _tabs.TabPages.Add(MakePlaceholder("Agents", "Agent registry, prompts, and ACL — Phase 4."));
         _tabs.TabPages.Add(MakePlaceholder("Models", "Browse, download, select active model — Phase 3."));
         _tabs.TabPages.Add(MakePlaceholder("RAG Collections", "Upload documents to collections — Phase 5."));

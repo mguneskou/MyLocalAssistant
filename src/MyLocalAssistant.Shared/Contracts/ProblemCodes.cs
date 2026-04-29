@@ -12,6 +12,7 @@ public static class ProblemCodes
     public const string Forbidden = "auth.forbidden";
     public const string NotFound = "common.not_found";
     public const string ValidationFailed = "common.validation_failed";
+    public const string Conflict = "common.conflict";
     public const string ModelNotLoaded = "llm.model_not_loaded";
     public const string ModelBusy = "llm.model_busy";
 }

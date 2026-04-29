@@ -75,6 +75,7 @@ try
 
     app.MapHealthEndpoints();
     app.MapAuthEndpoints();
+    app.MapUserAdminEndpoints();
 
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
         settings.ListenUrl, ServerPaths.AppDirectory);

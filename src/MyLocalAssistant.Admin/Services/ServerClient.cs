@@ -71,6 +71,44 @@ public sealed class ServerClient : IDisposable
         CurrentUser = null;
     }
 
+    // ---------- Admin: users ----------
+
+    public async Task<List<UserAdminDto>> ListUsersAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/users/", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<UserAdminDto>>(s_json, ct) ?? new();
+    }
+
+    public async Task<UserAdminDto> CreateUserAsync(CreateUserRequest req, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, "api/admin/users/", req, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<UserAdminDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty create-user response.");
+    }
+
+    public async Task<UserAdminDto> UpdateUserAsync(Guid id, UpdateUserRequest req, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Patch, $"api/admin/users/{id}", req, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<UserAdminDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty update-user response.");
+    }
+
+    public async Task ResetUserPasswordAsync(Guid id, string newPassword, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, $"api/admin/users/{id}/reset-password",
+            new ResetPasswordRequest(newPassword), ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
+    public async Task DeleteUserAsync(Guid id, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Delete, $"api/admin/users/{id}", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
     private void SetTokens(LoginResponse login)
     {
         _accessToken = login.AccessToken;
