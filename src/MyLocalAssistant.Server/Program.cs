@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using MyLocalAssistant.Server;
@@ -6,6 +7,9 @@ using MyLocalAssistant.Server.Auth;
 using MyLocalAssistant.Server.Configuration;
 using MyLocalAssistant.Server.Persistence;
 using Serilog;
+
+// Keep JWT claim names as-is (don't rewrite "sub" -> ClaimTypes.NameIdentifier).
+JwtSecurityTokenHandler.DefaultInboundClaimTypeMap.Clear();
 
 ServerPaths.EnsureCreated();
 
@@ -45,6 +49,7 @@ try
         .AddJwtBearer(o =>
         {
             o.RequireHttpsMetadata = false; // LAN deployment, optional TLS
+            o.MapInboundClaims = false;     // keep "sub" as "sub" (don't rewrite to NameIdentifier)
             o.TokenValidationParameters = new JwtIssuer(settings).GetValidationParameters();
         });
     builder.Services.AddAuthorization(o =>

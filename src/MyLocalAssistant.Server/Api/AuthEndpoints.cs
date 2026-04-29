@@ -36,11 +36,21 @@ public static class AuthEndpoints
             [FromBody] ChangePasswordRequest req,
             ClaimsPrincipal principal,
             UserService svc,
+            ILoggerFactory lf,
             CancellationToken ct) =>
         {
-            var sub = principal.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+            // Try both raw "sub" and the mapped NameIdentifier claim — depending on
+            // JwtSecurityTokenHandler.DefaultInboundClaimTypeMap state either may be present.
+            var sub = principal.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
+                      ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(sub, out var userId))
+            {
+                var log = lf.CreateLogger("AuthEndpoints");
+                log.LogWarning("change-password: could not resolve user id. IsAuthenticated={Auth}, Claims=[{Claims}]",
+                    principal.Identity?.IsAuthenticated,
+                    string.Join(", ", principal.Claims.Select(c => $"{c.Type}={c.Value}")));
                 return Problem(ProblemCodes.Forbidden, "Not authenticated.", StatusCodes.Status401Unauthorized);
+            }
 
             var code = await svc.ChangePasswordAsync(userId, req, ct);
             if (code is null) return Results.NoContent();
