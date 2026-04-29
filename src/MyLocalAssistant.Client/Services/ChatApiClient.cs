@@ -91,6 +91,29 @@ public sealed class ChatApiClient : IDisposable
     }
 
     /// <summary>
+    /// Uploads a single file and returns its extracted text. The server does NOT persist the file —
+    /// the text is meant to be inlined by the caller into the next chat turn as one-shot context.
+    /// </summary>
+    public async Task<AttachmentExtractResult> ExtractAttachmentAsync(string filePath, CancellationToken ct = default)
+    {
+        await EnsureFreshTokenAsync(ct);
+        await using var fs = File.OpenRead(filePath);
+        using var content = new MultipartFormDataContent();
+        var fileContent = new StreamContent(fs);
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue("application/octet-stream");
+        content.Add(fileContent, "file", Path.GetFileName(filePath));
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, "api/chat/attachments/extract") { Content = content };
+        if (!string.IsNullOrEmpty(_accessToken))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+
+        using var resp = await _http.SendAsync(req, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<AttachmentExtractResult>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty extract response.");
+    }
+
+    /// <summary>
     /// Streams chat tokens. Yields each <see cref="TokenStreamFrame"/> as it arrives over SSE.
     /// Cancellation closes the underlying HTTP connection.
     /// </summary>

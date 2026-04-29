@@ -122,6 +122,7 @@ try
     app.MapRoleEndpoints();
     app.MapAuditEndpoints();
     app.MapSettingsEndpoints();
+    app.MapAttachmentEndpoints();
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
         settings.ListenUrl, ServerPaths.AppDirectory);
 

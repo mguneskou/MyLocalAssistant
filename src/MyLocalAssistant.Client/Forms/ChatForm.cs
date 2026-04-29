@@ -31,6 +31,13 @@ internal sealed class ChatForm : Form
     private Guid? _currentConversationId;
     private bool _suppressConversationSelection;
 
+    // One-shot attachment for the next turn. Cleared after send.
+    private AttachmentExtractResult? _pendingAttachment;
+    private readonly Panel _attachChip;
+    private readonly Label _attachLabel;
+    private readonly Button _attachClear;
+    private readonly Button _attachBtn;
+
     public ChatForm(ChatApiClient client, ClientSettingsStore store)
     {
         _client = client;
@@ -117,7 +124,24 @@ internal sealed class ChatForm : Form
             BackColor = Color.White,
             DetectUrls = false,
         };
-        var inputPanel = new Panel { Dock = DockStyle.Bottom, Height = 110, Padding = new Padding(8) };
+        var inputPanel = new Panel { Dock = DockStyle.Bottom, Height = 140, Padding = new Padding(8) };
+
+        // Attachment chip strip (hidden when no attachment is pending).
+        _attachChip = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 26,
+            Visible = false,
+            BackColor = Color.FromArgb(232, 240, 254),
+            Padding = new Padding(8, 4, 4, 4),
+        };
+        _attachLabel = new Label { AutoSize = true, Dock = DockStyle.Left, ForeColor = SystemColors.ControlText };
+        _attachClear = new Button { Text = "\u2715", Dock = DockStyle.Right, Width = 26, FlatStyle = FlatStyle.Flat, TabStop = false };
+        _attachClear.FlatAppearance.BorderSize = 0;
+        _attachClear.Click += (_, _) => ClearAttachment();
+        _attachChip.Controls.Add(_attachLabel);
+        _attachChip.Controls.Add(_attachClear);
+
         _input = new TextBox
         {
             Multiline = true,
@@ -127,10 +151,25 @@ internal sealed class ChatForm : Form
             Font = new Font("Segoe UI", 10F),
         };
         _input.KeyDown += OnInputKeyDown;
-        _send = new Button { Text = "Send", Dock = DockStyle.Right, Width = 110 };
+
+        var buttons = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Right,
+            FlowDirection = FlowDirection.TopDown,
+            Width = 110,
+            WrapContents = false,
+            Padding = new Padding(4, 0, 0, 0),
+        };
+        _attachBtn = new Button { Text = "Attach\u2026", Width = 100, Height = 28 };
+        _attachBtn.Click += async (_, _) => await OnAttachAsync();
+        _send = new Button { Text = "Send", Width = 100, Height = 28 };
         _send.Click += async (_, _) => await OnSendOrCancelAsync();
+        buttons.Controls.Add(_attachBtn);
+        buttons.Controls.Add(_send);
+
         inputPanel.Controls.Add(_input);
-        inputPanel.Controls.Add(_send);
+        inputPanel.Controls.Add(buttons);
+        inputPanel.Controls.Add(_attachChip);
         _split.Panel2.Controls.Add(_history);
         _split.Panel2.Controls.Add(inputPanel);
 
@@ -305,12 +344,31 @@ internal sealed class ChatForm : Form
         }
         var agent = _agentCombo.SelectedItem as AgentDto;
         if (agent is null) return;
-        var message = _input.Text.Trim();
-        if (message.Length == 0) return;
+        var typed = _input.Text.Trim();
+        if (typed.Length == 0 && _pendingAttachment is null) return;
+
+        // Compose: attached text first, then user's prompt. Format mirrors what the
+        // server's ChatService prefixes to history lines, so the model treats it as context.
+        string message;
+        string displayMessage;
+        if (_pendingAttachment is { } att)
+        {
+            var header = $"[Attached: {att.FileName}";
+            if (att.Truncated) header += " (truncated)";
+            header += "]\n";
+            message = header + att.Text + "\n\n" + typed;
+            displayMessage = $"\uD83D\uDCCE {att.FileName} ({att.CharCount:N0} chars)\n{typed}";
+        }
+        else
+        {
+            message = typed;
+            displayMessage = typed;
+        }
 
         _input.Clear();
+        ClearAttachment();
         AppendRoleLine("You", Color.SteelBlue);
-        AppendBody(message + "\n\n");
+        AppendBody(displayMessage + "\n\n");
         AppendRoleLine(agent.Name, Color.SeaGreen);
 
         SetStreaming(true);
@@ -400,6 +458,62 @@ internal sealed class ChatForm : Form
         _input.Enabled = !streaming;
         _newChatBtn.Enabled = !streaming;
         _conversationList.Enabled = !streaming;
+        _attachBtn.Enabled = !streaming;
         if (streaming) { _statusLabel.Text = "Generating\u2026"; _statsLabel.Text = ""; }
+    }
+
+    private async Task OnAttachAsync()
+    {
+        using var dlg = new OpenFileDialog
+        {
+            Title = "Attach a file to this turn",
+            Filter = "Supported (*.txt;*.md;*.pdf;*.docx;*.html;*.htm)|*.txt;*.md;*.markdown;*.pdf;*.docx;*.html;*.htm|All files (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false,
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+
+        var oldAttach = _pendingAttachment;
+        try
+        {
+            _attachBtn.Enabled = false;
+            _statusLabel.Text = "Extracting attachment\u2026";
+            var result = await _client.ExtractAttachmentAsync(dlg.FileName);
+            _pendingAttachment = result;
+            UpdateAttachmentChip();
+            var note = result.Truncated ? " (truncated)" : "";
+            _statusLabel.Text = $"Attached: {result.FileName} \u00b7 {result.PageCount} page(s) \u00b7 {result.CharCount:N0} chars{note}.";
+        }
+        catch (Exception ex)
+        {
+            _pendingAttachment = oldAttach;
+            UpdateAttachmentChip();
+            MessageBox.Show(this, ex.Message, "Attach failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            _statusLabel.Text = "Attach failed.";
+        }
+        finally
+        {
+            _attachBtn.Enabled = !_streaming;
+        }
+    }
+
+    private void ClearAttachment()
+    {
+        _pendingAttachment = null;
+        UpdateAttachmentChip();
+    }
+
+    private void UpdateAttachmentChip()
+    {
+        if (_pendingAttachment is null)
+        {
+            _attachChip.Visible = false;
+            _attachLabel.Text = "";
+            return;
+        }
+        var a = _pendingAttachment;
+        var note = a.Truncated ? " (truncated)" : "";
+        _attachLabel.Text = $"\uD83D\uDCCE  {a.FileName}  \u00b7  {a.PageCount} page(s)  \u00b7  {a.CharCount:N0} chars{note}";
+        _attachChip.Visible = true;
     }
 }
