@@ -1,16 +1,45 @@
+using MyLocalAssistant.Client.Forms;
+using MyLocalAssistant.Client.Services;
+
 namespace MyLocalAssistant.Client;
 
-static class Program
+internal static class Program
 {
-    /// <summary>
-    ///  The main entry point for the application.
-    /// </summary>
     [STAThread]
-    static void Main()
+    private static void Main()
     {
-        // To customize application configuration such as set high DPI settings or default font,
-        // see https://aka.ms/applicationconfiguration.
         ApplicationConfiguration.Initialize();
-        Application.Run(new Form1());
-    }    
+
+        var store = new ClientSettingsStore();
+
+        // Loop allows Sign out to return to login.
+        while (true)
+        {
+            ChatApiClient? client;
+            using (var login = new LoginForm(store))
+            {
+                if (login.ShowDialog() != DialogResult.OK || login.AuthenticatedClient is null) return;
+                client = login.AuthenticatedClient;
+            }
+
+            if (client.CurrentUser?.MustChangePassword == true)
+            {
+                using var force = new ChangePasswordForm(client, forced: true);
+                if (force.ShowDialog() != DialogResult.OK)
+                {
+                    client.Logout();
+                    client.Dispose();
+                    continue;
+                }
+            }
+
+            DialogResult main;
+            using (var form = new ChatForm(client, store))
+            {
+                main = form.ShowDialog();
+            }
+            client.Dispose();
+            if (main != DialogResult.Retry) return; // Retry == Sign out
+        }
+    }
 }
