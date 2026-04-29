@@ -51,7 +51,9 @@ public sealed class LLamaSharpProvider : ILlmProvider
         var inferenceParams = new InferenceParams
         {
             MaxTokens = maxTokens,
-            AntiPrompts = new List<string>(),
+            // Stop the moment the model tries to start a new "User:" turn (matches the
+            // simple plain-text framing emitted by ChatService.BuildPrompt).
+            AntiPrompts = new List<string> { "\nUser:", "\nuser:" },
             SamplingPipeline = new DefaultSamplingPipeline(),
         };
 

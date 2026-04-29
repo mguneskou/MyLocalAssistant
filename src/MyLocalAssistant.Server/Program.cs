@@ -57,6 +57,9 @@ try
     builder.Services.AddSingleton<DownloadCoordinator>();
     builder.Services.AddSingleton<LLamaSharpProvider>();
     builder.Services.AddSingleton<ModelManager>();
+    builder.Services.AddSingleton<InferenceQueue>();
+    builder.Services.AddSingleton<AuditWriter>();
+    builder.Services.AddScoped<ChatService>();
     builder.Services.AddHostedService<ModelBootstrapService>();
 
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -104,6 +107,7 @@ try
     app.MapDepartmentEndpoints();
     app.MapAgentEndpoints();
     app.MapModelEndpoints();
+    app.MapChatEndpoints();
 
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
         settings.ListenUrl, ServerPaths.AppDirectory);
