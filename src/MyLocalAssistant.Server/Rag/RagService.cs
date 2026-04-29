@@ -10,37 +10,61 @@ public sealed record RagContextChunk(
     float Distance,
     Guid CollectionId);
 
+/// <summary>Result of an authorized retrieval. Carries audit-relevant collection sets.</summary>
+public sealed record RagRetrievalResult(
+    IReadOnlyList<RagContextChunk> Chunks,
+    IReadOnlyList<Guid> Requested,
+    IReadOnlyList<Guid> Allowed,
+    IReadOnlyList<Guid> Denied)
+{
+    public static readonly RagRetrievalResult Empty = new(
+        Array.Empty<RagContextChunk>(), Array.Empty<Guid>(), Array.Empty<Guid>(), Array.Empty<Guid>());
+}
+
 /// <summary>
 /// Retrieves top-K context chunks for an agent's chat turn by fanning out across
 /// every collection attached to the agent and merging by ascending distance.
+/// Strictly enforces per-collection authorization: a caller never receives chunks
+/// from a collection they cannot read, regardless of agent attachment or system prompt.
 /// </summary>
 public sealed class RagService(
     IVectorStore store,
     EmbeddingService embedding,
+    RagAuthorizationService authz,
     ILogger<RagService> log)
 {
-    /// <summary>Per-agent retrieval. Returns empty list when RAG is disabled, no collections, or embedding model not loaded.</summary>
-    public async Task<IReadOnlyList<RagContextChunk>> RetrieveAsync(
+    /// <summary>Per-agent retrieval. Returns empty list when RAG is disabled, no collections, embedding model not loaded, or all collections are denied.</summary>
+    public async Task<RagRetrievalResult> RetrieveAsync(
         Agent agent,
+        UserPrincipals principal,
         string query,
         int k,
         CancellationToken ct)
     {
-        if (!agent.RagEnabled) return Array.Empty<RagContextChunk>();
-        var ids = ParseCollectionIds(agent.RagCollectionIds);
-        if (ids.Count == 0) return Array.Empty<RagContextChunk>();
+        if (!agent.RagEnabled) return RagRetrievalResult.Empty;
+        var requested = ParseCollectionIds(agent.RagCollectionIds);
+        if (requested.Count == 0) return RagRetrievalResult.Empty;
+
+        // Authorization gate FIRST. If a Restricted collection has no grant for this principal,
+        // it never reaches the vector store. This is the single chokepoint.
+        var decision = await authz.AuthorizeReadAsync(principal, requested, ct);
+        if (decision.Allowed.Count == 0)
+        {
+            return new RagRetrievalResult(Array.Empty<RagContextChunk>(), requested, decision.Allowed, decision.Denied);
+        }
+
         if (!embedding.IsLoaded)
         {
             log.LogWarning("RAG requested for agent {Agent} but embedding model not loaded; skipping.", agent.Id);
-            return Array.Empty<RagContextChunk>();
+            return new RagRetrievalResult(Array.Empty<RagContextChunk>(), requested, decision.Allowed, decision.Denied);
         }
-        if (string.IsNullOrWhiteSpace(query)) return Array.Empty<RagContextChunk>();
+        if (string.IsNullOrWhiteSpace(query))
+            return new RagRetrievalResult(Array.Empty<RagContextChunk>(), requested, decision.Allowed, decision.Denied);
         if (k <= 0) k = 4;
 
         var queryVec = await embedding.EmbedAsync(query, ct);
-        // Pull top-k from each collection, merge by distance ascending, take top-k overall.
         var merged = new List<RagContextChunk>();
-        foreach (var cid in ids)
+        foreach (var cid in decision.Allowed)
         {
             try
             {
@@ -54,7 +78,8 @@ public sealed class RagService(
                 log.LogWarning(ex, "RAG search failed for agent {Agent} collection {Coll}", agent.Id, cid);
             }
         }
-        return merged.OrderBy(c => c.Distance).Take(k).ToList();
+        var top = merged.OrderBy(c => c.Distance).Take(k).ToList();
+        return new RagRetrievalResult(top, requested, decision.Allowed, decision.Denied);
     }
 
     public static IReadOnlyList<Guid> ParseCollectionIds(string? csv)

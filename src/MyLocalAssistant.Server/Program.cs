@@ -63,6 +63,7 @@ try
     builder.Services.AddSingleton<AuditWriter>();
     builder.Services.AddSingleton<IVectorStore, MyLocalAssistant.Server.Rag.LanceDbVectorStore>();
     builder.Services.AddScoped<MyLocalAssistant.Server.Rag.IngestionService>();
+    builder.Services.AddScoped<MyLocalAssistant.Server.Rag.RagAuthorizationService>();
     builder.Services.AddScoped<MyLocalAssistant.Server.Rag.RagService>();
     builder.Services.AddScoped<ChatService>();
     builder.Services.AddHostedService<ModelBootstrapService>();

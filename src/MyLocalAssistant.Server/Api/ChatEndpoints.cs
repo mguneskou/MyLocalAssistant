@@ -1,9 +1,11 @@
 using System.Diagnostics;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using MyLocalAssistant.Server.Auth;
 using MyLocalAssistant.Server.Llm;
+using MyLocalAssistant.Server.Rag;
 using MyLocalAssistant.Shared.Contracts;
 
 namespace MyLocalAssistant.Server.Api;
@@ -27,6 +29,7 @@ public static class ChatEndpoints
         HttpContext http,
         ChatRequest req,
         ChatService chat,
+        RagAuthorizationService authz,
         AuditWriter audit,
         ILoggerFactory loggerFactory,
         CancellationToken ct)
@@ -70,9 +73,13 @@ public static class ChatEndpoints
         var totalChars = 0;
         var tokenCount = 0;
         string? error = null;
+        RagRetrievalResult? lastRetrieval = null;
         try
         {
-            await foreach (var token in chat.StreamAsync(check.Agent, req.Message, maxTokens, ct))
+            // Resolve principal from DB (NOT JWT) so revocations apply immediately.
+            var principal = await authz.ResolveAsync(userId, username, isAdmin, ct);
+            await foreach (var token in chat.StreamAsync(check.Agent, principal, req.Message, maxTokens,
+                onRetrieval: r => lastRetrieval = r, ct))
             {
                 tokenCount++;
                 totalChars += token.Length;
@@ -109,6 +116,31 @@ public static class ChatEndpoints
                 detail: detail,
                 ipAddress: ip,
                 ct: CancellationToken.None);
+
+            // Mandatory RAG access audit, even when nothing was returned. Records which
+            // collections were requested vs allowed vs denied so any access can be reviewed.
+            if (lastRetrieval is not null && lastRetrieval.Requested.Count > 0)
+            {
+                var sha = SHA256.HashData(Encoding.UTF8.GetBytes(req.Message));
+                var queryHash = Convert.ToHexString(sha)[..16];
+                var ragDetail = JsonSerializer.Serialize(new
+                {
+                    requested = lastRetrieval.Requested.Select(g => g.ToString()).ToArray(),
+                    allowed = lastRetrieval.Allowed.Select(g => g.ToString()).ToArray(),
+                    denied = lastRetrieval.Denied.Select(g => g.ToString()).ToArray(),
+                    chunks = lastRetrieval.Chunks.Count,
+                    queryHash,
+                }, s_json);
+                await audit.WriteAsync(
+                    action: lastRetrieval.Denied.Count > 0 ? "rag.retrieve.partial" : "rag.retrieve",
+                    userId: userId,
+                    username: username,
+                    success: true,
+                    agentId: req.AgentId,
+                    detail: ragDetail,
+                    ipAddress: ip,
+                    ct: CancellationToken.None);
+            }
         }
     }
 

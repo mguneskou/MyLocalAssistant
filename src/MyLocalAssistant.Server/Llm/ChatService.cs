@@ -38,16 +38,21 @@ public sealed class ChatService(
     /// </summary>
     public async IAsyncEnumerable<string> StreamAsync(
         Agent agent,
+        UserPrincipals principal,
         string userMessage,
         int maxTokens,
+        Action<RagRetrievalResult>? onRetrieval,
         [EnumeratorCancellation] CancellationToken ct)
     {
         if (models.Status != ModelStatus.Loaded)
             throw new InvalidOperationException($"No model is loaded (status={models.Status}). Activate one in the Admin UI.");
 
-        var contextChunks = await rag.RetrieveAsync(agent, userMessage, k: 4, ct);
-        var prompt = BuildPrompt(agent.SystemPrompt, userMessage, contextChunks);
-        log.LogDebug("Chat: agent={AgentId}, ragChunks={Chunks}, promptChars={Chars}", agent.Id, contextChunks.Count, prompt.Length);
+        var retrieval = await rag.RetrieveAsync(agent, principal, userMessage, k: 4, ct);
+        onRetrieval?.Invoke(retrieval);
+        var prompt = BuildPrompt(agent.SystemPrompt, userMessage, retrieval.Chunks);
+        log.LogDebug("Chat: agent={AgentId}, user={User}, ragChunks={Chunks}, allowed={Allow}/{Total}, promptChars={Chars}",
+            agent.Id, principal.Username ?? principal.UserId.ToString(),
+            retrieval.Chunks.Count, retrieval.Allowed.Count, retrieval.Requested.Count, prompt.Length);
 
         using var lease = await queue.AcquireAsync(ct);
         await foreach (var token in provider.GenerateAsync(prompt, maxTokens, ct).ConfigureAwait(false))

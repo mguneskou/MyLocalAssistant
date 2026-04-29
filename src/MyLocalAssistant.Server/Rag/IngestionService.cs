@@ -15,13 +15,13 @@ public sealed class IngestionService(
     EmbeddingService embedding,
     ILogger<IngestionService> log)
 {
-    public async Task<RagCollection> CreateCollectionAsync(string name, string? description, CancellationToken ct = default)
+    public async Task<RagCollection> CreateCollectionAsync(string name, string? description, CollectionAccessMode accessMode = CollectionAccessMode.Restricted, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(name)) throw new ArgumentException("Name is required.", nameof(name));
         var trimmed = name.Trim();
         if (await db.RagCollections.AnyAsync(x => x.Name == trimmed, ct))
             throw new InvalidOperationException($"Collection '{trimmed}' already exists.");
-        var c = new RagCollection { Name = trimmed, Description = description?.Trim() };
+        var c = new RagCollection { Name = trimmed, Description = description?.Trim(), AccessMode = accessMode };
         db.RagCollections.Add(c);
         await db.SaveChangesAsync(ct);
         return c;

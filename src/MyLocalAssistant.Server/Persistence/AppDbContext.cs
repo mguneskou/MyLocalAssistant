@@ -16,6 +16,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
     public DbSet<RagCollection> RagCollections => Set<RagCollection>();
     public DbSet<RagDocument> RagDocuments => Set<RagDocument>();
+    public DbSet<RagCollectionGrant> RagCollectionGrants => Set<RagCollectionGrant>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -99,6 +100,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
         {
             e.HasOne(x => x.Collection).WithMany(x => x.Documents).HasForeignKey(x => x.CollectionId);
             e.HasIndex(x => new { x.CollectionId, x.FileName });
+        });
+
+        b.Entity<RagCollectionGrant>(e =>
+        {
+            e.HasOne(x => x.Collection).WithMany(x => x.Grants)
+                .HasForeignKey(x => x.CollectionId).OnDelete(DeleteBehavior.Cascade);
+            // Defense-in-depth: prevent duplicate grants for the same principal.
+            e.HasIndex(x => new { x.CollectionId, x.PrincipalKind, x.PrincipalId }).IsUnique();
+            e.HasIndex(x => new { x.PrincipalKind, x.PrincipalId });
         });
     }
 }

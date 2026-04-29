@@ -132,7 +132,38 @@ public sealed class RagCollection
     public string Name { get; set; } = "";
     public string? Description { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    /// <summary>Default Restricted: only principals listed in Grants (and admins) may read.</summary>
+    public CollectionAccessMode AccessMode { get; set; } = CollectionAccessMode.Restricted;
     public List<RagDocument> Documents { get; set; } = new();
+    public List<RagCollectionGrant> Grants { get; set; } = new();
+}
+
+public enum CollectionAccessMode
+{
+    /// <summary>Any authenticated user may read.</summary>
+    Public = 0,
+    /// <summary>Only principals in <see cref="RagCollection.Grants"/> may read. Admins always may read.</summary>
+    Restricted = 1,
+}
+
+public enum PrincipalKind
+{
+    User = 1,
+    Department = 2,
+    Role = 3,
+}
+
+/// <summary>A single read grant on a RAG collection. Combination (CollectionId, PrincipalKind, PrincipalId) is unique.</summary>
+public sealed class RagCollectionGrant
+{
+    public long Id { get; set; }
+    public Guid CollectionId { get; set; }
+    public RagCollection Collection { get; set; } = null!;
+    public PrincipalKind PrincipalKind { get; set; }
+    /// <summary>User.Id, Department.Id, or Role.Id depending on PrincipalKind.</summary>
+    public Guid PrincipalId { get; set; }
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public Guid? CreatedByUserId { get; set; }
 }
 
 public sealed class RagDocument
