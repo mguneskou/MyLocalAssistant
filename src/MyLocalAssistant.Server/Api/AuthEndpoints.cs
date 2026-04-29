@@ -1,0 +1,60 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Mvc;
+using MyLocalAssistant.Server.Auth;
+using MyLocalAssistant.Shared.Contracts;
+
+namespace MyLocalAssistant.Server.Api;
+
+public static class AuthEndpoints
+{
+    public static IEndpointRouteBuilder MapAuthEndpoints(this IEndpointRouteBuilder app)
+    {
+        var group = app.MapGroup("/api/auth").WithTags("Auth");
+
+        group.MapPost("/login", async ([FromBody] LoginRequest req, UserService svc, CancellationToken ct) =>
+        {
+            var (resp, code) = await svc.LoginAsync(req, ct);
+            if (resp is not null)
+            {
+                if (resp.User.MustChangePassword)
+                {
+                    // Login still succeeds — client is expected to call /change-password before continuing.
+                }
+                return Results.Ok(resp);
+            }
+            return Problem(code!, "Invalid credentials.", StatusCodes.Status401Unauthorized);
+        });
+
+        group.MapPost("/refresh", async ([FromBody] RefreshRequest req, UserService svc, CancellationToken ct) =>
+        {
+            var (resp, code) = await svc.RefreshAsync(req.RefreshToken, ct);
+            if (resp is not null) return Results.Ok(resp);
+            return Problem(code!, "Refresh token invalid or expired.", StatusCodes.Status401Unauthorized);
+        });
+
+        group.MapPost("/change-password", async (
+            [FromBody] ChangePasswordRequest req,
+            ClaimsPrincipal principal,
+            UserService svc,
+            CancellationToken ct) =>
+        {
+            var sub = principal.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub);
+            if (!Guid.TryParse(sub, out var userId))
+                return Problem(ProblemCodes.Forbidden, "Not authenticated.", StatusCodes.Status401Unauthorized);
+
+            var code = await svc.ChangePasswordAsync(userId, req, ct);
+            if (code is null) return Results.NoContent();
+            return code switch
+            {
+                ProblemCodes.InvalidCredentials => Problem(code, "Current password is incorrect.", StatusCodes.Status400BadRequest),
+                ProblemCodes.ValidationFailed => Problem(code, "New password must be at least 8 characters.", StatusCodes.Status400BadRequest),
+                _ => Problem(code, "Not found.", StatusCodes.Status404NotFound),
+            };
+        }).RequireAuthorization();
+
+        return app;
+    }
+
+    private static IResult Problem(string code, string detail, int status) =>
+        Results.Problem(detail: detail, statusCode: status, title: code, type: code);
+}
