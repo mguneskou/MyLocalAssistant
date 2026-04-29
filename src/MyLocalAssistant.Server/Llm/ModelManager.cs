@@ -37,6 +37,7 @@ public sealed class ModelManager(
         var installed = catalog.GetInstalled(ServerPaths.ModelsDirectory)
             .ToDictionary(i => i.Catalog.Id, StringComparer.OrdinalIgnoreCase);
         var active = settings.DefaultModelId;
+        var activeEmbed = settings.EmbeddingModelId;
         var result = new List<ModelDto>(catalog.Entries.Count);
         foreach (var e in catalog.Entries)
         {
@@ -58,6 +59,7 @@ public sealed class ModelManager(
                 IsInstalled: inst is not null,
                 SizeOnDisk: inst?.SizeOnDisk,
                 IsActive: string.Equals(e.Id, active, StringComparison.OrdinalIgnoreCase),
+                IsActiveEmbedding: string.Equals(e.Id, activeEmbed, StringComparison.OrdinalIgnoreCase),
                 Download: dlDto));
         }
         return result;
@@ -100,6 +102,8 @@ public sealed class ModelManager(
     {
         var entry = catalog.FindById(modelId)
             ?? throw new KeyNotFoundException($"Unknown model id: {modelId}");
+        if (entry.Tier == ModelTier.Embedding)
+            throw new InvalidOperationException("This is an embedding model. Use /api/admin/models/embedding/{id}/activate instead.");
         var installed = catalog.GetInstalled(ServerPaths.ModelsDirectory)
             .FirstOrDefault(i => i.Catalog.Id == modelId)
             ?? throw new InvalidOperationException("Model is not installed. Download it first.");

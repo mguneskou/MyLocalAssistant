@@ -56,11 +56,13 @@ try
     builder.Services.AddSingleton<ModelDownloader>(_ => new ModelDownloader());
     builder.Services.AddSingleton<DownloadCoordinator>();
     builder.Services.AddSingleton<LLamaSharpProvider>();
+    builder.Services.AddSingleton<EmbeddingService>();
     builder.Services.AddSingleton<ModelManager>();
     builder.Services.AddSingleton<InferenceQueue>();
     builder.Services.AddSingleton<AuditWriter>();
     builder.Services.AddScoped<ChatService>();
     builder.Services.AddHostedService<ModelBootstrapService>();
+    builder.Services.AddHostedService<EmbeddingBootstrapService>();
 
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(o =>
@@ -141,6 +143,12 @@ static async Task<bool> IsLegacySchemaAsync(AppDbContext db)
         {
             cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name='AgentAclRules' LIMIT 1";
             if (await cmd.ExecuteScalarAsync() is not null) return true;
+        }
+        // Phase 5a: Agent.RagCollectionIds column added.
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT 1 FROM pragma_table_info('Agents') WHERE name = 'RagCollectionIds' LIMIT 1";
+            if (await cmd.ExecuteScalarAsync() is null) return true;
         }
         return false;
     }

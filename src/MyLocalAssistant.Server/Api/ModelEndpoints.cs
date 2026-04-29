@@ -43,6 +43,18 @@ public static class ModelEndpoints
             }
         });
 
+        group.MapGet("/embedding/status", (EmbeddingService es) => Results.Ok(es.GetStatus()));
+
+        group.MapPost("/embedding/{id}/activate", (string id, EmbeddingService es) =>
+        {
+            try { return Results.Accepted("/api/admin/models/embedding/status", es.Activate(id)); }
+            catch (KeyNotFoundException) { return Results.NotFound(); }
+            catch (InvalidOperationException ex)
+            {
+                return Results.Problem(detail: ex.Message, statusCode: StatusCodes.Status400BadRequest, title: "validation_failed");
+            }
+        });
+
         group.MapDelete("/{id}", (string id, ModelManager mgr) =>
         {
             try { return mgr.DeleteModel(id) ? Results.NoContent() : Results.NotFound(); }

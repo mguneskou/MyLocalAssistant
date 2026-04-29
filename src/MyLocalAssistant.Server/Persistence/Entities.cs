@@ -74,6 +74,8 @@ public sealed class Agent
     /// <summary>Optional per-agent model override; falls back to ModelManager active model when null.</summary>
     public string? DefaultModelId { get; set; }
     public bool RagEnabled { get; set; }
+    /// <summary>Semicolon-separated list of RagCollection.Id (Guid) strings the agent retrieves from.</summary>
+    public string? RagCollectionIds { get; set; }
 }
 
 public sealed class Conversation

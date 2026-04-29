@@ -16,6 +16,8 @@ public sealed class ServerSettings
     public int MessageBodyRetentionDays { get; set; } = 90;
     /// <summary>Catalog id of the LLM used for all agents in v2.0 (single-model mode).</summary>
     public string? DefaultModelId { get; set; }
+    /// <summary>Catalog id of the embedding model used for RAG. Loaded alongside the chat model.</summary>
+    public string? EmbeddingModelId { get; set; }
 }
 
 public sealed class ServerSettingsStore

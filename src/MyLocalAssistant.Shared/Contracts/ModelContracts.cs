@@ -14,6 +14,7 @@ public sealed record ModelDto(
     bool IsInstalled,
     long? SizeOnDisk,
     bool IsActive,
+    bool IsActiveEmbedding,
     DownloadStatusDto? Download);
 
 public sealed record DownloadStatusDto(
@@ -29,3 +30,9 @@ public sealed record ActiveModelStatusDto(
     string Status,
     string? LastError,
     string Backend);
+
+public sealed record ActiveEmbeddingStatusDto(
+    string? ActiveModelId,
+    string Status,
+    string? LastError,
+    int EmbeddingDimension);

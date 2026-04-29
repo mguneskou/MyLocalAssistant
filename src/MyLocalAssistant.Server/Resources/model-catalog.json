@@ -1,5 +1,26 @@
 [
   {
+    "id": "bge-m3-q5km",
+    "displayName": "BGE-M3 (multilingual embedding)",
+    "tier": "embedding",
+    "huggingFaceRepo": "lm-kit/bge-m3-gguf",
+    "quantization": "Q5_K_M",
+    "license": "MIT",
+    "licenseUrl": "https://huggingface.co/BAAI/bge-m3",
+    "recommendedContextSize": 8192,
+    "minRamGb": 2,
+    "embeddingDimension": 1024,
+    "description": "BAAI BGE-M3 multilingual embedding model (incl. Turkish). Required for RAG ingestion and retrieval.",
+    "files": [
+      {
+        "fileName": "bge-m3-Q5_K_M.gguf",
+        "url": "https://huggingface.co/lm-kit/bge-m3-gguf/resolve/main/bge-m3-Q5_K_M.gguf",
+        "sizeBytes": 468000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
     "id": "tinyllama-1.1b-q5km",
     "displayName": "TinyLlama 1.1B Chat",
     "tier": "lightweight",
