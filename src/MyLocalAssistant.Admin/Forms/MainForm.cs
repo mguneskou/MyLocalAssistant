@@ -54,7 +54,9 @@ internal sealed class MainForm : Form
         auditPage.Controls.Add(new AuditTab(_client));
         _tabs.TabPages.Add(auditPage);
 
-        _tabs.TabPages.Add(MakePlaceholder("Server Settings", "Listen URL, retention, JWT, signing key — Phase 4."));
+        var settingsPage = new TabPage("Server Settings") { UseVisualStyleBackColor = true };
+        settingsPage.Controls.Add(new SettingsTab(_client));
+        _tabs.TabPages.Add(settingsPage);
 
         var status = new StatusStrip();
         _statusUser = new ToolStripStatusLabel($"Signed in as {_client.CurrentUser?.Username}");

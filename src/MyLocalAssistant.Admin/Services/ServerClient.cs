@@ -353,6 +353,22 @@ public sealed class ServerClient : IDisposable
         return parts.Count == 0 ? "" : "?" + string.Join("&", parts);
     }
 
+    public async Task<ServerSettingsDto> GetServerSettingsAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/settings/", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<ServerSettingsDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty settings response.");
+    }
+
+    public async Task<ServerSettingsDto> UpdateServerSettingsAsync(UpdateServerSettingsRequest req, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Patch, "api/admin/settings/", req, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<ServerSettingsDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty settings response.");
+    }
+
     private void SetTokens(LoginResponse login)
     {
         _accessToken = login.AccessToken;
