@@ -40,7 +40,7 @@ try
 
     builder.Host.UseSerilog();
     builder.Host.UseWindowsService(o => o.ServiceName = "MyLocalAssistantServer");
-    builder.WebHost.UseUrls(settings.ListenUrl);
+    ConfigureKestrelEndpoint(builder, settings);
 
     builder.Services.AddSingleton(settings);
     builder.Services.AddSingleton(settingsStore);
@@ -133,6 +133,44 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+
+static void ConfigureKestrelEndpoint(WebApplicationBuilder builder, ServerSettings settings)
+{
+    if (!Uri.TryCreate(settings.ListenUrl, UriKind.Absolute, out var uri))
+        throw new InvalidOperationException($"Invalid ListenUrl '{settings.ListenUrl}'.");
+
+    var isHttps = string.Equals(uri.Scheme, "https", StringComparison.OrdinalIgnoreCase);
+    if (!isHttps)
+    {
+        builder.WebHost.UseUrls(settings.ListenUrl);
+        return;
+    }
+
+    if (string.IsNullOrWhiteSpace(settings.CertificatePath))
+        throw new InvalidOperationException("HTTPS ListenUrl requires CertificatePath in server.json.");
+    if (!File.Exists(settings.CertificatePath))
+        throw new FileNotFoundException("TLS certificate not found.", settings.CertificatePath);
+
+    var bindHost = uri.Host;
+    var bindAddress = bindHost switch
+    {
+        "0.0.0.0" or "*" or "+" => System.Net.IPAddress.Any,
+        "[::]" => System.Net.IPAddress.IPv6Any,
+        _ => System.Net.IPAddress.TryParse(bindHost, out var ip) ? ip : null,
+    };
+
+    var certPath = settings.CertificatePath;
+    var certPwd = settings.CertificatePassword ?? "";
+    builder.WebHost.ConfigureKestrel(k =>
+    {
+        void Configure(Microsoft.AspNetCore.Server.Kestrel.Core.ListenOptions o)
+            => o.UseHttps(certPath, certPwd);
+        if (bindAddress is not null)
+            k.Listen(bindAddress, uri.Port, Configure);
+        else
+            k.ListenAnyIP(uri.Port, Configure); // fall back; hostname binding is unusual on Kestrel
+    });
 }
 
 static async Task<bool> IsLegacySchemaAsync(AppDbContext db)

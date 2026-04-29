@@ -20,6 +20,10 @@ public sealed class ServerSettings
     public string? DefaultModelId { get; set; }
     /// <summary>Catalog id of the embedding model used for RAG. Loaded alongside the chat model.</summary>
     public string? EmbeddingModelId { get; set; }
+    /// <summary>Path to a PFX file containing the TLS certificate. When set, Kestrel binds the listen URL with HTTPS.</summary>
+    public string? CertificatePath { get; set; }
+    /// <summary>Password for the PFX file referenced by <see cref="CertificatePath"/>. May be empty.</summary>
+    public string? CertificatePassword { get; set; }
 }
 
 public sealed class ServerSettingsStore
