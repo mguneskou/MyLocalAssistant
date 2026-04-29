@@ -40,7 +40,11 @@ internal sealed class MainForm : Form
         _tabs.TabPages.Add(deptPage);
 
         _tabs.TabPages.Add(MakePlaceholder("Agents", "Agent registry, prompts, and ACL — Phase 4."));
-        _tabs.TabPages.Add(MakePlaceholder("Models", "Browse, download, select active model — Phase 3."));
+
+        var modelsPage = new TabPage("Models") { UseVisualStyleBackColor = true };
+        modelsPage.Controls.Add(new ModelsTab(_client));
+        _tabs.TabPages.Add(modelsPage);
+
         _tabs.TabPages.Add(MakePlaceholder("RAG Collections", "Upload documents to collections — Phase 5."));
         _tabs.TabPages.Add(MakePlaceholder("Audit", "Search audit log — Phase 4."));
         _tabs.TabPages.Add(MakePlaceholder("Server Settings", "Listen URL, retention, JWT, signing key — Phase 4."));

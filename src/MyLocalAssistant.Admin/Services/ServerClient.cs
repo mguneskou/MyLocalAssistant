@@ -118,6 +118,47 @@ public sealed class ServerClient : IDisposable
         return await resp.Content.ReadFromJsonAsync<List<DepartmentDto>>(s_json, ct) ?? new();
     }
 
+    // ---------- Admin: models ----------
+
+    public async Task<List<ModelDto>> ListModelsAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/models/", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<ModelDto>>(s_json, ct) ?? new();
+    }
+
+    public async Task<ActiveModelStatusDto> GetModelStatusAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/models/status", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<ActiveModelStatusDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty model-status response.");
+    }
+
+    public async Task StartDownloadAsync(string modelId, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, $"api/admin/models/{modelId}/download", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
+    public async Task CancelDownloadAsync(string modelId, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Delete, $"api/admin/models/{modelId}/download", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
+    public async Task ActivateModelAsync(string modelId, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, $"api/admin/models/{modelId}/activate", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
+    public async Task DeleteModelAsync(string modelId, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Delete, $"api/admin/models/{modelId}", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
     private void SetTokens(LoginResponse login)
     {
         _accessToken = login.AccessToken;

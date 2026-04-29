@@ -1,10 +1,14 @@
 using System.IdentityModel.Tokens.Jwt;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using MyLocalAssistant.Core.Catalog;
+using MyLocalAssistant.Core.Download;
+using MyLocalAssistant.Core.Inference;
 using MyLocalAssistant.Server;
 using MyLocalAssistant.Server.Api;
 using MyLocalAssistant.Server.Auth;
 using MyLocalAssistant.Server.Configuration;
+using MyLocalAssistant.Server.Llm;
 using MyLocalAssistant.Server.Persistence;
 using Serilog;
 
@@ -45,6 +49,14 @@ try
         o.UseSqlite($"Data Source={ServerPaths.DatabasePath}"));
     builder.Services.AddScoped<UserService>();
     builder.Services.AddScoped<DepartmentService>();
+
+    // LLM stack (Phase 3): single provider instance, model lifecycle, downloads.
+    builder.Services.AddSingleton(sp => ModelCatalogService.LoadEmbedded());
+    builder.Services.AddSingleton<ModelDownloader>(_ => new ModelDownloader());
+    builder.Services.AddSingleton<DownloadCoordinator>();
+    builder.Services.AddSingleton<LLamaSharpProvider>();
+    builder.Services.AddSingleton<ModelManager>();
+    builder.Services.AddHostedService<ModelBootstrapService>();
 
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(o =>
@@ -87,6 +99,7 @@ try
     app.MapAuthEndpoints();
     app.MapUserAdminEndpoints();
     app.MapDepartmentEndpoints();
+    app.MapModelEndpoints();
 
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
         settings.ListenUrl, ServerPaths.AppDirectory);
