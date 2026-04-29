@@ -190,6 +190,73 @@ public sealed class ServerClient : IDisposable
             ?? throw new InvalidOperationException("Empty update-agent response.");
     }
 
+    // ---------- Admin: RAG ----------
+
+    public async Task<List<RagCollectionDto>> ListCollectionsAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/rag/collections", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<RagCollectionDto>>(s_json, ct) ?? new();
+    }
+
+    public async Task<RagCollectionDto> CreateCollectionAsync(string name, string? description, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, "api/admin/rag/collections",
+            new CreateCollectionRequest(name, description), ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<RagCollectionDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty create-collection response.");
+    }
+
+    public async Task DeleteCollectionAsync(Guid id, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Delete, $"api/admin/rag/collections/{id}", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
+    public async Task<List<RagDocumentDto>> ListDocumentsAsync(Guid collectionId, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, $"api/admin/rag/collections/{collectionId}/documents", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<RagDocumentDto>>(s_json, ct) ?? new();
+    }
+
+    public async Task<RagDocumentDto> UploadDocumentAsync(Guid collectionId, string filePath, CancellationToken ct = default)
+    {
+        await EnsureFreshTokenAsync(ct);
+        using var content = new MultipartFormDataContent();
+        await using var fs = File.OpenRead(filePath);
+        var fileContent = new StreamContent(fs);
+        var ext = Path.GetExtension(filePath).ToLowerInvariant();
+        var mime = ext switch
+        {
+            ".pdf" => "application/pdf",
+            ".docx" => "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".html" or ".htm" => "text/html",
+            ".md" => "text/markdown",
+            _ => "text/plain",
+        };
+        fileContent.Headers.ContentType = new MediaTypeHeaderValue(mime);
+        content.Add(fileContent, "file", Path.GetFileName(filePath));
+
+        using var req = new HttpRequestMessage(HttpMethod.Post, $"api/admin/rag/collections/{collectionId}/documents")
+        {
+            Content = content,
+        };
+        if (!string.IsNullOrEmpty(_accessToken))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+        using var resp = await _http.SendAsync(req, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<RagDocumentDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty upload response.");
+    }
+
+    public async Task DeleteDocumentAsync(Guid collectionId, Guid docId, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Delete, $"api/admin/rag/collections/{collectionId}/documents/{docId}", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
     private void SetTokens(LoginResponse login)
     {
         _accessToken = login.AccessToken;

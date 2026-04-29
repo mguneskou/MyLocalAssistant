@@ -17,6 +17,8 @@ internal sealed class AgentsTab : UserControl
     private readonly ToolStripStatusLabel _statusLabel;
     private readonly BindingList<AgentRow> _rows = new();
     private DataGridViewComboBoxColumn _modelCol = null!;
+    private DataGridViewButtonColumn _collectionsCol = null!;
+    private List<RagCollectionDto> _allCollections = new();
     private bool _suppressEvents;
 
     public AgentsTab(ServerClient client)
@@ -26,7 +28,7 @@ internal sealed class AgentsTab : UserControl
 
         _toolbar = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top };
         _refreshBtn = new ToolStripButton("Refresh");
-        _hint = new ToolStripLabel("  Agent prompts are sealed; admins can toggle Enabled and pick a Default Model.")
+        _hint = new ToolStripLabel("  Toggle Enabled/RAG, pick a default model, and click the RAG cell to choose collections.")
         {
             ForeColor = SystemColors.GrayText,
         };
@@ -53,17 +55,28 @@ internal sealed class AgentsTab : UserControl
             FlatStyle = FlatStyle.Flat,
             DisplayStyle = DataGridViewComboBoxDisplayStyle.DropDownButton,
         };
+        _collectionsCol = new DataGridViewButtonColumn
+        {
+            HeaderText = "RAG collections",
+            DataPropertyName = nameof(AgentRow.CollectionsDisplay),
+            Width = 200,
+            UseColumnTextForButtonValue = false,
+            FlatStyle = FlatStyle.Standard,
+        };
         _grid.Columns.AddRange(new DataGridViewColumn[]
         {
-            new DataGridViewTextBoxColumn { HeaderText = "Agent", DataPropertyName = nameof(AgentRow.Name), Width = 200, ReadOnly = true },
-            new DataGridViewTextBoxColumn { HeaderText = "Category", DataPropertyName = nameof(AgentRow.Category), Width = 110, ReadOnly = true },
-            new DataGridViewCheckBoxColumn { HeaderText = "Generic", DataPropertyName = nameof(AgentRow.IsGeneric), Width = 70, ReadOnly = true },
-            new DataGridViewCheckBoxColumn { HeaderText = "Enabled", DataPropertyName = nameof(AgentRow.Enabled), Width = 70 },
+            new DataGridViewTextBoxColumn { HeaderText = "Agent", DataPropertyName = nameof(AgentRow.Name), Width = 180, ReadOnly = true },
+            new DataGridViewTextBoxColumn { HeaderText = "Category", DataPropertyName = nameof(AgentRow.Category), Width = 100, ReadOnly = true },
+            new DataGridViewCheckBoxColumn { HeaderText = "Generic", DataPropertyName = nameof(AgentRow.IsGeneric), Width = 60, ReadOnly = true },
+            new DataGridViewCheckBoxColumn { HeaderText = "Enabled", DataPropertyName = nameof(AgentRow.Enabled), Width = 60 },
             _modelCol,
+            new DataGridViewCheckBoxColumn { HeaderText = "RAG", DataPropertyName = nameof(AgentRow.RagEnabled), Width = 50 },
+            _collectionsCol,
             new DataGridViewTextBoxColumn { HeaderText = "Description", DataPropertyName = nameof(AgentRow.Description), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, ReadOnly = true },
         });
         _grid.DataSource = _rows;
         _grid.CellValueChanged += OnCellValueChanged;
+        _grid.CellContentClick += OnCellContentClick;
         _grid.CurrentCellDirtyStateChanged += (_, _) =>
         {
             if (_grid.IsCurrentCellDirty) _grid.CommitEdit(DataGridViewDataErrorContexts.Commit);
@@ -87,38 +100,55 @@ internal sealed class AgentsTab : UserControl
         try
         {
             var modelTask = _client.ListModelsAsync();
+            var collTask = _client.ListCollectionsAsync();
             var agents = await _client.ListAgentsAsync();
             var models = await modelTask;
+            _allCollections = await collTask;
             var modelChoices = new List<string> { NoModelOverride };
             modelChoices.AddRange(models.Where(m => m.IsInstalled).Select(m => m.Id));
             _modelCol.DataSource = modelChoices;
 
             _suppressEvents = true;
             _rows.Clear();
-            foreach (var a in agents) _rows.Add(AgentRow.From(a, modelChoices));
+            foreach (var a in agents) _rows.Add(AgentRow.From(a, modelChoices, _allCollections));
             _suppressEvents = false;
-            _statusLabel.Text = $"{agents.Count} agent(s); {models.Count(m => m.IsInstalled)} installed model(s).";
+            _statusLabel.Text = $"{agents.Count} agent(s); {models.Count(m => m.IsInstalled)} installed model(s); {_allCollections.Count} collection(s).";
         }
         catch (Exception ex) { ShowError("Load failed", ex); }
         finally { SetBusy(false); }
     }
 
-    private async void OnCellValueChanged(object? sender, DataGridViewCellEventArgs e)
+    private void OnCellContentClick(object? sender, DataGridViewCellEventArgs e)
     {
-        if (_suppressEvents || e.RowIndex < 0 || e.RowIndex >= _rows.Count) return;
+        if (e.RowIndex < 0 || e.RowIndex >= _rows.Count) return;
+        if (e.ColumnIndex != _collectionsCol.Index) return;
         var row = _rows[e.RowIndex];
+        using var dlg = new CollectionPickerForm(_allCollections, row.RagCollectionIds);
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        row.RagCollectionIds = dlg.SelectedIds;
+        row.RecomputeCollectionsDisplay(_allCollections);
+        // Trigger save by simulating cell value change.
+        _ = SaveRowAsync(row);
+        _grid.InvalidateRow(e.RowIndex);
+    }
+
+    private async Task SaveRowAsync(AgentRow row)
+    {
         try
         {
             var defaultModelId = row.DefaultModelDisplay == NoModelOverride ? null : row.DefaultModelDisplay;
             var updated = await _client.UpdateAgentAsync(row.Id,
                 new AgentUpdateRequest(row.Enabled, defaultModelId, row.RagEnabled, row.RagCollectionIds));
-            _statusLabel.Text = $"Saved {updated.Name} (enabled={updated.Enabled}, model={updated.DefaultModelId ?? "—"}).";
+            _statusLabel.Text = $"Saved {updated.Name} (rag={updated.RagEnabled}, collections={updated.RagCollectionIds.Count}).";
         }
-        catch (Exception ex)
-        {
-            ShowError("Save failed", ex);
-            await ReloadAsync(); // resync to server state
-        }
+        catch (Exception ex) { ShowError("Save failed", ex); await ReloadAsync(); }
+    }
+
+    private async void OnCellValueChanged(object? sender, DataGridViewCellEventArgs e)
+    {
+        if (_suppressEvents || e.RowIndex < 0 || e.RowIndex >= _rows.Count) return;
+        if (e.ColumnIndex == _collectionsCol.Index) return; // handled by content-click
+        await SaveRowAsync(_rows[e.RowIndex]);
     }
 
     private void SetBusy(bool busy, string? message = null)
@@ -145,13 +175,14 @@ internal sealed class AgentsTab : UserControl
         public string DefaultModelDisplay { get; set; } = NoModelOverride;
         public bool RagEnabled { get; set; }
         public IReadOnlyList<Guid> RagCollectionIds { get; set; } = Array.Empty<Guid>();
+        public string CollectionsDisplay { get; set; } = "(none)";
 
-        public static AgentRow From(AgentDto a, IReadOnlyList<string> modelChoices)
+        public static AgentRow From(AgentDto a, IReadOnlyList<string> modelChoices, IReadOnlyList<RagCollectionDto> allCollections)
         {
             var display = a.DefaultModelId is null
                 ? NoModelOverride
                 : modelChoices.Contains(a.DefaultModelId) ? a.DefaultModelId : NoModelOverride;
-            return new AgentRow
+            var row = new AgentRow
             {
                 Id = a.Id,
                 Name = a.Name,
@@ -163,6 +194,63 @@ internal sealed class AgentsTab : UserControl
                 RagEnabled = a.RagEnabled,
                 RagCollectionIds = a.RagCollectionIds,
             };
+            row.RecomputeCollectionsDisplay(allCollections);
+            return row;
         }
+
+        public void RecomputeCollectionsDisplay(IReadOnlyList<RagCollectionDto> all)
+        {
+            if (RagCollectionIds.Count == 0) { CollectionsDisplay = "(choose…)"; return; }
+            var names = RagCollectionIds
+                .Select(id => all.FirstOrDefault(c => c.Id == id)?.Name ?? id.ToString())
+                .ToList();
+            CollectionsDisplay = string.Join(", ", names);
+        }
+    }
+}
+
+internal sealed class CollectionPickerForm : Form
+{
+    private readonly CheckedListBox _list;
+    private readonly List<RagCollectionDto> _all;
+
+    public IReadOnlyList<Guid> SelectedIds { get; private set; } = Array.Empty<Guid>();
+
+    public CollectionPickerForm(IReadOnlyList<RagCollectionDto> all, IReadOnlyList<Guid> initiallySelected)
+    {
+        _all = all.ToList();
+        Text = "Select RAG collections";
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        StartPosition = FormStartPosition.CenterParent;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        ClientSize = new Size(380, 360);
+        Font = new Font("Segoe UI", 9F);
+
+        _list = new CheckedListBox
+        {
+            Left = 12, Top = 12, Width = 356, Height = 290,
+            CheckOnClick = true,
+            IntegralHeight = false,
+        };
+        var initialSet = initiallySelected.ToHashSet();
+        foreach (var c in _all)
+        {
+            var label = $"{c.Name}  ({c.DocumentCount} doc(s))";
+            _list.Items.Add(label, initialSet.Contains(c.Id));
+        }
+
+        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Left = 200, Top = 312, Width = 80 };
+        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Left = 288, Top = 312, Width = 80 };
+        AcceptButton = ok;
+        CancelButton = cancel;
+        ok.Click += (_, _) =>
+        {
+            var picks = new List<Guid>();
+            for (int i = 0; i < _list.Items.Count; i++)
+                if (_list.GetItemChecked(i)) picks.Add(_all[i].Id);
+            SelectedIds = picks;
+        };
+        Controls.AddRange(new Control[] { _list, ok, cancel });
     }
 }

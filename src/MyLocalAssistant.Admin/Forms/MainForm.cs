@@ -46,7 +46,10 @@ internal sealed class MainForm : Form
         modelsPage.Controls.Add(new ModelsTab(_client));
         _tabs.TabPages.Add(modelsPage);
 
-        _tabs.TabPages.Add(MakePlaceholder("RAG Collections", "Upload documents to collections — Phase 5."));
+        var ragPage = new TabPage("RAG Collections") { UseVisualStyleBackColor = true };
+        ragPage.Controls.Add(new CollectionsTab(_client));
+        _tabs.TabPages.Add(ragPage);
+
         _tabs.TabPages.Add(MakePlaceholder("Audit", "Search audit log — Phase 4."));
         _tabs.TabPages.Add(MakePlaceholder("Server Settings", "Listen URL, retention, JWT, signing key — Phase 4."));
 
