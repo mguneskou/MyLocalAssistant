@@ -35,6 +35,7 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
     {
         var user = await db.Users
             .Include(u => u.Roles).ThenInclude(r => r.Role)
+            .Include(u => u.Departments).ThenInclude(d => d.Department)
             .FirstOrDefaultAsync(u => u.Username == req.Username, ct);
         if (user is null || user.IsDisabled || !Pbkdf2Hasher.Verify(req.Password, user.PasswordHash))
         {
@@ -60,6 +61,7 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
         var hash = JwtIssuer.HashRefreshToken(refreshTokenPlain);
         var token = await db.RefreshTokens
             .Include(t => t.User).ThenInclude(u => u.Roles).ThenInclude(r => r.Role)
+            .Include(t => t.User).ThenInclude(u => u.Departments).ThenInclude(d => d.Department)
             .FirstOrDefaultAsync(t => t.TokenHash == hash, ct);
         if (token is null || token.RevokedAt is not null || token.ExpiresAt < DateTimeOffset.UtcNow || token.User.IsDisabled)
         {
@@ -100,7 +102,7 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
         user.Id,
         user.Username,
         user.DisplayName,
-        user.Department,
+        user.Departments.Select(d => d.Department?.Name ?? "").Where(n => n.Length > 0).ToList(),
         user.Roles.Select(r => r.Role?.Name ?? "").Where(n => n.Length > 0).ToList(),
         user.MustChangePassword,
         user.IsAdmin);
@@ -109,13 +111,11 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
 
     public async Task<List<UserAdminDto>> ListUsersAsync(CancellationToken ct)
     {
-        return await db.Users
+        var users = await db.Users
+            .Include(u => u.Departments).ThenInclude(d => d.Department)
             .OrderBy(u => u.Username)
-            .Select(u => new UserAdminDto(
-                u.Id, u.Username, u.DisplayName, u.Department,
-                u.IsAdmin, u.IsDisabled, u.MustChangePassword,
-                u.CreatedAt, u.LastLoginAt))
             .ToListAsync(ct);
+        return users.Select(ToAdminDto).ToList();
     }
 
     public async Task<(UserAdminDto? User, string? Code)> CreateUserAsync(CreateUserRequest req, CancellationToken ct)
@@ -134,19 +134,29 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
             Username = username,
             DisplayName = req.DisplayName.Trim(),
             PasswordHash = Pbkdf2Hasher.Hash(req.Password),
-            Department = string.IsNullOrWhiteSpace(req.Department) ? null : req.Department.Trim(),
             IsAdmin = req.IsAdmin,
             MustChangePassword = true,
         };
         db.Users.Add(user);
+
+        // Admins implicitly have access to everything; ignore any provided list.
+        if (!req.IsAdmin && req.Departments is { Count: > 0 })
+        {
+            await SyncDepartmentsAsync(user, req.Departments, ct);
+        }
+
         await db.SaveChangesAsync(ct);
+        await db.Entry(user).Collection(u => u.Departments).LoadAsync(ct);
+        foreach (var ud in user.Departments) await db.Entry(ud).Reference(x => x.Department).LoadAsync(ct);
         log.LogInformation("Created user {Username} (admin={IsAdmin})", user.Username, user.IsAdmin);
         return (ToAdminDto(user), null);
     }
 
     public async Task<(UserAdminDto? User, string? Code)> UpdateUserAsync(Guid userId, UpdateUserRequest req, CancellationToken ct)
     {
-        var user = await db.Users.FindAsync(new object[] { userId }, ct);
+        var user = await db.Users
+            .Include(u => u.Departments).ThenInclude(d => d.Department)
+            .FirstOrDefaultAsync(u => u.Id == userId, ct);
         if (user is null) return (null, ProblemCodes.NotFound);
 
         if (req.DisplayName is not null)
@@ -154,14 +164,23 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
             if (string.IsNullOrWhiteSpace(req.DisplayName)) return (null, ProblemCodes.ValidationFailed);
             user.DisplayName = req.DisplayName.Trim();
         }
-        if (req.Department is not null)
-        {
-            user.Department = string.IsNullOrWhiteSpace(req.Department) ? null : req.Department.Trim();
-        }
         if (req.IsAdmin is not null) user.IsAdmin = req.IsAdmin.Value;
         if (req.IsDisabled is not null) user.IsDisabled = req.IsDisabled.Value;
 
+        // Clear departments for admins (implicit all-access). Otherwise apply list if provided.
+        if (user.IsAdmin)
+        {
+            user.Departments.Clear();
+        }
+        else if (req.Departments is not null)
+        {
+            await SyncDepartmentsAsync(user, req.Departments, ct);
+        }
+
         await db.SaveChangesAsync(ct);
+        // Reload after sync so projection is fresh.
+        await db.Entry(user).Collection(u => u.Departments).Query()
+            .Include(d => d.Department).LoadAsync(ct);
         return (ToAdminDto(user), null);
     }
 
@@ -188,8 +207,37 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
         return null;
     }
 
+    /// <summary>
+    /// Replaces the user's department membership to match <paramref name="departmentNames"/>.
+    /// Unknown names are ignored.
+    /// </summary>
+    private async Task SyncDepartmentsAsync(User user, IReadOnlyList<string> departmentNames, CancellationToken ct)
+    {
+        var wanted = departmentNames
+            .Where(n => !string.IsNullOrWhiteSpace(n))
+            .Select(n => n.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var depts = await db.Departments
+            .Where(d => wanted.Contains(d.Name))
+            .ToListAsync(ct);
+
+        var wantedIds = depts.Select(d => d.Id).ToHashSet();
+        // Remove memberships not in wanted set
+        user.Departments.RemoveAll(ud => !wantedIds.Contains(ud.DepartmentId));
+        // Add missing
+        var existingIds = user.Departments.Select(ud => ud.DepartmentId).ToHashSet();
+        foreach (var d in depts)
+        {
+            if (!existingIds.Contains(d.Id))
+                user.Departments.Add(new UserDepartment { UserId = user.Id, DepartmentId = d.Id });
+        }
+    }
+
     private static UserAdminDto ToAdminDto(User u) => new(
-        u.Id, u.Username, u.DisplayName, u.Department,
+        u.Id, u.Username, u.DisplayName,
+        u.Departments.Select(d => d.Department?.Name ?? "").Where(n => n.Length > 0).OrderBy(n => n).ToList(),
         u.IsAdmin, u.IsDisabled, u.MustChangePassword,
         u.CreatedAt, u.LastLoginAt);
 }

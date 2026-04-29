@@ -16,7 +16,7 @@ public sealed record UserDto(
     Guid Id,
     string Username,
     string DisplayName,
-    string? Department,
+    IReadOnlyList<string> Departments,
     IReadOnlyList<string> Roles,
     bool MustChangePassword,
     bool IsAdmin);

@@ -24,8 +24,13 @@ public sealed class JwtIssuer(ServerSettings settings)
             new(JwtRegisteredClaimNames.UniqueName, user.Username),
             new(ClaimTypes.Name, user.Username),
         };
-        if (!string.IsNullOrEmpty(user.Department)) claims.Add(new Claim(ClaimDepartment, user.Department));
         if (user.IsAdmin) claims.Add(new Claim(ClaimIsAdmin, "1"));
+        // Emit one "dept" claim per department. Admins implicitly have access to all (not enumerated).
+        foreach (var ud in user.Departments)
+        {
+            if (ud.Department is not null)
+                claims.Add(new Claim(ClaimDepartment, ud.Department.Name));
+        }
         foreach (var ur in user.Roles)
         {
             if (ur.Role is not null) claims.Add(new Claim(ClaimTypes.Role, ur.Role.Name));

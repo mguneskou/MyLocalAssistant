@@ -18,6 +18,7 @@ internal sealed class UsersTab : UserControl
     private readonly StatusStrip _status;
     private readonly ToolStripStatusLabel _statusLabel;
     private readonly BindingList<UserAdminDto> _rows = new();
+    private List<DepartmentDto> _allDepartments = new();
 
     public UsersTab(ServerClient client)
     {
@@ -55,7 +56,7 @@ internal sealed class UsersTab : UserControl
         {
             new DataGridViewTextBoxColumn { HeaderText = "Username", DataPropertyName = nameof(UserAdminDto.Username), Width = 140 },
             new DataGridViewTextBoxColumn { HeaderText = "Display name", DataPropertyName = nameof(UserAdminDto.DisplayName), Width = 180 },
-            new DataGridViewTextBoxColumn { HeaderText = "Department", DataPropertyName = nameof(UserAdminDto.Department), Width = 140 },
+            new DataGridViewTextBoxColumn { HeaderText = "Departments", Name = "Departments", Width = 200 },
             new DataGridViewCheckBoxColumn { HeaderText = "Admin", DataPropertyName = nameof(UserAdminDto.IsAdmin), Width = 60 },
             new DataGridViewCheckBoxColumn { HeaderText = "Disabled", DataPropertyName = nameof(UserAdminDto.IsDisabled), Width = 70 },
             new DataGridViewCheckBoxColumn { HeaderText = "Must change pwd", DataPropertyName = nameof(UserAdminDto.MustChangePassword), Width = 110 },
@@ -63,6 +64,16 @@ internal sealed class UsersTab : UserControl
             new DataGridViewTextBoxColumn { HeaderText = "Created", DataPropertyName = nameof(UserAdminDto.CreatedAt), Width = 140, DefaultCellStyle = new DataGridViewCellStyle { Format = "yyyy-MM-dd HH:mm" } },
         });
         _grid.DataSource = _rows;
+        _grid.CellFormatting += (_, e) =>
+        {
+            if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
+            var col = _grid.Columns[e.ColumnIndex];
+            if (col.Name != "Departments") return;
+            var row = _grid.Rows[e.RowIndex].DataBoundItem as UserAdminDto;
+            if (row is null) return;
+            e.Value = row.IsAdmin ? "(all — admin)" : string.Join(", ", row.Departments);
+            e.FormattingApplied = true;
+        };
 
         _statusLabel = new ToolStripStatusLabel("");
         _status = new StatusStrip();
@@ -108,10 +119,12 @@ internal sealed class UsersTab : UserControl
         SetBusy(true, "Loading users…");
         try
         {
+            var deptTask = _client.ListDepartmentsAsync();
             var users = await _client.ListUsersAsync();
+            _allDepartments = await deptTask;
             _rows.Clear();
             foreach (var u in users) _rows.Add(u);
-            _statusLabel.Text = $"{users.Count} user(s).";
+            _statusLabel.Text = $"{users.Count} user(s), {_allDepartments.Count} department(s).";
             UpdateButtonState();
         }
         catch (Exception ex) { ShowError("Load failed", ex); }
@@ -120,7 +133,9 @@ internal sealed class UsersTab : UserControl
 
     private async Task OnNewAsync()
     {
-        using var dlg = new UserEditForm(existing: null);
+        // Refresh departments so the picker is current.
+        try { _allDepartments = await _client.ListDepartmentsAsync(); } catch { /* fall back to cached */ }
+        using var dlg = new UserEditForm(existing: null, _allDepartments);
         if (dlg.ShowDialog(this) != DialogResult.OK || dlg.CreateResult is null) return;
         SetBusy(true, "Creating user…");
         try
@@ -136,7 +151,8 @@ internal sealed class UsersTab : UserControl
     private async Task OnEditAsync()
     {
         var sel = Selected; if (sel is null) return;
-        using var dlg = new UserEditForm(sel);
+        try { _allDepartments = await _client.ListDepartmentsAsync(); } catch { /* fall back to cached */ }
+        using var dlg = new UserEditForm(sel, _allDepartments);
         if (dlg.ShowDialog(this) != DialogResult.OK || dlg.UpdateResult is null) return;
         SetBusy(true, "Saving…");
         try

@@ -4,7 +4,7 @@ public sealed record UserAdminDto(
     Guid Id,
     string Username,
     string DisplayName,
-    string? Department,
+    IReadOnlyList<string> Departments,
     bool IsAdmin,
     bool IsDisabled,
     bool MustChangePassword,
@@ -15,12 +15,12 @@ public sealed record CreateUserRequest(
     string Username,
     string DisplayName,
     string Password,
-    string? Department,
+    IReadOnlyList<string>? Departments,
     bool IsAdmin);
 
 public sealed record UpdateUserRequest(
     string? DisplayName,
-    string? Department,
+    IReadOnlyList<string>? Departments,
     bool? IsAdmin,
     bool? IsDisabled);
 

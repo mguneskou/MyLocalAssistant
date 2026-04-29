@@ -7,6 +7,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<User> Users => Set<User>();
     public DbSet<Role> Roles => Set<Role>();
     public DbSet<UserRole> UserRoles => Set<UserRole>();
+    public DbSet<Department> Departments => Set<Department>();
+    public DbSet<UserDepartment> UserDepartments => Set<UserDepartment>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Agent> Agents => Set<Agent>();
     public DbSet<AgentAclRule> AgentAclRules => Set<AgentAclRule>();
@@ -24,7 +26,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             e.Property(x => x.Username).HasMaxLength(64).IsRequired();
             e.Property(x => x.DisplayName).HasMaxLength(128).IsRequired();
             e.Property(x => x.PasswordHash).HasMaxLength(512).IsRequired();
-            e.Property(x => x.Department).HasMaxLength(64);
+        });
+
+        b.Entity<Department>(e =>
+        {
+            e.HasIndex(x => x.Name).IsUnique();
+            e.Property(x => x.Name).HasMaxLength(64).IsRequired();
+        });
+
+        b.Entity<UserDepartment>(e =>
+        {
+            e.HasKey(x => new { x.UserId, x.DepartmentId });
+            e.HasOne(x => x.User).WithMany(x => x.Departments).HasForeignKey(x => x.UserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.Department).WithMany(x => x.Users).HasForeignKey(x => x.DepartmentId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<Role>(e =>

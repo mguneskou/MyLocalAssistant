@@ -44,6 +44,7 @@ try
     builder.Services.AddDbContext<AppDbContext>(o =>
         o.UseSqlite($"Data Source={ServerPaths.DatabasePath}"));
     builder.Services.AddScoped<UserService>();
+    builder.Services.AddScoped<DepartmentService>();
 
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(o =>
@@ -64,6 +65,13 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        // Phase 2.1 schema change: User.Department string -> Department/UserDepartment tables.
+        // We use EnsureCreatedAsync (no migrations); if the legacy column exists, recreate the DB.
+        if (await IsLegacySchemaAsync(db))
+        {
+            Log.Warning("Legacy schema detected (User.Department column). Resetting database at {Path}.", ServerPaths.DatabasePath);
+            await db.Database.EnsureDeletedAsync();
+        }
         await db.Database.EnsureCreatedAsync();
         var userSvc = scope.ServiceProvider.GetRequiredService<UserService>();
         await userSvc.EnsureAdminBootstrapAsync();
@@ -76,6 +84,7 @@ try
     app.MapHealthEndpoints();
     app.MapAuthEndpoints();
     app.MapUserAdminEndpoints();
+    app.MapDepartmentEndpoints();
 
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
         settings.ListenUrl, ServerPaths.AppDirectory);
@@ -89,4 +98,22 @@ catch (Exception ex)
 finally
 {
     Log.CloseAndFlush();
+}
+
+static async Task<bool> IsLegacySchemaAsync(AppDbContext db)
+{
+    if (!File.Exists(ServerPaths.DatabasePath)) return false;
+    try
+    {
+        await using var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync();
+        await using var cmd = conn.CreateCommand();
+        cmd.CommandText = "SELECT 1 FROM pragma_table_info('Users') WHERE name = 'Department' LIMIT 1";
+        var hasOld = await cmd.ExecuteScalarAsync() is not null;
+        return hasOld;
+    }
+    catch
+    {
+        return false;
+    }
 }

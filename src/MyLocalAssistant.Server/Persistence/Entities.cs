@@ -6,14 +6,30 @@ public sealed class User
     public string Username { get; set; } = "";
     public string DisplayName { get; set; } = "";
     public string PasswordHash { get; set; } = ""; // PBKDF2 string per Pbkdf2Hasher format
-    public string? Department { get; set; }
     public bool IsAdmin { get; set; }
     public bool MustChangePassword { get; set; }
     public bool IsDisabled { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastLoginAt { get; set; }
     public List<UserRole> Roles { get; set; } = new();
+    public List<UserDepartment> Departments { get; set; } = new();
     public List<RefreshToken> RefreshTokens { get; set; } = new();
+}
+
+public sealed class Department
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+    public string Name { get; set; } = "";
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public List<UserDepartment> Users { get; set; } = new();
+}
+
+public sealed class UserDepartment
+{
+    public Guid UserId { get; set; }
+    public User User { get; set; } = null!;
+    public Guid DepartmentId { get; set; }
+    public Department Department { get; set; } = null!;
 }
 
 public sealed class Role

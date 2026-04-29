@@ -35,6 +35,10 @@ internal sealed class MainForm : Form
         usersPage.Controls.Add(new UsersTab(_client));
         _tabs.TabPages.Add(usersPage);
 
+        var deptPage = new TabPage("Departments") { UseVisualStyleBackColor = true };
+        deptPage.Controls.Add(new DepartmentsTab(_client));
+        _tabs.TabPages.Add(deptPage);
+
         _tabs.TabPages.Add(MakePlaceholder("Agents", "Agent registry, prompts, and ACL — Phase 4."));
         _tabs.TabPages.Add(MakePlaceholder("Models", "Browse, download, select active model — Phase 3."));
         _tabs.TabPages.Add(MakePlaceholder("RAG Collections", "Upload documents to collections — Phase 5."));
