@@ -45,6 +45,7 @@ try
     builder.Services.AddSingleton(settings);
     builder.Services.AddSingleton(settingsStore);
     builder.Services.AddSingleton<JwtIssuer>();
+    builder.Services.AddSingleton<LdapIdentityProvider>();
 
     builder.Services.AddDbContext<AppDbContext>(o =>
         o.UseSqlite($"Data Source={ServerPaths.DatabasePath}"));
@@ -196,6 +197,12 @@ static async Task<bool> IsLegacySchemaAsync(AppDbContext db)
         await using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "SELECT 1 FROM pragma_table_info('Agents') WHERE name = 'RagCollectionIds' LIMIT 1";
+            if (await cmd.ExecuteScalarAsync() is null) return true;
+        }
+        // Phase 11: User.AuthSource column added (LDAP support).
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT 1 FROM pragma_table_info('Users') WHERE name = 'AuthSource' LIMIT 1";
             if (await cmd.ExecuteScalarAsync() is null) return true;
         }
         return false;

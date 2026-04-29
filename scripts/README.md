@@ -36,6 +36,45 @@ JWT signing key in `config\server.json` are preserved.
 - Changing the listen URL, cert path, or signing key requires restarting the
   service: `Restart-Service MyLocalAssistantServer`.
 
+### LDAP / Active Directory
+
+LDAP is configured by editing `config\server.json` after installation
+(no UI for this — it's set-once for the org). Add an `ldap` block:
+
+```json
+"ldap": {
+  "enabled": true,
+  "server": "dc01.corp.local",
+  "port": 389,
+  "useSsl": false,
+  "baseDn": "DC=corp,DC=local",
+  "bindDn": "CN=svc-mla,OU=Service Accounts,DC=corp,DC=local",
+  "bindPassword": "<service account password>",
+  "userFilter": "(&(objectClass=user)(sAMAccountName={0}))",
+  "usernameAttribute": "sAMAccountName",
+  "displayNameAttribute": "displayName",
+  "adminGroup": "MLA-Admins",
+  "groupToDepartment": {
+    "MLA-Engineering": "R&D",
+    "MLA-HR": "HR",
+    "MLA-Finance": "Finance"
+  }
+}
+```
+
+Behaviour:
+- LDAP-authenticated users are auto-provisioned on first successful login
+  (`AuthSource = "ldap"`). Display name, admin flag, and department membership
+  are re-synced from AD on every login.
+- The local `admin` / `admin` bootstrap account stays usable as a break-glass
+  even when LDAP is enabled (it's `AuthSource = "local"`).
+- Local accounts are unaffected — LDAP is only consulted for usernames not
+  present locally, or for rows already marked `AuthSource = "ldap"`.
+- LDAP users cannot change/reset their password via the API (HTTP 403); they
+  manage it in AD as usual.
+
+Restart the service after changing this section.
+
 ## uninstall-service.ps1
 
 ```powershell

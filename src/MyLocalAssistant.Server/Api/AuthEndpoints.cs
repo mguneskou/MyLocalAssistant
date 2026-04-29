@@ -58,6 +58,7 @@ public static class AuthEndpoints
             {
                 ProblemCodes.InvalidCredentials => Problem(code, "Current password is incorrect.", StatusCodes.Status400BadRequest),
                 ProblemCodes.ValidationFailed => Problem(code, "New password must be at least 8 characters.", StatusCodes.Status400BadRequest),
+                ProblemCodes.Forbidden => Problem(code, "This account is managed in your directory; change your password there.", StatusCodes.Status403Forbidden),
                 _ => Problem(code, "Not found.", StatusCodes.Status404NotFound),
             };
         }).RequireAuthorization();

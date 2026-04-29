@@ -24,6 +24,34 @@ public sealed class ServerSettings
     public string? CertificatePath { get; set; }
     /// <summary>Password for the PFX file referenced by <see cref="CertificatePath"/>. May be empty.</summary>
     public string? CertificatePassword { get; set; }
+
+    /// <summary>LDAP/AD authentication. When disabled, only local accounts work (default).</summary>
+    public LdapSettings Ldap { get; set; } = new();
+}
+
+public sealed class LdapSettings
+{
+    public bool Enabled { get; set; }
+    /// <summary>Host or IP of the directory server (e.g. "dc01.corp.local").</summary>
+    public string Server { get; set; } = "";
+    public int Port { get; set; } = 389;
+    /// <summary>When true, uses LDAPS on the configured port.</summary>
+    public bool UseSsl { get; set; }
+    /// <summary>Search base (e.g. "DC=corp,DC=local").</summary>
+    public string BaseDn { get; set; } = "";
+    /// <summary>Bind account DN used to look up users (read-only). Leave empty for anonymous bind.</summary>
+    public string BindDn { get; set; } = "";
+    public string BindPassword { get; set; } = "";
+    /// <summary>LDAP filter to locate the user. {0} is replaced by the supplied username, escaped.</summary>
+    public string UserFilter { get; set; } = "(&(objectClass=user)(sAMAccountName={0}))";
+    /// <summary>Attribute used as the canonical username on the local side. Usually sAMAccountName.</summary>
+    public string UsernameAttribute { get; set; } = "sAMAccountName";
+    /// <summary>Attribute used for the display name. Usually displayName or cn.</summary>
+    public string DisplayNameAttribute { get; set; } = "displayName";
+    /// <summary>AD group (CN or full DN) whose members become local admins.</summary>
+    public string? AdminGroup { get; set; }
+    /// <summary>Map of AD group (CN or DN) -> local department name. Memberships are union, not exclusive.</summary>
+    public Dictionary<string, string> GroupToDepartment { get; set; } = new(StringComparer.OrdinalIgnoreCase);
 }
 
 public sealed class ServerSettingsStore

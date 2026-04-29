@@ -1,13 +1,22 @@
 using Microsoft.EntityFrameworkCore;
+using MyLocalAssistant.Server.Configuration;
 using MyLocalAssistant.Server.Persistence;
 using MyLocalAssistant.Shared.Contracts;
 
 namespace MyLocalAssistant.Server.Auth;
 
-public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserService> log)
+public sealed class UserService(
+    AppDbContext db,
+    JwtIssuer jwt,
+    ServerSettings settings,
+    LdapIdentityProvider ldap,
+    ILogger<UserService> log)
 {
     public const string DefaultAdminUsername = "admin";
     public const string DefaultAdminPassword = "admin";
+
+    public const string AuthSourceLocal = "local";
+    public const string AuthSourceLdap = "ldap";
 
     /// <summary>
     /// Seeds an initial admin / admin user on an empty Users table.
@@ -37,11 +46,39 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
             .Include(u => u.Roles).ThenInclude(r => r.Role)
             .Include(u => u.Departments).ThenInclude(d => d.Department)
             .FirstOrDefaultAsync(u => u.Username == req.Username, ct);
-        if (user is null || user.IsDisabled || !Pbkdf2Hasher.Verify(req.Password, user.PasswordHash))
+
+        // LDAP path: enabled, AND (no local row, OR row is marked AuthSource=ldap).
+        // We never let LDAP authenticate a row that was created locally — admins
+        // who reset a local password expect that password to keep working.
+        var tryLdap = settings.Ldap.Enabled
+            && (user is null || string.Equals(user.AuthSource, AuthSourceLdap, StringComparison.OrdinalIgnoreCase));
+        if (tryLdap)
+        {
+            var (ldapResult, identity) = await ldap.AuthenticateAsync(req.Username, req.Password, ct);
+            if (ldapResult == IdentityAuthResult.Authenticated && identity is not null)
+            {
+                user = await UpsertLdapUserAsync(user, identity, ct);
+                return await IssueTokensAsync(user, ct);
+            }
+            if (ldapResult == IdentityAuthResult.InvalidCredentials)
+                return (null, ProblemCodes.InvalidCredentials);
+            // UserUnknown / Unavailable -> fall through to local check below.
+        }
+
+        if (user is null
+            || user.IsDisabled
+            || string.Equals(user.AuthSource, AuthSourceLdap, StringComparison.OrdinalIgnoreCase)
+            || string.IsNullOrEmpty(user.PasswordHash)
+            || !Pbkdf2Hasher.Verify(req.Password, user.PasswordHash))
         {
             return (null, ProblemCodes.InvalidCredentials);
         }
 
+        return await IssueTokensAsync(user, ct);
+    }
+
+    private async Task<(LoginResponse?, string?)> IssueTokensAsync(User user, CancellationToken ct)
+    {
         var (access, accessExp) = jwt.IssueAccessToken(user);
         var (refreshPlain, refreshHash, refreshExp) = jwt.IssueRefreshToken();
         db.RefreshTokens.Add(new RefreshToken
@@ -52,8 +89,49 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
         });
         user.LastLoginAt = DateTimeOffset.UtcNow;
         await db.SaveChangesAsync(ct);
-
         return (new LoginResponse(access, refreshPlain, accessExp, ToDto(user)), null);
+    }
+
+    /// <summary>
+    /// Inserts or updates the local mirror row for an LDAP-authenticated user.
+    /// Display name, admin flag, and department membership are re-synced from the directory on every login.
+    /// </summary>
+    private async Task<User> UpsertLdapUserAsync(User? existing, ExternalIdentity identity, CancellationToken ct)
+    {
+        var user = existing;
+        if (user is null)
+        {
+            user = new User
+            {
+                Username = identity.Username,
+                DisplayName = identity.DisplayName,
+                PasswordHash = "",
+                AuthSource = AuthSourceLdap,
+                IsAdmin = identity.IsAdmin,
+                MustChangePassword = false,
+            };
+            db.Users.Add(user);
+            log.LogInformation("Provisioning LDAP user {Username} (admin={IsAdmin}).", user.Username, user.IsAdmin);
+        }
+        else
+        {
+            user.DisplayName = identity.DisplayName;
+            user.IsAdmin = identity.IsAdmin;
+            user.AuthSource = AuthSourceLdap;
+            user.PasswordHash = "";
+        }
+
+        // Map AD groups to local departments using the configured table.
+        var deptNames = new List<string>();
+        foreach (var (group, dept) in settings.Ldap.GroupToDepartment)
+        {
+            if (LdapIdentityProvider.MatchesGroup(identity.Groups, group))
+                deptNames.Add(dept);
+        }
+        if (user.IsAdmin) user.Departments.Clear();
+        else await SyncDepartmentsAsync(user, deptNames, ct);
+
+        return user;
     }
 
     public async Task<(LoginResponse? Response, string? ProblemCode)> RefreshAsync(string refreshTokenPlain, CancellationToken ct)
@@ -87,6 +165,8 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
     {
         var user = await db.Users.FindAsync(new object[] { userId }, ct);
         if (user is null) return ProblemCodes.NotFound;
+        if (string.Equals(user.AuthSource, AuthSourceLdap, StringComparison.OrdinalIgnoreCase))
+            return ProblemCodes.Forbidden; // LDAP users change their password in AD, not here.
         if (!Pbkdf2Hasher.Verify(req.CurrentPassword, user.PasswordHash))
             return ProblemCodes.InvalidCredentials;
         if (string.IsNullOrWhiteSpace(req.NewPassword) || req.NewPassword.Length < 8)
@@ -190,6 +270,8 @@ public sealed class UserService(AppDbContext db, JwtIssuer jwt, ILogger<UserServ
             return ProblemCodes.ValidationFailed;
         var user = await db.Users.FindAsync(new object[] { userId }, ct);
         if (user is null) return ProblemCodes.NotFound;
+        if (string.Equals(user.AuthSource, AuthSourceLdap, StringComparison.OrdinalIgnoreCase))
+            return ProblemCodes.Forbidden; // LDAP-backed accounts have no local password to reset.
         user.PasswordHash = Pbkdf2Hasher.Hash(newPassword);
         user.MustChangePassword = true;
         await db.SaveChangesAsync(ct);

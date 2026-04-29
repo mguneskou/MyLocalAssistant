@@ -5,7 +5,9 @@ public sealed class User
     public Guid Id { get; set; } = Guid.NewGuid();
     public string Username { get; set; } = "";
     public string DisplayName { get; set; } = "";
-    public string PasswordHash { get; set; } = ""; // PBKDF2 string per Pbkdf2Hasher format
+    public string PasswordHash { get; set; } = ""; // PBKDF2 string per Pbkdf2Hasher format. Empty when AuthSource = Ldap.
+    /// <summary>"local" (default) or "ldap". Determines which IIdentityProvider authenticates the user.</summary>
+    public string AuthSource { get; set; } = "local";
     public bool IsAdmin { get; set; }
     public bool MustChangePassword { get; set; }
     public bool IsDisabled { get; set; }
