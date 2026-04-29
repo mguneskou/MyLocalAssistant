@@ -294,6 +294,65 @@ public sealed class ServerClient : IDisposable
         return await resp.Content.ReadFromJsonAsync<List<RoleDto>>(s_json, ct) ?? new();
     }
 
+    public async Task<AuditPageDto> ListAuditAsync(
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        string? action = null,
+        string? user = null,
+        bool? success = null,
+        int skip = 0,
+        int take = 100,
+        CancellationToken ct = default)
+    {
+        var qs = BuildAuditQuery(from, to, action, user, success);
+        if (qs.Length > 0) qs += "&"; else qs = "?";
+        qs += $"skip={skip}&take={take}";
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/audit/" + qs, null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<AuditPageDto>(s_json, ct)
+            ?? new AuditPageDto(new(), 0, skip, take);
+    }
+
+    public async Task<List<string>> ListAuditActionsAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/audit/actions", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<string>>(s_json, ct) ?? new();
+    }
+
+    public async Task DownloadAuditCsvAsync(
+        string targetPath,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null,
+        string? action = null,
+        string? user = null,
+        bool? success = null,
+        CancellationToken ct = default)
+    {
+        var qs = BuildAuditQuery(from, to, action, user, success);
+        await EnsureFreshTokenAsync(ct);
+        using var req = new HttpRequestMessage(HttpMethod.Get, "api/admin/audit/export.csv" + qs);
+        if (!string.IsNullOrEmpty(_accessToken))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        await EnsureSuccessAsync(resp, ct);
+        await using var src = await resp.Content.ReadAsStreamAsync(ct);
+        await using var dst = File.Create(targetPath);
+        await src.CopyToAsync(dst, ct);
+    }
+
+    private static string BuildAuditQuery(
+        DateTimeOffset? from, DateTimeOffset? to, string? action, string? user, bool? success)
+    {
+        var parts = new List<string>();
+        if (from is { } f) parts.Add("from=" + Uri.EscapeDataString(f.ToString("o")));
+        if (to is { } t) parts.Add("to=" + Uri.EscapeDataString(t.ToString("o")));
+        if (!string.IsNullOrWhiteSpace(action)) parts.Add("action=" + Uri.EscapeDataString(action));
+        if (!string.IsNullOrWhiteSpace(user)) parts.Add("user=" + Uri.EscapeDataString(user));
+        if (success is bool s) parts.Add("success=" + (s ? "true" : "false"));
+        return parts.Count == 0 ? "" : "?" + string.Join("&", parts);
+    }
+
     private void SetTokens(LoginResponse login)
     {
         _accessToken = login.AccessToken;

@@ -14,6 +14,8 @@ public sealed class ServerSettings
     public int RefreshTokenDays { get; set; } = 14;
     /// <summary>Days to keep message bodies. Metadata is kept indefinitely.</summary>
     public int MessageBodyRetentionDays { get; set; } = 90;
+    /// <summary>Days to keep audit entries. Older rows are deleted entirely.</summary>
+    public int AuditRetentionDays { get; set; } = 365;
     /// <summary>Catalog id of the LLM used for all agents in v2.0 (single-model mode).</summary>
     public string? DefaultModelId { get; set; }
     /// <summary>Catalog id of the embedding model used for RAG. Loaded alongside the chat model.</summary>

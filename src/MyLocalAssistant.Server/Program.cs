@@ -68,6 +68,7 @@ try
     builder.Services.AddScoped<ChatService>();
     builder.Services.AddHostedService<ModelBootstrapService>();
     builder.Services.AddHostedService<EmbeddingBootstrapService>();
+    builder.Services.AddHostedService<MyLocalAssistant.Server.Hosting.RetentionService>();
 
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(o =>
@@ -118,6 +119,7 @@ try
     app.MapChatEndpoints();
     app.MapConversationEndpoints();
     app.MapRoleEndpoints();
+    app.MapAuditEndpoints();
 
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
         settings.ListenUrl, ServerPaths.AppDirectory);

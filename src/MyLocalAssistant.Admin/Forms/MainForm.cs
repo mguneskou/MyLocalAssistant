@@ -50,7 +50,10 @@ internal sealed class MainForm : Form
         ragPage.Controls.Add(new CollectionsTab(_client));
         _tabs.TabPages.Add(ragPage);
 
-        _tabs.TabPages.Add(MakePlaceholder("Audit", "Search audit log — Phase 4."));
+        var auditPage = new TabPage("Audit") { UseVisualStyleBackColor = true };
+        auditPage.Controls.Add(new AuditTab(_client));
+        _tabs.TabPages.Add(auditPage);
+
         _tabs.TabPages.Add(MakePlaceholder("Server Settings", "Listen URL, retention, JWT, signing key — Phase 4."));
 
         var status = new StatusStrip();
