@@ -7,11 +7,15 @@ public sealed record AgentDto(
     string Category,
     bool IsGeneric,
     bool Enabled,
-    string? DefaultModelId);
+    string? DefaultModelId,
+    bool RagEnabled,
+    IReadOnlyList<Guid> RagCollectionIds);
 
 public sealed record AgentUpdateRequest(
     bool Enabled,
-    string? DefaultModelId);
+    string? DefaultModelId,
+    bool RagEnabled,
+    IReadOnlyList<Guid>? RagCollectionIds);
 
 public sealed record ChatTurnRequest(
     string AgentId,

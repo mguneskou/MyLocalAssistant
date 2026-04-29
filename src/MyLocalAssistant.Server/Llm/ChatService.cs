@@ -1,8 +1,10 @@
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Text;
 using Microsoft.EntityFrameworkCore;
 using MyLocalAssistant.Core.Inference;
 using MyLocalAssistant.Server.Persistence;
+using MyLocalAssistant.Server.Rag;
 
 namespace MyLocalAssistant.Server.Llm;
 
@@ -11,6 +13,7 @@ public sealed class ChatService(
     InferenceQueue queue,
     LLamaSharpProvider provider,
     ModelManager models,
+    RagService rag,
     ILogger<ChatService> log)
 {
     public sealed record VisibilityCheck(bool Allowed, string? Reason, Agent? Agent);
@@ -42,8 +45,9 @@ public sealed class ChatService(
         if (models.Status != ModelStatus.Loaded)
             throw new InvalidOperationException($"No model is loaded (status={models.Status}). Activate one in the Admin UI.");
 
-        var prompt = BuildPrompt(agent.SystemPrompt, userMessage);
-        log.LogDebug("Chat: agent={AgentId}, promptChars={Chars}", agent.Id, prompt.Length);
+        var contextChunks = await rag.RetrieveAsync(agent, userMessage, k: 4, ct);
+        var prompt = BuildPrompt(agent.SystemPrompt, userMessage, contextChunks);
+        log.LogDebug("Chat: agent={AgentId}, ragChunks={Chunks}, promptChars={Chars}", agent.Id, contextChunks.Count, prompt.Length);
 
         using var lease = await queue.AcquireAsync(ct);
         await foreach (var token in provider.GenerateAsync(prompt, maxTokens, ct).ConfigureAwait(false))
@@ -52,10 +56,22 @@ public sealed class ChatService(
         }
     }
 
-    private static string BuildPrompt(string systemPrompt, string userMessage)
+    private static string BuildPrompt(string systemPrompt, string userMessage, IReadOnlyList<RagContextChunk> chunks)
     {
-        // Minimal, model-agnostic plain-text framing. Chat-template support comes later
-        // (LLamaSharp can apply per-model templates once we wire it through ModelManager).
-        return $"{systemPrompt.Trim()}\n\nUser: {userMessage.Trim()}\nAssistant:";
+        var sb = new StringBuilder();
+        sb.Append(systemPrompt.Trim());
+        if (chunks.Count > 0)
+        {
+            sb.Append("\n\nUse the following context to answer the user. Cite sources inline as [source:page] when relevant. If the context does not contain the answer, say so.\n\nContext:\n");
+            for (var i = 0; i < chunks.Count; i++)
+            {
+                var c = chunks[i];
+                sb.Append($"[{i + 1}] ({c.Source}:p{c.Page})\n");
+                sb.Append(c.Text.Trim());
+                sb.Append("\n\n");
+            }
+        }
+        sb.Append("User: ").Append(userMessage.Trim()).Append("\nAssistant:");
+        return sb.ToString();
     }
 }

@@ -110,7 +110,8 @@ internal sealed class AgentsTab : UserControl
         try
         {
             var defaultModelId = row.DefaultModelDisplay == NoModelOverride ? null : row.DefaultModelDisplay;
-            var updated = await _client.UpdateAgentAsync(row.Id, new AgentUpdateRequest(row.Enabled, defaultModelId));
+            var updated = await _client.UpdateAgentAsync(row.Id,
+                new AgentUpdateRequest(row.Enabled, defaultModelId, row.RagEnabled, row.RagCollectionIds));
             _statusLabel.Text = $"Saved {updated.Name} (enabled={updated.Enabled}, model={updated.DefaultModelId ?? "—"}).";
         }
         catch (Exception ex)
@@ -142,6 +143,8 @@ internal sealed class AgentsTab : UserControl
         public bool IsGeneric { get; set; }
         public bool Enabled { get; set; }
         public string DefaultModelDisplay { get; set; } = NoModelOverride;
+        public bool RagEnabled { get; set; }
+        public IReadOnlyList<Guid> RagCollectionIds { get; set; } = Array.Empty<Guid>();
 
         public static AgentRow From(AgentDto a, IReadOnlyList<string> modelChoices)
         {
@@ -157,6 +160,8 @@ internal sealed class AgentsTab : UserControl
                 IsGeneric = a.IsGeneric,
                 Enabled = a.Enabled,
                 DefaultModelDisplay = display,
+                RagEnabled = a.RagEnabled,
+                RagCollectionIds = a.RagCollectionIds,
             };
         }
     }
