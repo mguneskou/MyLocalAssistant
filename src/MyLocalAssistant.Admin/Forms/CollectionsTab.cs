@@ -12,6 +12,7 @@ internal sealed class CollectionsTab : UserControl
     private readonly BindingList<RagCollectionDto> _collections = new();
     private readonly ToolStripButton _newCollBtn;
     private readonly ToolStripButton _deleteCollBtn;
+    private readonly ToolStripButton _permissionsBtn;
     private readonly ToolStripButton _refreshBtn;
 
     private readonly DataGridView _docGrid;
@@ -32,16 +33,19 @@ internal sealed class CollectionsTab : UserControl
         var collToolbar = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top };
         _newCollBtn = new ToolStripButton("New collection…");
         _deleteCollBtn = new ToolStripButton("Delete collection") { Enabled = false };
+        _permissionsBtn = new ToolStripButton("Permissions…") { Enabled = false };
         _refreshBtn = new ToolStripButton("Refresh");
-        collToolbar.Items.AddRange(new ToolStripItem[] { _newCollBtn, _deleteCollBtn, new ToolStripSeparator(), _refreshBtn });
+        collToolbar.Items.AddRange(new ToolStripItem[] { _newCollBtn, _deleteCollBtn, _permissionsBtn, new ToolStripSeparator(), _refreshBtn });
 
         _collGrid = MakeGrid();
         _collGrid.Columns.AddRange(new DataGridViewColumn[]
         {
-            new DataGridViewTextBoxColumn { HeaderText = "Name", DataPropertyName = nameof(RagCollectionDto.Name), Width = 180 },
+            new DataGridViewTextBoxColumn { HeaderText = "Name", DataPropertyName = nameof(RagCollectionDto.Name), Width = 160 },
+            new DataGridViewTextBoxColumn { HeaderText = "Access", DataPropertyName = nameof(RagCollectionDto.AccessMode), Width = 80 },
+            new DataGridViewTextBoxColumn { HeaderText = "Grants", DataPropertyName = nameof(RagCollectionDto.GrantCount), Width = 60 },
             new DataGridViewTextBoxColumn { HeaderText = "Docs", DataPropertyName = nameof(RagCollectionDto.DocumentCount), Width = 60 },
             new DataGridViewTextBoxColumn { HeaderText = "Description", DataPropertyName = nameof(RagCollectionDto.Description), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill },
-            new DataGridViewTextBoxColumn { HeaderText = "Created", DataPropertyName = nameof(RagCollectionDto.CreatedAt), Width = 150 },
+            new DataGridViewTextBoxColumn { HeaderText = "Created", DataPropertyName = nameof(RagCollectionDto.CreatedAt), Width = 140 },
         });
         _collGrid.DataSource = _collections;
 
@@ -93,6 +97,7 @@ internal sealed class CollectionsTab : UserControl
         _refreshBtn.Click += async (_, _) => await ReloadCollectionsAsync();
         _newCollBtn.Click += async (_, _) => await OnNewCollectionAsync();
         _deleteCollBtn.Click += async (_, _) => await OnDeleteCollectionAsync();
+        _permissionsBtn.Click += async (_, _) => await OnPermissionsAsync();
         _uploadBtn.Click += async (_, _) => await OnUploadAsync();
         _deleteDocBtn.Click += async (_, _) => await OnDeleteDocumentAsync();
 
@@ -141,6 +146,7 @@ internal sealed class CollectionsTab : UserControl
     {
         var sel = SelectedCollection;
         _deleteCollBtn.Enabled = sel is not null;
+        _permissionsBtn.Enabled = sel is not null;
         _uploadBtn.Enabled = sel is not null;
         _deleteDocBtn.Enabled = false;
         _documents.Clear();
@@ -167,9 +173,29 @@ internal sealed class CollectionsTab : UserControl
         {
             var c = await _client.CreateCollectionAsync(dlg.CollectionName, dlg.Description);
             _collections.Add(c);
-            _statusLabel.Text = $"Created '{c.Name}'.";
+            _statusLabel.Text = $"Created '{c.Name}' (Restricted; add Permissions to grant access).";
         }
         catch (Exception ex) { ShowError("Create failed", ex); }
+        finally { SetBusy(false); }
+    }
+
+    private async Task OnPermissionsAsync()
+    {
+        var sel = SelectedCollection;
+        if (sel is null) return;
+        SetBusy(true, "Loading permissions…");
+        try
+        {
+            var grantsTask = _client.ListGrantsAsync(sel.Id);
+            var usersTask = _client.ListUsersAsync();
+            var deptsTask = _client.ListDepartmentsAsync();
+            var rolesTask = _client.ListRolesAsync();
+            await Task.WhenAll(grantsTask, usersTask, deptsTask, rolesTask);
+            using var dlg = new CollectionPermissionsForm(_client, sel, grantsTask.Result, usersTask.Result, deptsTask.Result, rolesTask.Result);
+            dlg.ShowDialog(this);
+            await ReloadCollectionsAsync();
+        }
+        catch (Exception ex) { ShowError("Permissions failed", ex); }
         finally { SetBusy(false); }
     }
 

@@ -257,6 +257,43 @@ public sealed class ServerClient : IDisposable
         await EnsureSuccessAsync(resp, ct);
     }
 
+    public async Task<RagCollectionDto> UpdateCollectionAsync(Guid id, UpdateCollectionRequest req, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Patch, $"api/admin/rag/collections/{id}", req, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<RagCollectionDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty update-collection response.");
+    }
+
+    public async Task<List<CollectionGrantDto>> ListGrantsAsync(Guid collectionId, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, $"api/admin/rag/collections/{collectionId}/grants", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<CollectionGrantDto>>(s_json, ct) ?? new();
+    }
+
+    public async Task<CollectionGrantDto> AddGrantAsync(Guid collectionId, string principalKind, Guid principalId, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, $"api/admin/rag/collections/{collectionId}/grants",
+            new AddCollectionGrantRequest(principalKind, principalId), ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<CollectionGrantDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty add-grant response.");
+    }
+
+    public async Task RemoveGrantAsync(Guid collectionId, long grantId, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Delete, $"api/admin/rag/collections/{collectionId}/grants/{grantId}", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
+    public async Task<List<RoleDto>> ListRolesAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/roles/", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<RoleDto>>(s_json, ct) ?? new();
+    }
+
     private void SetTokens(LoginResponse login)
     {
         _accessToken = login.AccessToken;
