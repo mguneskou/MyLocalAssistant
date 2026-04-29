@@ -11,7 +11,6 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<UserDepartment> UserDepartments => Set<UserDepartment>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<Agent> Agents => Set<Agent>();
-    public DbSet<AgentAclRule> AgentAclRules => Set<AgentAclRule>();
     public DbSet<Conversation> Conversations => Set<Conversation>();
     public DbSet<Message> Messages => Set<Message>();
     public DbSet<AuditEntry> AuditEntries => Set<AuditEntry>();
@@ -67,12 +66,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             e.Property(x => x.Name).HasMaxLength(128).IsRequired();
             e.Property(x => x.Category).HasMaxLength(32);
             e.Property(x => x.SystemPrompt).HasMaxLength(8192);
-        });
-
-        b.Entity<AgentAclRule>(e =>
-        {
-            e.HasOne(x => x.Agent).WithMany(x => x.AclRules).HasForeignKey(x => x.AgentId);
-            e.HasIndex(x => new { x.AgentId, x.SubjectKind, x.SubjectValue }).IsUnique();
+            e.HasIndex(x => x.Name).IsUnique();
         });
 
         b.Entity<Conversation>(e =>

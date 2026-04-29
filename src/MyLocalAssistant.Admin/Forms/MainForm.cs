@@ -38,7 +38,9 @@ internal sealed class MainForm : Form
         deptPage.Controls.Add(new DepartmentsTab(_client));
         _tabs.TabPages.Add(deptPage);
 
-        _tabs.TabPages.Add(MakePlaceholder("Agents", "Agent registry, prompts, and ACL — Phase 4."));
+        var agentsPage = new TabPage("Agents") { UseVisualStyleBackColor = true };
+        agentsPage.Controls.Add(new AgentsTab(_client));
+        _tabs.TabPages.Add(agentsPage);
 
         var modelsPage = new TabPage("Models") { UseVisualStyleBackColor = true };
         modelsPage.Controls.Add(new ModelsTab(_client));

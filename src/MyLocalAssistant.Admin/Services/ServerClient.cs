@@ -159,6 +159,23 @@ public sealed class ServerClient : IDisposable
         await EnsureSuccessAsync(resp, ct);
     }
 
+    // ---------- Admin: agents ----------
+
+    public async Task<List<AgentDto>> ListAgentsAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/agents/", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<AgentDto>>(s_json, ct) ?? new();
+    }
+
+    public async Task<AgentDto> UpdateAgentAsync(string id, AgentUpdateRequest req, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Patch, $"api/admin/agents/{id}", req, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<AgentDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty update-agent response.");
+    }
+
     private void SetTokens(LoginResponse login)
     {
         _accessToken = login.AccessToken;

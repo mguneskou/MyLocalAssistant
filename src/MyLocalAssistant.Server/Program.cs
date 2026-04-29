@@ -49,6 +49,7 @@ try
         o.UseSqlite($"Data Source={ServerPaths.DatabasePath}"));
     builder.Services.AddScoped<UserService>();
     builder.Services.AddScoped<DepartmentService>();
+    builder.Services.AddScoped<AgentService>();
 
     // LLM stack (Phase 3): single provider instance, model lifecycle, downloads.
     builder.Services.AddSingleton(sp => ModelCatalogService.LoadEmbedded());
@@ -89,6 +90,8 @@ try
         await userSvc.EnsureAdminBootstrapAsync();
         var deptSvc = scope.ServiceProvider.GetRequiredService<DepartmentService>();
         await deptSvc.SeedAsync();
+        var agentSvc = scope.ServiceProvider.GetRequiredService<AgentService>();
+        await agentSvc.SeedAsync();
     }
 
     app.UseSerilogRequestLogging();
@@ -99,6 +102,7 @@ try
     app.MapAuthEndpoints();
     app.MapUserAdminEndpoints();
     app.MapDepartmentEndpoints();
+    app.MapAgentEndpoints();
     app.MapModelEndpoints();
 
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
@@ -122,10 +126,19 @@ static async Task<bool> IsLegacySchemaAsync(AppDbContext db)
     {
         await using var conn = db.Database.GetDbConnection();
         await conn.OpenAsync();
-        await using var cmd = conn.CreateCommand();
-        cmd.CommandText = "SELECT 1 FROM pragma_table_info('Users') WHERE name = 'Department' LIMIT 1";
-        var hasOld = await cmd.ExecuteScalarAsync() is not null;
-        return hasOld;
+        // Legacy: pre-multi-dept User.Department column.
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT 1 FROM pragma_table_info('Users') WHERE name = 'Department' LIMIT 1";
+            if (await cmd.ExecuteScalarAsync() is not null) return true;
+        }
+        // Legacy: pre-Phase-4 AgentAclRules table (replaced by Agent.IsGeneric + dept-name match).
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT 1 FROM sqlite_master WHERE type='table' AND name='AgentAclRules' LIMIT 1";
+            if (await cmd.ExecuteScalarAsync() is not null) return true;
+        }
+        return false;
     }
     catch
     {

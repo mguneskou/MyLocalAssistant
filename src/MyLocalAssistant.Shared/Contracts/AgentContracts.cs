@@ -5,7 +5,13 @@ public sealed record AgentDto(
     string Name,
     string Description,
     string Category,
-    bool Enabled);
+    bool IsGeneric,
+    bool Enabled,
+    string? DefaultModelId);
+
+public sealed record AgentUpdateRequest(
+    bool Enabled,
+    string? DefaultModelId);
 
 public sealed record ChatTurnRequest(
     string AgentId,

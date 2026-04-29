@@ -60,33 +60,20 @@ public sealed class RefreshToken
 
 public sealed class Agent
 {
-    public string Id { get; set; } = ""; // stable string id, e.g. "general-assistant"
+    /// <summary>Stable string id, e.g. "general-assistant".</summary>
+    public string Id { get; set; } = "";
+    /// <summary>Display name. For dept-bound agents, MUST equal the Department.Name to be visible to that dept.</summary>
     public string Name { get; set; } = "";
     public string Description { get; set; } = "";
     public string Category { get; set; } = ""; // Universal/Engineering/Business/Restricted
     public string SystemPrompt { get; set; } = "";
+    /// <summary>Visible to all signed-in users when true; otherwise visible only to users in a department of the same Name (admins always see all).</summary>
+    public bool IsGeneric { get; set; }
+    /// <summary>Local-admin kill switch.</summary>
     public bool Enabled { get; set; }
-    /// <summary>Future: per-agent model override. v2.0 ignores this; falls back to ServerSettings.DefaultModelId.</summary>
+    /// <summary>Optional per-agent model override; falls back to ModelManager active model when null.</summary>
     public string? DefaultModelId { get; set; }
     public bool RagEnabled { get; set; }
-    public List<AgentAclRule> AclRules { get; set; } = new();
-}
-
-public enum AclSubjectKind
-{
-    User = 1,
-    Role = 2,
-    Department = 3,
-}
-
-public sealed class AgentAclRule
-{
-    public Guid Id { get; set; } = Guid.NewGuid();
-    public string AgentId { get; set; } = "";
-    public Agent Agent { get; set; } = null!;
-    public AclSubjectKind SubjectKind { get; set; }
-    /// <summary>For User: User.Id as string. For Role/Department: the name.</summary>
-    public string SubjectValue { get; set; } = "";
 }
 
 public sealed class Conversation
