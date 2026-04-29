@@ -10,6 +10,7 @@ using MyLocalAssistant.Server.Auth;
 using MyLocalAssistant.Server.Configuration;
 using MyLocalAssistant.Server.Llm;
 using MyLocalAssistant.Server.Persistence;
+using MyLocalAssistant.Server.Rag;
 using Serilog;
 
 // Keep JWT claim names as-is (don't rewrite "sub" -> ClaimTypes.NameIdentifier).
@@ -60,6 +61,8 @@ try
     builder.Services.AddSingleton<ModelManager>();
     builder.Services.AddSingleton<InferenceQueue>();
     builder.Services.AddSingleton<AuditWriter>();
+    builder.Services.AddSingleton<IVectorStore, MyLocalAssistant.Server.Rag.LanceDbVectorStore>();
+    builder.Services.AddScoped<MyLocalAssistant.Server.Rag.IngestionService>();
     builder.Services.AddScoped<ChatService>();
     builder.Services.AddHostedService<ModelBootstrapService>();
     builder.Services.AddHostedService<EmbeddingBootstrapService>();
@@ -109,6 +112,7 @@ try
     app.MapDepartmentEndpoints();
     app.MapAgentEndpoints();
     app.MapModelEndpoints();
+    app.MapRagEndpoints();
     app.MapChatEndpoints();
 
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
