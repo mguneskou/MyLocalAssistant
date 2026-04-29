@@ -153,6 +153,20 @@ public sealed class ServerClient : IDisposable
         await EnsureSuccessAsync(resp, ct);
     }
 
+    public async Task ActivateEmbeddingAsync(string modelId, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, $"api/admin/models/embedding/{modelId}/activate", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
+    public async Task<ActiveEmbeddingStatusDto> GetEmbeddingStatusAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/models/embedding/status", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<ActiveEmbeddingStatusDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty embedding-status response.");
+    }
+
     public async Task DeleteModelAsync(string modelId, CancellationToken ct = default)
     {
         var resp = await SendAuthorizedAsync(HttpMethod.Delete, $"api/admin/models/{modelId}", null, ct);

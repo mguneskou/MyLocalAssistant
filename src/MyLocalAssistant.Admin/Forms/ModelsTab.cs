@@ -14,6 +14,7 @@ internal sealed class ModelsTab : UserControl
     private readonly ToolStripButton _activateBtn;
     private readonly ToolStripButton _deleteBtn;
     private readonly ToolStripLabel _statusLbl;
+    private readonly ToolStripLabel _embeddingLbl;
     private readonly DataGridView _grid;
     private readonly StatusStrip _status;
     private readonly ToolStripStatusLabel _statusLabel;
@@ -31,11 +32,12 @@ internal sealed class ModelsTab : UserControl
         _cancelBtn = new ToolStripButton("Cancel download") { Enabled = false };
         _activateBtn = new ToolStripButton("Activate") { Enabled = false };
         _deleteBtn = new ToolStripButton("Delete files") { Enabled = false };
-        _statusLbl = new ToolStripLabel("  Active: (none)") { ForeColor = SystemColors.GrayText };
+        _statusLbl = new ToolStripLabel("  Chat: (none)") { ForeColor = SystemColors.GrayText };
+        _embeddingLbl = new ToolStripLabel("  Embedding: (none)") { ForeColor = SystemColors.GrayText };
         _toolbar.Items.AddRange(new ToolStripItem[]
         {
             _refreshBtn, new ToolStripSeparator(), _downloadBtn, _cancelBtn, _activateBtn, _deleteBtn,
-            new ToolStripSeparator(), _statusLbl,
+            new ToolStripSeparator(), _statusLbl, _embeddingLbl,
         });
 
         _grid = new DataGridView
@@ -94,8 +96,8 @@ internal sealed class ModelsTab : UserControl
         var dlActive = sel?.IsDownloading == true;
         _downloadBtn.Enabled = sel is { IsInstalled: false, IsDownloading: false };
         _cancelBtn.Enabled = dlActive;
-        _activateBtn.Enabled = sel is { IsInstalled: true, IsActive: false };
-        _deleteBtn.Enabled = sel is { IsInstalled: true, IsActive: false, IsDownloading: false };
+        _activateBtn.Enabled = sel is { IsInstalled: true, IsActive: false, IsActiveEmbedding: false };
+        _deleteBtn.Enabled = sel is { IsInstalled: true, IsActive: false, IsActiveEmbedding: false, IsDownloading: false };
     }
 
     private async Task ReloadAsync()
@@ -104,11 +106,15 @@ internal sealed class ModelsTab : UserControl
         {
             var models = await _client.ListModelsAsync();
             var status = await _client.GetModelStatusAsync();
+            var emb = await _client.GetEmbeddingStatusAsync();
             _rows.Clear();
             foreach (var m in models) _rows.Add(ModelRow.From(m));
-            _statusLbl.Text = $"  Active: {status.ActiveModelId ?? "(none)"} — {status.Status}" +
+            _statusLbl.Text = $"  Chat: {status.ActiveModelId ?? "(none)"} — {status.Status}" +
                 (string.IsNullOrEmpty(status.LastError) ? "" : $" — {status.LastError}") +
                 $" — {status.Backend}";
+            _embeddingLbl.Text = $"  Embedding: {emb.ActiveModelId ?? "(none)"} — {emb.Status}" +
+                (emb.EmbeddingDimension > 0 ? $" (dim={emb.EmbeddingDimension})" : "") +
+                (string.IsNullOrEmpty(emb.LastError) ? "" : $" — {emb.LastError}");
             _statusLabel.Text = $"{models.Count} model(s).";
         }
         catch (Exception ex) { ShowError("Load failed", ex); }
@@ -125,15 +131,19 @@ internal sealed class ModelsTab : UserControl
         {
             var models = await _client.ListModelsAsync();
             var status = await _client.GetModelStatusAsync();
+            var emb = await _client.GetEmbeddingStatusAsync();
             // In-place update to preserve selection.
             for (int i = 0; i < _rows.Count; i++)
             {
                 var fresh = models.FirstOrDefault(m => m.Id == _rows[i].Id);
                 if (fresh is not null) _rows[i] = ModelRow.From(fresh);
             }
-            _statusLbl.Text = $"  Active: {status.ActiveModelId ?? "(none)"} — {status.Status}" +
+            _statusLbl.Text = $"  Chat: {status.ActiveModelId ?? "(none)"} — {status.Status}" +
                 (string.IsNullOrEmpty(status.LastError) ? "" : $" — {status.LastError}") +
                 $" — {status.Backend}";
+            _embeddingLbl.Text = $"  Embedding: {emb.ActiveModelId ?? "(none)"} — {emb.Status}" +
+                (emb.EmbeddingDimension > 0 ? $" (dim={emb.EmbeddingDimension})" : "") +
+                (string.IsNullOrEmpty(emb.LastError) ? "" : $" — {emb.LastError}");
         }
         catch { /* swallow during polling */ }
     }
@@ -163,7 +173,15 @@ internal sealed class ModelsTab : UserControl
     private async Task OnActivateAsync()
     {
         var sel = Selected; if (sel is null) return;
-        try { await _client.ActivateModelAsync(sel.Id); _statusLabel.Text = $"Activating {sel.Id}…"; await ReloadAsync(); }
+        try
+        {
+            if (string.Equals(sel.Tier, "Embedding", StringComparison.OrdinalIgnoreCase))
+                await _client.ActivateEmbeddingAsync(sel.Id);
+            else
+                await _client.ActivateModelAsync(sel.Id);
+            _statusLabel.Text = $"Activating {sel.Id}…";
+            await ReloadAsync();
+        }
         catch (Exception ex) { ShowError("Activate failed", ex); }
     }
 
@@ -205,6 +223,7 @@ internal sealed class ModelsTab : UserControl
         public string HostName { get; set; } = "";
         public bool IsInstalled { get; set; }
         public bool IsActive { get; set; }
+        public bool IsActiveEmbedding { get; set; }
         public bool IsDownloading { get; set; }
         public string StatusText { get; set; } = "";
 
@@ -222,6 +241,7 @@ internal sealed class ModelsTab : UserControl
                 License = m.License,
                 IsInstalled = m.IsInstalled,
                 IsActive = m.IsActive,
+                IsActiveEmbedding = m.IsActiveEmbedding,
             };
             // Best-effort host name from any HuggingFace URL pattern.
             row.HostName = m.LicenseUrl.StartsWith("http") ? new Uri(m.LicenseUrl).Host : "huggingface.co";
@@ -248,7 +268,9 @@ internal sealed class ModelsTab : UserControl
                     row.StatusText = d.Stage;
             }
             else if (m.IsActive)
-                row.StatusText = "Installed (active)";
+                row.StatusText = "Installed (active chat)";
+            else if (m.IsActiveEmbedding)
+                row.StatusText = "Installed (active embedding)";
             else if (m.IsInstalled)
                 row.StatusText = "Installed";
             else
