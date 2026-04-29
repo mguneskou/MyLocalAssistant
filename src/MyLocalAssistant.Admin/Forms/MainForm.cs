@@ -27,7 +27,6 @@ internal sealed class MainForm : Form
         fileMenu.DropDownItems.AddRange(new ToolStripItem[] { changePwd, new ToolStripSeparator(), signOut, exit });
         menu.Items.Add(fileMenu);
         MainMenuStrip = menu;
-        Controls.Add(menu);
 
         _tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
 
@@ -48,14 +47,18 @@ internal sealed class MainForm : Form
         _tabs.TabPages.Add(MakePlaceholder("RAG Collections", "Upload documents to collections — Phase 5."));
         _tabs.TabPages.Add(MakePlaceholder("Audit", "Search audit log — Phase 4."));
         _tabs.TabPages.Add(MakePlaceholder("Server Settings", "Listen URL, retention, JWT, signing key — Phase 4."));
-        Controls.Add(_tabs);
 
         var status = new StatusStrip();
         _statusUser = new ToolStripStatusLabel($"Signed in as {_client.CurrentUser?.Username}");
         _statusServer = new ToolStripStatusLabel($"Server: {_client.BaseUrl}") { Spring = true, TextAlign = ContentAlignment.MiddleRight };
         status.Items.Add(_statusUser);
         status.Items.Add(_statusServer);
+
+        // Add Fill control FIRST so it sits at the bottom of the z-order; Top/Bottom-docked
+        // siblings (menu, status) then claim their edges from the remaining client area.
+        Controls.Add(_tabs);
         Controls.Add(status);
+        Controls.Add(menu);
     }
 
     private static TabPage MakePlaceholder(string title, string body)
