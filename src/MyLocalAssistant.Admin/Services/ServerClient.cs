@@ -118,30 +118,6 @@ public sealed class ServerClient : IDisposable
         return await resp.Content.ReadFromJsonAsync<List<DepartmentDto>>(s_json, ct) ?? new();
     }
 
-    public async Task<DepartmentDto> CreateDepartmentAsync(string name, CancellationToken ct = default)
-    {
-        var resp = await SendAuthorizedAsync(HttpMethod.Post, "api/admin/departments/",
-            new CreateDepartmentRequest(name), ct);
-        await EnsureSuccessAsync(resp, ct);
-        return await resp.Content.ReadFromJsonAsync<DepartmentDto>(s_json, ct)
-            ?? throw new InvalidOperationException("Empty create-department response.");
-    }
-
-    public async Task<DepartmentDto> RenameDepartmentAsync(Guid id, string newName, CancellationToken ct = default)
-    {
-        var resp = await SendAuthorizedAsync(HttpMethod.Patch, $"api/admin/departments/{id}",
-            new RenameDepartmentRequest(newName), ct);
-        await EnsureSuccessAsync(resp, ct);
-        return await resp.Content.ReadFromJsonAsync<DepartmentDto>(s_json, ct)
-            ?? throw new InvalidOperationException("Empty rename-department response.");
-    }
-
-    public async Task DeleteDepartmentAsync(Guid id, CancellationToken ct = default)
-    {
-        var resp = await SendAuthorizedAsync(HttpMethod.Delete, $"api/admin/departments/{id}", null, ct);
-        await EnsureSuccessAsync(resp, ct);
-    }
-
     private void SetTokens(LoginResponse login)
     {
         _accessToken = login.AccessToken;

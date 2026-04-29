@@ -6,6 +6,35 @@ namespace MyLocalAssistant.Server.Auth;
 
 public sealed class DepartmentService(AppDbContext db, ILogger<DepartmentService> log)
 {
+    /// <summary>
+    /// The fixed list of departments shipped with the product. Mirrors the agent
+    /// catalog (each agent maps 1:1 to a department of the same name). Admins
+    /// cannot add/rename/delete departments — they are seeded on startup.
+    /// </summary>
+    public static readonly IReadOnlyList<string> SeedNames = new[]
+    {
+        // Universal
+        "General Assistant",
+        "Documentation",
+        "Translator",
+        "Meeting Notes",
+        // Engineering & operations
+        "R&D",
+        "NPI",
+        "Process / ME",
+        "Quality / NCR / CAPA",
+        "Maintenance / TPM",
+        "EHS",
+        // Business
+        "Supply Chain / Procurement",
+        "Sales / CRM",
+        "Customer Support",
+        // Restricted
+        "HR",
+        "Finance",
+        "IT / Code Helper",
+    };
+
     public async Task<List<DepartmentDto>> ListAsync(CancellationToken ct)
     {
         return await db.Departments
@@ -14,41 +43,25 @@ public sealed class DepartmentService(AppDbContext db, ILogger<DepartmentService
             .ToListAsync(ct);
     }
 
-    public async Task<(DepartmentDto? Dto, string? Code)> CreateAsync(string name, CancellationToken ct)
+    /// <summary>
+    /// Idempotent: inserts any seed departments missing from the database. Never
+    /// renames or removes existing rows.
+    /// </summary>
+    public async Task SeedAsync(CancellationToken ct = default)
     {
-        if (string.IsNullOrWhiteSpace(name)) return (null, ProblemCodes.ValidationFailed);
-        var trimmed = name.Trim();
-        if (await db.Departments.AnyAsync(d => d.Name == trimmed, ct))
-            return (null, ProblemCodes.Conflict);
-
-        var d = new Department { Name = trimmed };
-        db.Departments.Add(d);
-        await db.SaveChangesAsync(ct);
-        log.LogInformation("Created department {Name}", d.Name);
-        return (new DepartmentDto(d.Id, d.Name, 0), null);
-    }
-
-    public async Task<(DepartmentDto? Dto, string? Code)> RenameAsync(Guid id, string newName, CancellationToken ct)
-    {
-        if (string.IsNullOrWhiteSpace(newName)) return (null, ProblemCodes.ValidationFailed);
-        var trimmed = newName.Trim();
-        var d = await db.Departments.FindAsync(new object[] { id }, ct);
-        if (d is null) return (null, ProblemCodes.NotFound);
-        if (await db.Departments.AnyAsync(x => x.Id != id && x.Name == trimmed, ct))
-            return (null, ProblemCodes.Conflict);
-        d.Name = trimmed;
-        await db.SaveChangesAsync(ct);
-        var count = await db.UserDepartments.CountAsync(ud => ud.DepartmentId == id, ct);
-        return (new DepartmentDto(d.Id, d.Name, count), null);
-    }
-
-    public async Task<string?> DeleteAsync(Guid id, CancellationToken ct)
-    {
-        var d = await db.Departments.FindAsync(new object[] { id }, ct);
-        if (d is null) return ProblemCodes.NotFound;
-        db.Departments.Remove(d); // cascade removes UserDepartment rows
-        await db.SaveChangesAsync(ct);
-        log.LogWarning("Deleted department {Name}", d.Name);
-        return null;
+        var existing = await db.Departments.Select(d => d.Name).ToListAsync(ct);
+        var existingSet = new HashSet<string>(existing, StringComparer.OrdinalIgnoreCase);
+        var added = 0;
+        foreach (var name in SeedNames)
+        {
+            if (existingSet.Contains(name)) continue;
+            db.Departments.Add(new Department { Name = name });
+            added++;
+        }
+        if (added > 0)
+        {
+            await db.SaveChangesAsync(ct);
+            log.LogInformation("Seeded {Count} department(s).", added);
+        }
     }
 }

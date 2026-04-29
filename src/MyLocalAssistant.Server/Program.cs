@@ -75,6 +75,8 @@ try
         await db.Database.EnsureCreatedAsync();
         var userSvc = scope.ServiceProvider.GetRequiredService<UserService>();
         await userSvc.EnsureAdminBootstrapAsync();
+        var deptSvc = scope.ServiceProvider.GetRequiredService<DepartmentService>();
+        await deptSvc.SeedAsync();
     }
 
     app.UseSerilogRequestLogging();
