@@ -63,6 +63,7 @@
   <li><a href="#accounts">Test accounts (usernames &amp; passwords)</a></li>
   <li><a href="#admin">Using the Admin console</a></li>
   <li><a href="#client">Using the Chat Client</a></li>
+  <li><a href="#skills">Skills &amp; plug-ins (owner-only)</a></li>
   <li><a href="#updates">Automatic updates</a></li>
   <li><a href="#uninstall">Uninstalling</a></li>
   <li><a href="#scenarios">Suggested test scenarios</a></li>
@@ -210,7 +211,8 @@ immediately if you ever expose the server beyond <code>127.0.0.1</code>.</strong
   <tr><td><strong>Roles</strong></td><td>Tags users can hold (multiple per user). Used to grant per-collection RAG read access.</td></tr>
   <tr><td><strong>Models</strong></td><td>Browse the catalog, download a GGUF model, mark one as <em>active</em>. The active model is what every agent uses by default.</td></tr>
   <tr><td><strong>RAG Collections</strong></td><td>Create a collection, ingest PDF / DOCX / XLSX / HTML / TXT / MD files, then expose it to a department + selected roles.</td></tr>
-  <tr><td><strong>Agents</strong> <span class="small">(owner only)</span></td><td>Enable/disable agents, edit per-agent system prompts, pick a default model.</td></tr>
+  <tr><td><strong>Agents</strong> <span class="small">(owner only)</span></td><td>Enable/disable agents, edit per-agent system prompts, pick a default model, bind which <em>skills</em> each agent is allowed to call.</td></tr>
+  <tr><td><strong>Skills</strong> <span class="small">(owner only)</span></td><td>The skill catalog: built-in skills + installed plug-ins. Toggle Enabled, edit per-skill JSON config, hot-reload plug-ins. See §8.</td></tr>
   <tr><td><strong>Audit</strong></td><td>Searchable log of every admin action and every chat turn (90-day retention by default).</td></tr>
   <tr><td><strong>Settings</strong></td><td>Server bind address, JWT lifetimes, audit retention, LDAP config, ingestion limits, and (owner) the global system prompt.</td></tr>
 </table>
@@ -242,7 +244,80 @@ immediately if you ever expose the server beyond <code>127.0.0.1</code>.</strong
   permanently searchable, ingest it from the Admin console.
 </div>
 
-<h2 id="updates">8 · Automatic updates</h2>
+<h2 id="skills">8 · Skills &amp; plug-ins (owner-only)</h2>
+
+<p><strong>Skills</strong> are tools an agent can call mid-conversation — e.g. evaluating a math
+expression, returning the current time, or searching a RAG collection for a citation.
+The catalog is <strong>visible only to the global admin (<code>owner</code>)</strong>; regular system admins
+cannot see the Skills tab and the underlying <code>/api/admin/skills</code> mutate endpoints reject
+their tokens.</p>
+
+<h3>8.1 Built-in skills (always present)</h3>
+<table>
+  <tr><th>Skill id</th><th>What it does</th></tr>
+  <tr><td><code>math.eval</code></td><td>Evaluates an arithmetic expression (NCalc). No I/O, instant.</td></tr>
+  <tr><td><code>time.now</code></td><td>Returns the server's current UTC + local time.</td></tr>
+  <tr><td><code>rag.search_collection</code></td><td>Searches a named RAG collection and returns top-k passages with citations. Honors the user's department/role ACL — never leaks content the caller can't read.</td></tr>
+</table>
+
+<h3>8.2 How agents use skills</h3>
+<p>Tag-mode tool calling — model-agnostic, no JSON-grammar required:</p>
+<ol>
+  <li>The agent emits a block in its reply, e.g.
+      <code>&lt;tool&gt;{"name":"math.eval","args":{"expr":"3*(4+5)"}}&lt;/tool&gt;</code>.</li>
+  <li>The server intercepts the block, runs the skill (subject to the agent's capability binding), and feeds the result back into the same turn.</li>
+  <li>The model continues generating with the result in context, so the user sees one seamless reply.</li>
+</ol>
+
+<h3>8.3 The Skills tab</h3>
+<p>Log in as <code>owner</code> / <code>owner</code> → the <strong>Skills</strong> tab appears between Agents and Models.</p>
+<ul>
+  <li><strong>Enabled</strong> checkbox — disabled skills are hidden from every agent immediately.</li>
+  <li><strong>Tools</strong> button — inspect the JSON-schema of each tool the skill exposes.</li>
+  <li><strong>Config…</strong> button — edit the skill's per-instance JSON config (e.g. default collection name for <code>rag.search_collection</code>).</li>
+  <li><strong>Source</strong> column — <em>builtin</em> or <em>plugin</em>.</li>
+  <li><strong>Signed by</strong> column — the trusted-key id (from <code>config\trusted-keys\</code>) that signed the plug-in manifest. Empty for built-ins.</li>
+  <li><strong>Reload plug-ins</strong> toolbar button — rescans the server's <code>plugins\</code> folder, disposes old instances, registers fresh ones. Built-ins are untouched.</li>
+</ul>
+
+<h3>8.4 Binding skills to an agent</h3>
+<ol>
+  <li><strong>Agents</strong> tab (owner-only) → pick an agent.</li>
+  <li>Tick the skills you want this agent to be allowed to call. An agent with no skills bound is effectively chat-only.</li>
+  <li>Save. The change applies to the next chat turn — no restart required.</li>
+</ol>
+<div class="info">
+  <strong>Why this matters during testing.</strong> If you enable <code>rag.search_collection</code> on the
+  <em>Documentation</em> agent, replies will start citing your RAG documents. If you remove it, the
+  agent falls back to pure-LLM answers — useful for A/B testing whether RAG actually helps for a
+  given query.
+</div>
+
+<h3>8.5 Installing a plug-in skill (out-of-process, sandboxed)</h3>
+<p>Plug-ins run as separate processes (JSON-RPC over stdio) inside a Windows <strong>Job Object</strong>
+with memory + CPU caps and no child-process / network rights by default. They must be signed.</p>
+<ol>
+  <li>Build or obtain a plug-in folder — the reference example is <code>plugins\echo\</code> in the repo.</li>
+  <li>Sign / pack it with the bundled CLI:
+      <pre>SkillTools.exe pack --in plugins\echo --out my-skill.skill --key my-private.pem</pre></li>
+  <li>Drop the <em>unzipped</em> plug-in folder into
+      <code>%LocalAppData%\MyLocalAssistant\current\plugins\</code>.</li>
+  <li>Make sure the matching public key is in <code>%LocalAppData%\MyLocalAssistant\current\config\trusted-keys\</code>.</li>
+  <li>Skills tab → <strong>Reload plug-ins</strong>. The new skill appears with <em>Source = plugin</em> and <em>Signed by = &lt;your key id&gt;</em>.</li>
+  <li>Bind it to one or more agents (§8.4). Try it from the Chat Client.</li>
+</ol>
+<div class="warn">
+  <strong>Unsigned or untrusted plug-ins are silently skipped during reload.</strong> If a plug-in
+  doesn't show up after Reload, check the server log for <em>"plug-in rejected: signature invalid"</em>
+  or <em>"unknown signing key"</em>.
+</div>
+
+<h3>8.6 Tool-call statistics</h3>
+<p>The server keeps in-memory counters of how often each skill has been invoked since startup
+(<code>GET /api/admin/skills/stats</code>). A future Admin UI will surface them; for now you can hit the
+endpoint directly with the owner's JWT to validate that your test agent actually called the tool.</p>
+
+<h2 id="updates">9 · Automatic updates</h2>
 <p>The tray launcher checks GitHub Releases for a newer version <strong>every hour in the background</strong>,
 plus once on startup (after a 5-second delay).</p>
 
@@ -264,7 +339,7 @@ plus once on startup (after a 5-second delay).</p>
 <p>Tray → <strong>About</strong>. Compare against the latest tag on
 <code>https://github.com/mguneskou/MyLocalAssistant/releases</code>.</p>
 
-<h2 id="uninstall">9 · Uninstalling</h2>
+<h2 id="uninstall">10 · Uninstalling</h2>
 <ol>
   <li>Right-click the tray icon → <strong>Quit</strong> (so the server releases its files).</li>
   <li>Open Windows <strong>Settings → Apps → Installed apps</strong>, find <strong>MyLocalAssistant</strong>, click <strong>Uninstall</strong>.</li>
@@ -279,9 +354,9 @@ plus once on startup (after a 5-second delay).</p>
   you created, every conversation, every RAG collection, every downloaded model.
 </div>
 
-<h2 id="scenarios">10 · Suggested test scenarios</h2>
+<h2 id="scenarios">11 · Suggested test scenarios</h2>
 
-<h3>10.1 Smoke test (5 min)</h3>
+<h3>11.1 Smoke test (5 min)</h3>
 <ol>
   <li>Install. Confirm tray icon shows <em>Status: Running</em> within 30 s.</li>
   <li>Open Admin, log in as <code>admin</code>/<code>admin</code>, change password.</li>
@@ -289,7 +364,7 @@ plus once on startup (after a 5-second delay).</p>
   <li>Create one user. Log into the Client as that user. Send "Hello, who are you?". Expect a streaming reply.</li>
 </ol>
 
-<h3>10.2 Full RAG round-trip (15 min)</h3>
+<h3>11.2 Full RAG round-trip (15 min)</h3>
 <ol>
   <li>Admin → RAG Collections → New collection <em>"Handbook"</em>.</li>
   <li>Ingest 2–3 PDF / DOCX files. Wait for the chunk count to settle.</li>
@@ -298,7 +373,7 @@ plus once on startup (after a 5-second delay).</p>
   <li>Verify the reply <em>cites the source files</em> (filename + page) at the end.</li>
 </ol>
 
-<h3>10.3 ACL test (10 min)</h3>
+<h3>11.3 ACL test (10 min)</h3>
 <ol>
   <li>Create two departments (<em>HR</em>, <em>Eng</em>) and two users (one per dept).</li>
   <li>Create two collections, grant each to a different department.</li>
@@ -306,7 +381,7 @@ plus once on startup (after a 5-second delay).</p>
       and the Eng-only agent (if any) does not appear in the agent list.</li>
 </ol>
 
-<h3>10.4 Owner overrides (10 min)</h3>
+<h3>11.4 Owner overrides (10 min)</h3>
 <ol>
   <li>Log in as <code>owner</code>/<code>owner</code> in the Admin console.</li>
   <li>Agents tab → disable the <em>General</em> agent. Verify it disappears from the Client's agent list within ~5 s after a refresh.</li>
@@ -314,7 +389,16 @@ plus once on startup (after a 5-second delay).</p>
   <li>Settings → Global system prompt → set "Be concise, max 3 sentences." Verify every agent now obeys it.</li>
 </ol>
 
-<h3>10.5 Auto-update flow (only if a new release has been published)</h3>
+<h3>11.5 Skills &amp; plug-ins (10 min, owner-only)</h3>
+<ol>
+  <li>Log in as <code>owner</code>/<code>owner</code>. Open the <strong>Skills</strong> tab — verify <code>math.eval</code>, <code>time.now</code>, <code>rag.search_collection</code> are listed and Enabled.</li>
+  <li>Agents tab → pick <em>General</em> → bind only <code>math.eval</code> + <code>time.now</code>. Save.</li>
+  <li>Chat as a regular user with <em>General</em>: "What is 17 * 23 + 5?" and "What time is it on the server?" — verify the answers are correct (the model invoked the tools).</li>
+  <li>Skills tab → disable <code>math.eval</code>. Re-ask the math question — verify the model now answers from its own (often wrong) arithmetic, proving the tool was actually doing the work.</li>
+  <li>(Optional) Drop the reference <code>plugins\echo\</code> folder into <code>%LocalAppData%\MyLocalAssistant\current\plugins\</code>, click <strong>Reload plug-ins</strong>, bind it to an agent, ask it to "echo hello world".</li>
+</ol>
+
+<h3>11.6 Auto-update flow (only if a new release has been published)</h3>
 <ol>
   <li>Note your current version (tray → About).</li>
   <li>Tray → Check for updates… → confirm the upgrade prompt.</li>
@@ -322,13 +406,13 @@ plus once on startup (after a 5-second delay).</p>
   <li>Confirm your DB / users / RAG collections survived the upgrade.</li>
 </ol>
 
-<h3>10.6 Resilience test (5 min)</h3>
+<h3>11.7 Resilience test (5 min)</h3>
 <ol>
   <li>Tray → Restart server. Verify the Admin and Client apps reconnect within ~10 s.</li>
   <li>Force-kill <code>MyLocalAssistant.Server.exe</code> from Task Manager. The launcher should restart it within a few seconds (status flips Stopped → Starting → Running).</li>
 </ol>
 
-<h2 id="troubleshooting">11 · Troubleshooting &amp; logs</h2>
+<h2 id="troubleshooting">12 · Troubleshooting &amp; logs</h2>
 
 <h4>Logs to grab when reporting a bug</h4>
 <table>
@@ -357,13 +441,13 @@ plus once on startup (after a 5-second delay).</p>
       <td>Quit, delete <code>%LocalAppData%\MyLocalAssistant\current\data\app.db</code>, restart the launcher. The seed accounts come back. <em>This wipes all users and history.</em></td></tr>
 </table>
 
-<h2 id="feedback">12 · How to file feedback / bugs</h2>
+<h2 id="feedback">13 · How to file feedback / bugs</h2>
 <p>Open an issue at <code>https://github.com/mguneskou/MyLocalAssistant/issues</code> and please include:</p>
 <ul>
   <li>App version (tray → About).</li>
   <li>Windows build (<code>winver</code>).</li>
   <li>What you did, what you expected, what happened.</li>
-  <li>The relevant log file from §11 (zip and attach).</li>
+  <li>The relevant log file from §12 (zip and attach).</li>
   <li>A screenshot if it's a UI issue.</li>
 </ul>
 
