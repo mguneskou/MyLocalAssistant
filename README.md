@@ -13,7 +13,11 @@ downloads.
 
 ---
 
-## v2.1.2.0 highlights (current release)
+## v2.1.3.0 highlights (current release)
+
+Follow-up to 2.1.2: the first-launch migration now also scans Velopack's prior-version `app-X.Y.Z\` sibling folders for leftover state, so users upgrading from 2.1.0 / 2.1.1 (which wrote everything inside the doomed `current\`) will have their downloaded models, database, vector store, plug-ins and settings auto-recovered if Velopack hasn't yet purged the old install.
+
+## v2.1.2.0 highlights
 
 Fix release. Persistent state (downloaded models, database, vector store, plug-ins, logs, settings) now survives Velopack updates by living in a sibling `state\` folder instead of being wiped when the `current\` folder is swapped.
 
@@ -190,16 +194,16 @@ Local end-to-end build of an installer:
 
 ```powershell
 .\scripts\publish-all.ps1                      # publishes 4 exes into dist\stage\
-.\scripts\release.ps1 -Version 2.1.2           # publish + vpk pack -> dist\releases\
-.\scripts\release.ps1 -Version 2.1.2 -Upload `
+.\scripts\release.ps1 -Version 2.1.3           # publish + vpk pack -> dist\releases\
+.\scripts\release.ps1 -Version 2.1.3 -Upload `
     -GitHubToken $env:GH_PAT                   # also upload to GitHub Releases
 ```
 
 In CI, just push a tag — `.github/workflows/release.yml` does the rest:
 
 ```powershell
-git tag v2.1.2.0
-git push origin v2.1.2.0
+git tag v2.1.3.0
+git push origin v2.1.3.0
 ```
 
 The workflow restores, runs tests, builds with `vpk`, and attaches
@@ -219,6 +223,7 @@ uninstall walkthrough aimed at non-developer testers.
 | `v1.0.0.0`  | First v1 desktop release (skeleton + first-run model wizard).      |
 | `v1.0.1`    | v1 patch release.                                                  |
 | `v2.0.0.0`  | First v2 release — server + admin + client + RAG + ACL + owner.    |
+| `v2.1.3.0`  | Migration also scans Velopack `app-*\` sibling folders to rescue state from 2.1.0/2.1.1 installs. |
 | `v2.1.2.0`  | Persistent state moved to sibling `state\` folder so it survives Velopack updates. |
 | `v2.1.1.0`  | Client chat bubbles, typing indicator, sticky-bottom scroll, per-bubble copy. |
 | `v2.1.0.0`  | ServerHost tray launcher, Velopack auto-update, plug-in skill runtime, stability fixes. |

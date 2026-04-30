@@ -86,21 +86,52 @@ public static class ServerPaths
     private static void TryMigrateLegacyState()
     {
         string[] names = { "models", "data", "vectors", "ingestion", "logs", "config", "plugins", "output" };
+
+        // Source 1: legacy folders still living inside the freshly-installed `current\` (only happens on
+        // the very first upgrade after an unclean swap, but covered for safety).
+        TryMigrateFrom(AppDirectory, names);
+
+        // Source 2: Velopack often leaves the previous unpacked install at <root>\app-X.Y.Z\ until the
+        // next cleanup pass. Scan the parent for the newest such folder and migrate from it. This is
+        // what rescues folks upgrading from 2.1.1 -> 2.1.2 since 2.1.1 wrote everything inside current\.
+        try
+        {
+            var trimmed = AppDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var parent = Directory.GetParent(trimmed)?.FullName;
+            if (parent is null) return;
+            var candidates = Directory.EnumerateDirectories(parent, "app-*", SearchOption.TopDirectoryOnly)
+                .OrderByDescending(d => d, StringComparer.OrdinalIgnoreCase);
+            foreach (var legacyRoot in candidates)
+            {
+                if (TryMigrateFrom(legacyRoot, names)) break;
+            }
+        }
+        catch
+        {
+            // best-effort
+        }
+    }
+
+    private static bool TryMigrateFrom(string legacyRoot, string[] names)
+    {
+        var movedAnything = false;
         foreach (var name in names)
         {
             try
             {
-                var legacy = Path.Combine(AppDirectory, name);
+                var legacy = Path.Combine(legacyRoot, name);
                 var modern = Path.Combine(StateDirectory, name);
                 if (!HasAnyContent(legacy)) continue;
                 if (HasAnyContent(modern)) continue;
                 MoveDirectoryContents(legacy, modern);
+                movedAnything = true;
             }
             catch
             {
                 // Migration is best-effort; the user can copy folders manually if needed.
             }
         }
+        return movedAnything;
     }
 
     private static bool HasAnyContent(string dir)
