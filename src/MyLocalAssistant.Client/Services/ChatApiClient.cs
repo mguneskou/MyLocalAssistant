@@ -31,6 +31,16 @@ public sealed class ChatApiClient : IDisposable
     public UserDto? CurrentUser { get; private set; }
     public bool IsAuthenticated => !string.IsNullOrEmpty(_accessToken);
 
+    /// <summary>
+    /// Current bearer token, refreshed on demand. Used by the client bridge WebSocket
+    /// connector to attach an Authorization header. Returns null if not signed in.
+    /// </summary>
+    public async Task<string?> GetAccessTokenAsync(CancellationToken ct = default)
+    {
+        await EnsureFreshTokenAsync(ct);
+        return _accessToken;
+    }
+
     public async Task<bool> PingAsync(CancellationToken ct = default)
     {
         try { using var r = await _http.GetAsync("healthz", ct); return r.IsSuccessStatusCode; }

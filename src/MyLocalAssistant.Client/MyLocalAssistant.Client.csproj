@@ -4,6 +4,10 @@
     <ProjectReference Include="..\MyLocalAssistant.Shared\MyLocalAssistant.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="MyLocalAssistant.Core.Tests" />
+  </ItemGroup>
+
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>

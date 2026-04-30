@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\MyLocalAssistant.Core\MyLocalAssistant.Core.csproj" />
     <ProjectReference Include="..\..\MyLocalAssistant.Server\MyLocalAssistant.Server.csproj" />
+    <ProjectReference Include="..\..\MyLocalAssistant.Client\MyLocalAssistant.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>

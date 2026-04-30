@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using MyLocalAssistant.Client.Bridge;
 using MyLocalAssistant.Client.Services;
 using MyLocalAssistant.Client.UI;
 using MyLocalAssistant.Shared.Contracts;
@@ -24,6 +25,9 @@ internal sealed class ChatForm : Form
     private readonly StatusStrip _status;
     private readonly ToolStripStatusLabel _statusLabel;
     private readonly ToolStripStatusLabel _statsLabel;
+    private readonly ToolStripStatusLabel _bridgeLabel;
+    private readonly ToolStripButton _bridgeFolderBtn;
+    private BridgeClient? _bridge;
 
     private CancellationTokenSource? _streamCts;
     private bool _streaming;
@@ -67,6 +71,8 @@ internal sealed class ChatForm : Form
         _changePwdBtn.Click += (_, _) => { using var d = new ChangePasswordForm(_client, forced: false); d.ShowDialog(this); };
         _signOutBtn = new ToolStripButton("Sign out") { Font = UiTheme.BaseFont };
         _signOutBtn.Click += (_, _) => { DialogResult = DialogResult.Retry; Close(); };
+        _bridgeFolderBtn = new ToolStripButton("\uD83D\uDCC1  Folder\u2026") { Font = UiTheme.BaseFont, ToolTipText = "Pick the folder skills may read/write on this PC." };
+        _bridgeFolderBtn.Click += (_, _) => PickBridgeFolder();
         _toolbar.Items.AddRange(new ToolStripItem[]
         {
             new ToolStripLabel("Agent: "),
@@ -76,9 +82,11 @@ internal sealed class ChatForm : Form
             new ToolStripSeparator { Alignment = ToolStripItemAlignment.Right },
             _signOutBtn,
             _changePwdBtn,
+            _bridgeFolderBtn,
         });
         _changePwdBtn.Alignment = ToolStripItemAlignment.Right;
         _signOutBtn.Alignment = ToolStripItemAlignment.Right;
+        _bridgeFolderBtn.Alignment = ToolStripItemAlignment.Right;
 
         _split = new SplitContainer
         {
@@ -221,16 +229,71 @@ internal sealed class ChatForm : Form
 
         _statusLabel = new ToolStripStatusLabel("Ready");
         _statsLabel = new ToolStripStatusLabel("") { Spring = true, TextAlign = ContentAlignment.MiddleRight, ForeColor = UiTheme.TextSecondary };
+        _bridgeLabel = new ToolStripStatusLabel("\uD83D\uDCC1 not configured") { ForeColor = UiTheme.TextSecondary };
+        _bridgeLabel.Click += (_, _) => PickBridgeFolder();
+        _bridgeLabel.IsLink = true;
         _status = new StatusStrip { BackColor = UiTheme.SurfaceCard, SizingGrip = false };
         _status.Items.Add(_statusLabel);
         _status.Items.Add(_statsLabel);
+        _status.Items.Add(_bridgeLabel);
 
         Controls.Add(_split);
         Controls.Add(_status);
         Controls.Add(_toolbar);
 
-        Load += async (_, _) => await ReloadAgentsAsync();
-        FormClosing += (_, _) => _streamCts?.Cancel();
+        Load += async (_, _) => { StartBridge(); await ReloadAgentsAsync(); };
+        FormClosing += (_, _) =>
+        {
+            _streamCts?.Cancel();
+            try { _bridge?.DisposeAsync().AsTask().Wait(TimeSpan.FromSeconds(2)); } catch { }
+        };
+    }
+
+    private void StartBridge()
+    {
+        var settings = _store.Load();
+        UpdateBridgeLabel(settings.BridgeRoot);
+        _bridge = new BridgeClient(_client, settings.BridgeRoot);
+        _bridge.StatusChanged += s => BeginInvoke(() =>
+        {
+            var prefix = settings.BridgeRoot is null ? "not configured" : System.IO.Path.GetFileName(settings.BridgeRoot.TrimEnd(System.IO.Path.DirectorySeparatorChar));
+            _bridgeLabel.Text = $"\uD83D\uDCC1 {prefix} \u2014 {s}";
+        });
+        _bridge.Start();
+    }
+
+    private void PickBridgeFolder()
+    {
+        var current = _store.Load().BridgeRoot;
+        using var dlg = new FolderBrowserDialog
+        {
+            Description = "Pick a folder on THIS PC the assistant may read and write. Skills will be confined to this folder and any subfolders you create.",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true,
+            InitialDirectory = current ?? Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+        };
+        if (dlg.ShowDialog(this) != DialogResult.OK) return;
+        var picked = LocalFsHandler.NormalizeRoot(dlg.SelectedPath);
+        if (picked is null) { MessageBox.Show(this, "That folder is not valid.", "Folder"); return; }
+        var s = _store.Load();
+        s.BridgeRoot = picked;
+        _store.Save(s);
+        if (_bridge is not null) _bridge.Root = picked;
+        UpdateBridgeLabel(picked);
+    }
+
+    private void UpdateBridgeLabel(string? root)
+    {
+        if (string.IsNullOrEmpty(root))
+        {
+            _bridgeLabel.Text = "\uD83D\uDCC1 click to share a folder";
+            _bridgeLabel.ToolTipText = "No folder shared. Skills cannot read or write on this PC.";
+        }
+        else
+        {
+            _bridgeLabel.Text = "\uD83D\uDCC1 " + root;
+            _bridgeLabel.ToolTipText = $"Skills may read/write inside:\n{root}";
+        }
     }
 
     private async Task ReloadAgentsAsync()

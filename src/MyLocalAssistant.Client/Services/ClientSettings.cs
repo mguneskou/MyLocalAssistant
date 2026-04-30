@@ -8,6 +8,13 @@ public sealed class ClientSettings
     public string? LastUsername { get; set; }
     public bool RememberUsername { get; set; } = true;
     public string? LastAgentId { get; set; }
+
+    /// <summary>
+    /// Local folder the client makes available to skills via the v2.2 fs.* bridge.
+    /// All bridge calls are confined to this root (and subfolders the user creates under it).
+    /// Null/empty means the bridge is disabled and every fs.* request returns fs.notConfigured.
+    /// </summary>
+    public string? BridgeRoot { get; set; }
 }
 
 public sealed class ClientSettingsStore
