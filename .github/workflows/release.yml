@@ -35,8 +35,9 @@ jobs:
             $v = '${{ github.ref_name }}'.TrimStart('v')
           }
           if ([string]::IsNullOrWhiteSpace($v)) { throw 'Could not resolve version.' }
-          # Velopack requires SemVer 2.0 (3 parts); strip a trailing ".0" if the tag is X.Y.Z.0.
-          if ($v -match '^(\d+\.\d+\.\d+)\.0$') { $v = $Matches[1] }
+          # Velopack requires SemVer 2.0 (3 parts). Tags can be X.Y.Z or X.Y.Z.W;
+          # collapse 4-part tags to their first three components for vpk.
+          if ($v -match '^(\d+\.\d+\.\d+)(\.\d+)?$') { $v = $Matches[1] }
           "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           Write-Host "Releasing version $v"
 

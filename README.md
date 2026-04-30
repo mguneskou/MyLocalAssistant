@@ -13,7 +13,7 @@ downloads.
 
 ---
 
-## v2.1.4.1 highlights (current release)
+## v2.1.5.0 highlights (current release)
 
 Operational toggle release. Adds a way to **pause auto-updates** on individual machines so testers can be frozen on a known build while you keep cutting releases.
 
@@ -27,6 +27,8 @@ To freeze an existing 2.1.4.0 tester immediately (no rebuild required), run as t
 [Environment]::SetEnvironmentVariable("MLA_DISABLE_AUTO_UPDATE","1","User")
 # then right-click tray -> Quit, relaunch from Start Menu
 ```
+
+> Note: 2.1.4.1 was tagged but never released — the build failed because Velopack rejected the 4-part version. Re-cut as 2.1.5.0.
 
 ## v2.1.4.0 highlights
 
