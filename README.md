@@ -13,7 +13,11 @@ downloads.
 
 ---
 
-## v2.2.3 highlights (current release)
+## v2.2.4 highlights (current release)
+
+- **Fix**: tray menu → "Open logs folder" was opening `<install>\current\logs` (always empty) instead of `<install>\state\logs`, where the server actually writes `server-*.log` since v2.1.2 split state from binaries. Now resolves the same path Serilog writes to.
+
+## v2.2.3 highlights
 
 - **Chat error now shows _why_ the model isn't loaded.** Previously "No model is loaded (status=Failed). Activate one in the Admin." hid the real cause and pointed users at the wrong remedy. Now the message includes the underlying exception (`LastError`) and tailors the hint per state — e.g. "the activation succeeded but the model failed to load — typically a missing GPU backend, insufficient VRAM, or a CPU without AVX/AVX2". The exact reason is also (and was already) in `serverhost-*.log` under "Failed to load model".
 

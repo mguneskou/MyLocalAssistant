@@ -71,7 +71,7 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(_openAdminItem);
         menu.Items.Add(_openClientItem);
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(new ToolStripMenuItem("Open logs folder", null, (_, _) => OpenFolder("logs")));
+        menu.Items.Add(new ToolStripMenuItem("Open logs folder", null, (_, _) => OpenAbsolute(ResolveLogsDirectory())));
         menu.Items.Add(new ToolStripMenuItem("Open install folder", null, (_, _) => OpenFolder(".")));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Restart server", null, async (_, _) => await RestartServerAsync()));
@@ -247,6 +247,29 @@ internal sealed class TrayContext : ApplicationContext
         var path = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, relative));
         try { Directory.CreateDirectory(path); } catch { }
         Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+    }
+
+    private static void OpenAbsolute(string path)
+    {
+        try { Directory.CreateDirectory(path); } catch { }
+        Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+    }
+
+    /// <summary>
+    /// The Server writes Serilog files to <c>&lt;state&gt;\logs</c>, where <c>state</c>
+    /// is the sibling of the Velopack <c>current\</c> folder so it survives upgrades
+    /// (see <c>ServerPaths</c>). For dev/portable runs the state folder is the install
+    /// folder itself. Mirror that resolution here so the tray opens the folder that
+    /// actually contains <c>server-*.log</c>.
+    /// </summary>
+    private static string ResolveLogsDirectory()
+    {
+        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var isVelopack = string.Equals(Path.GetFileName(appDir), "current", StringComparison.OrdinalIgnoreCase);
+        var stateDir = isVelopack
+            ? Path.Combine(Directory.GetParent(appDir)?.FullName ?? appDir, "state")
+            : appDir;
+        return Path.Combine(stateDir, "logs");
     }
 
     private void ShowBalloon(string title, string text, ToolTipIcon kind)
