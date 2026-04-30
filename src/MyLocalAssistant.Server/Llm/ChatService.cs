@@ -75,7 +75,15 @@ public sealed class ChatService(
         [EnumeratorCancellation] CancellationToken ct)
     {
         if (models.Status != ModelStatus.Loaded)
-            throw new InvalidOperationException($"No model is loaded (status={models.Status}). Activate one in the Admin UI.");
+        {
+            var detail = string.IsNullOrWhiteSpace(models.LastError) ? "" : $" — {models.LastError}";
+            var hint = models.Status == ModelStatus.Failed
+                ? " Check the Models tab in Admin (the activation succeeded but the model failed to load — typically a missing GPU backend, insufficient VRAM, or a CPU without AVX/AVX2)."
+                : models.Status == ModelStatus.Loading
+                    ? " The model is still loading — try again in a few seconds."
+                    : " Activate one in the Admin UI.";
+            throw new InvalidOperationException($"No model is loaded (status={models.Status}).{detail}{hint}");
+        }
 
         var retrieval = await rag.RetrieveAsync(agent, principal, userMessage, k: 4, ct);
         callbacks.OnRetrieval?.Invoke(retrieval);

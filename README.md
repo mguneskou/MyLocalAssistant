@@ -13,7 +13,11 @@ downloads.
 
 ---
 
-## v2.2.2 highlights (current release)
+## v2.2.3 highlights (current release)
+
+- **Chat error now shows _why_ the model isn't loaded.** Previously "No model is loaded (status=Failed). Activate one in the Admin." hid the real cause and pointed users at the wrong remedy. Now the message includes the underlying exception (`LastError`) and tailors the hint per state — e.g. "the activation succeeded but the model failed to load — typically a missing GPU backend, insufficient VRAM, or a CPU without AVX/AVX2". The exact reason is also (and was already) in `serverhost-*.log` under "Failed to load model".
+
+## v2.2.2 highlights
 
 - **Fix**: tray menu → "Quit (stop server)" did nothing on some machines. The shutdown path was deadlocking the UI thread because an internal `await` was capturing the WinForms synchronization context while `Quit()` was already blocking that thread waiting for the result. Shutdown now runs on a worker thread and the update timer is stopped alongside the health timer.
 
