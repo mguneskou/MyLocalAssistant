@@ -47,6 +47,7 @@ internal sealed class TrayContext : ApplicationContext
     private readonly ToolStripMenuItem _statusItem;
     private readonly ToolStripMenuItem _openAdminItem;
     private readonly ToolStripMenuItem _openClientItem;
+    private readonly ToolStripMenuItem _pauseUpdatesItem;
     private readonly System.Windows.Forms.Timer _healthTimer;
     private readonly System.Windows.Forms.Timer _updateTimer;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(2) };
@@ -72,6 +73,8 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(new ToolStripMenuItem("Restart server", null, async (_, _) => await RestartServerAsync()));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Check for updates\u2026", null, async (_, _) => await CheckForUpdatesAsync(interactive: true)));
+        _pauseUpdatesItem = new ToolStripMenuItem("Pause auto-updates", null, (_, _) => TogglePauseUpdates()) { CheckOnClick = false };
+        menu.Items.Add(_pauseUpdatesItem);
         menu.Items.Add(new ToolStripMenuItem("About", null, (_, _) => ShowAbout()));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Quit (stop server)", null, (_, _) => Quit()));
@@ -87,6 +90,7 @@ internal sealed class TrayContext : ApplicationContext
         TryLoadCustomIcon();
 
         StartServer();
+        RefreshPauseUpdatesItem();
 
         _healthTimer = new System.Windows.Forms.Timer { Interval = 2000 };
         _healthTimer.Tick += async (_, _) => await PollHealthAsync();
@@ -261,6 +265,16 @@ internal sealed class TrayContext : ApplicationContext
     {
         try
         {
+            if (AutoUpdatesPaused())
+            {
+                if (interactive)
+                {
+                    MessageBox.Show("Auto-updates are paused on this machine.\n\nUncheck \"Pause auto-updates\" in the tray menu to resume.",
+                        "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                return;
+            }
+
             // First call lazily creates the manager. Velopack only works once installed
             // (i.e. when launched from the Update.exe stub), so in-dev launches no-op.
             _updater ??= new UpdateManager(new GithubSource(UpdateRepoUrl, accessToken: null, prerelease: false));
@@ -298,6 +312,77 @@ internal sealed class TrayContext : ApplicationContext
             if (interactive) MessageBox.Show("Update check failed:\n" + ex.Message,
                 "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
+    }
+
+    // ---- pause auto-updates -------------------------------------------------
+
+    /// <summary>
+    /// True when auto-update checks should be skipped. Either the env var
+    /// <c>MLA_DISABLE_AUTO_UPDATE=1</c> is set, or the marker file
+    /// <c>state\config\auto-update.disabled</c> exists. The env var is the
+    /// stopgap for already-deployed builds; the tray toggle writes the marker.
+    /// </summary>
+    private static bool AutoUpdatesPaused()
+    {
+        var env = Environment.GetEnvironmentVariable("MLA_DISABLE_AUTO_UPDATE");
+        if (!string.IsNullOrEmpty(env) && env != "0" && !env.Equals("false", StringComparison.OrdinalIgnoreCase))
+            return true;
+        try { return File.Exists(PauseMarkerPath()); } catch { return false; }
+    }
+
+    /// <summary>Marker file that disables auto-updates, kept under <c>state\config\</c> so it survives Velopack swaps.</summary>
+    private static string PauseMarkerPath()
+    {
+        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        // Mirror ServerPaths.cs without taking a project reference.
+        string stateDir;
+        if (string.Equals(Path.GetFileName(appDir), "current", StringComparison.OrdinalIgnoreCase))
+        {
+            var parent = Directory.GetParent(appDir)?.FullName ?? appDir;
+            stateDir = Path.Combine(parent, "state");
+        }
+        else
+        {
+            stateDir = appDir;
+        }
+        return Path.Combine(stateDir, "config", "auto-update.disabled");
+    }
+
+    private void TogglePauseUpdates()
+    {
+        try
+        {
+            var marker = PauseMarkerPath();
+            if (File.Exists(marker))
+            {
+                File.Delete(marker);
+                ShowBalloon("MyLocalAssistant", "Auto-updates resumed.", ToolTipIcon.Info);
+            }
+            else
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(marker)!);
+                File.WriteAllText(marker, $"Paused at {DateTime.Now:O} by tray menu.\n");
+                ShowBalloon("MyLocalAssistant", "Auto-updates paused.\nThe tray will not download or install updates until you uncheck this.", ToolTipIcon.Info);
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Could not toggle auto-update state:\n" + ex.Message,
+                "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        RefreshPauseUpdatesItem();
+    }
+
+    private void RefreshPauseUpdatesItem()
+    {
+        var paused = AutoUpdatesPaused();
+        _pauseUpdatesItem.Checked = paused;
+        // If the env var forced the pause, the menu can't unpause it - signal that.
+        var envForced = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("MLA_DISABLE_AUTO_UPDATE"));
+        _pauseUpdatesItem.Enabled = !envForced;
+        _pauseUpdatesItem.ToolTipText = envForced
+            ? "Forced off by MLA_DISABLE_AUTO_UPDATE environment variable."
+            : (paused ? "Click to resume automatic update checks." : "Click to stop automatic update checks on this machine.");
     }
 
     private static void ShowAbout()

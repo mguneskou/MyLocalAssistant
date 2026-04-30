@@ -13,7 +13,22 @@ downloads.
 
 ---
 
-## v2.1.4.0 highlights (current release)
+## v2.1.4.1 highlights (current release)
+
+Operational toggle release. Adds a way to **pause auto-updates** on individual machines so testers can be frozen on a known build while you keep cutting releases.
+
+- **Tray menu: "Pause auto-updates"** — toggles a marker file at `state\config\auto-update.disabled`. While the marker exists, the hourly background check and the on-launch check are skipped, and the manual *Check for updates…* item shows an explanatory dialog instead of pulling.
+- **Environment override** — `MLA_DISABLE_AUTO_UPDATE=1` does the same thing without needing to click the menu, useful as a stopgap on already-deployed builds. While the env var is set, the menu item is disabled (greyed) so it's obvious where the lock came from.
+- The marker lives in `state\` so it survives further updates if/when you re-enable.
+
+To freeze an existing 2.1.4.0 tester immediately (no rebuild required), run as the user that owns the tray:
+
+```powershell
+[Environment]::SetEnvironmentVariable("MLA_DISABLE_AUTO_UPDATE","1","User")
+# then right-click tray -> Quit, relaunch from Start Menu
+```
+
+## v2.1.4.0 highlights
 
 New **Excel skill plug-in** — a signed plug-in (`plugins/excel/`) that lets agents read, query, write, format, and recalculate `.xlsx` workbooks entirely in-process via [ClosedXML](https://github.com/ClosedXML/ClosedXML). No Microsoft Office install required.
 
