@@ -50,7 +50,12 @@ public sealed class PluginSkill : ISkill, IAsyncDisposable
 
     public async Task<SkillResult> InvokeAsync(SkillInvocation invocation, SkillContext ctx)
     {
-        var workDir = Path.Combine(_outputRoot, ctx.ConversationId.ToString("N"));
+        // ctx.WorkDirectory is resolved by ChatService and already honors the user's
+        // WorkRoot (v2.1.7+). Fall back to the default output root only if the host
+        // somehow hands us an empty value.
+        var workDir = string.IsNullOrWhiteSpace(ctx.WorkDirectory)
+            ? Path.Combine(_outputRoot, ctx.ConversationId.ToString("N"))
+            : ctx.WorkDirectory;
         SecureDirectory.EnsureLockedDown(workDir);
         try
         {

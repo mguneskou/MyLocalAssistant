@@ -13,7 +13,18 @@ downloads.
 
 ---
 
-## v2.1.7.0 highlights (current release)
+## v2.2.0 highlights (current release)
+
+Files can now live on the **tester's PC**, not just the server.
+
+- New **Client filesystem bridge**: when a tester signs in to the Client app and picks a folder via the new `📁 Folder…` button, that folder is exposed back to the LLM as the `client.fs` skill (8 tools: stat, list, read, write, mkdir, move, delete, tempPath). The LLM can ask the client to read or write files inside that folder — nothing else, no SMB share, no upload endpoint.
+- Bidirectional over a single dedicated WebSocket at `/api/client/bridge`. JWT auth (same as REST). Auto-reconnects with exponential backoff. One bridge per user; opening a second Client evicts the first.
+- **Strict client-side guard**: every request is canonicalized and rejected if it escapes the chosen root, contains `..` segments, hits a symlink/junction, or has wildcard chars. Executable extensions (`.exe .dll .bat .cmd .ps1 .vbs .js .msi .scr .com`) are blocked from being written.
+- Per-conversation scratch dir via `client.fs.tempPath` lands in `<root>\conversations\<convId>\`.
+- **Bug fix carried in**: the per-user `WorkRoot` introduced in v2.1.7 wasn't being honored by **plug-in skills** (e.g. Excel). The plug-in host now respects the resolved work directory like every other skill does. Existing user data is unaffected; just re-launch any chat to pick up the corrected path.
+- 21 new tests covering the bridge wire format, request/response correlation, timeouts, error code propagation, path traversal, root-escape, wildcards, blocked extensions, symlinks, mkdir idempotency, list/read/write round-trip, the user-creates-subfolder flow, and the LLM-facing skill end-to-end. Test totals: 60 passing.
+
+## v2.1.7.0 highlights
 
 New **per-user work folder** for skills that touch the filesystem (Excel etc.).
 
