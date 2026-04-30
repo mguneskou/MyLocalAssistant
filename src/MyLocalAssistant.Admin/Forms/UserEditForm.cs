@@ -12,6 +12,9 @@ internal sealed class UserEditForm : Form
     private readonly Label _departmentsHint;
     private readonly TextBox _password;
     private readonly Label _passwordHint;
+    private readonly TextBox _workRoot;
+    private readonly Button _workRootBrowse;
+    private readonly Label _workRootHint;
     private readonly CheckBox _isAdmin;
     private readonly CheckBox _isDisabled;
     private readonly Button _save;
@@ -31,7 +34,7 @@ internal sealed class UserEditForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;
-        ClientSize = new Size(460, 540);
+        ClientSize = new Size(460, 620);
         Font = new Font("Segoe UI", 9F);
         Padding = new Padding(16, 16, 16, 8);
 
@@ -45,6 +48,9 @@ internal sealed class UserEditForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); // departments label
         layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100)); // departments list
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 36)); // departments hint
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); // workRoot label
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 34)); // workRoot textbox + browse
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); // workRoot hint
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28)); // isAdmin
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28)); // isDisabled
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); // status
@@ -111,6 +117,36 @@ internal sealed class UserEditForm : Form
         };
         layout.SetColumnSpan(_departmentsHint, 2);
         layout.Controls.Add(_departmentsHint, 0, row++);
+
+        var workRootLabel = MakeLabel("Work folder");
+        layout.SetColumnSpan(workRootLabel, 2);
+        layout.Controls.Add(workRootLabel, 0, row++);
+
+        var workRootRow = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 2, Margin = new Padding(0, 0, 0, 0) };
+        workRootRow.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        workRootRow.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 90));
+        _workRoot = new TextBox
+        {
+            Text = existing?.WorkRoot ?? "",
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 6, 4),
+        };
+        _workRootBrowse = new Button { Text = "Browse…", Dock = DockStyle.Fill, Margin = new Padding(0, 4, 0, 4) };
+        _workRootBrowse.Click += (_, _) => BrowseWorkRoot();
+        workRootRow.Controls.Add(_workRoot, 0, 0);
+        workRootRow.Controls.Add(_workRootBrowse, 1, 0);
+        layout.SetColumnSpan(workRootRow, 2);
+        layout.Controls.Add(workRootRow, 0, row++);
+
+        _workRootHint = new Label
+        {
+            Text = "Optional. Absolute server path (e.g. D:\\AdminScratch). Per-conversation subfolders are created here. Leave empty for the default.",
+            ForeColor = SystemColors.GrayText,
+            Dock = DockStyle.Fill,
+            AutoEllipsis = true,
+        };
+        layout.SetColumnSpan(_workRootHint, 2);
+        layout.Controls.Add(_workRootHint, 0, row++);
 
         _isAdmin = new CheckBox
         {
@@ -187,6 +223,19 @@ internal sealed class UserEditForm : Form
         return result;
     }
 
+    private void BrowseWorkRoot()
+    {
+        using var dlg = new FolderBrowserDialog
+        {
+            Description = "Select the work folder on the SERVER PC where this user's conversation files will be stored.",
+            UseDescriptionForTitle = true,
+            ShowNewFolderButton = true,
+            SelectedPath = string.IsNullOrWhiteSpace(_workRoot.Text) ? "" : _workRoot.Text,
+        };
+        if (dlg.ShowDialog(this) == DialogResult.OK && !string.IsNullOrWhiteSpace(dlg.SelectedPath))
+            _workRoot.Text = dlg.SelectedPath;
+    }
+
     private void OnSave()
     {
         _status.Text = "";
@@ -199,13 +248,17 @@ internal sealed class UserEditForm : Form
             if (string.IsNullOrEmpty(username)) { _status.Text = "Username is required."; return; }
             if (string.IsNullOrEmpty(displayName)) { _status.Text = "Display name is required."; return; }
             if (_password.Text.Length < 8) { _status.Text = "Initial password must be at least 8 characters."; return; }
+            var workRoot = _workRoot.Text.Trim();
+            if (workRoot.Length > 0 && !Path.IsPathFullyQualified(workRoot)) { _status.Text = "Work folder must be an absolute path (e.g. D:\\Scratch or \\\\server\\share)."; return; }
 
-            CreateResult = new CreateUserRequest(username, displayName, _password.Text, depts, _isAdmin.Checked);
+            CreateResult = new CreateUserRequest(username, displayName, _password.Text, depts, _isAdmin.Checked, workRoot.Length > 0 ? workRoot : null);
         }
         else
         {
             if (string.IsNullOrEmpty(displayName)) { _status.Text = "Display name is required."; return; }
-            UpdateResult = new UpdateUserRequest(displayName, depts, _isAdmin.Checked, _isDisabled.Checked);
+            var workRoot = _workRoot.Text.Trim();
+            if (workRoot.Length > 0 && !Path.IsPathFullyQualified(workRoot)) { _status.Text = "Work folder must be an absolute path (e.g. D:\\Scratch or \\\\server\\share)."; return; }
+            UpdateResult = new UpdateUserRequest(displayName, depts, _isAdmin.Checked, _isDisabled.Checked, workRoot);
         }
 
         DialogResult = DialogResult.OK;

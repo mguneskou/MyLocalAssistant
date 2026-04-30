@@ -192,7 +192,7 @@ internal sealed class UsersTab : UserControl
         SetBusy(true, $"{verb}ing user…");
         try
         {
-            var updated = await _client.UpdateUserAsync(sel.Id, new UpdateUserRequest(null, null, null, newState));
+            var updated = await _client.UpdateUserAsync(sel.Id, new UpdateUserRequest(null, null, null, newState, null));
             ReplaceRow(updated);
             _statusLabel.Text = $"{verb}d '{updated.Username}'.";
         }

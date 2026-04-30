@@ -102,7 +102,7 @@ public sealed class ChatService(
 
         var assistantSoFar = new StringBuilder();
         var stops = toolMode ? new[] { ToolCallClose } : Array.Empty<string>();
-        var workDir = Path.Combine(ServerPaths.OutputDirectory, callbacks.ConversationId.ToString("N"));
+        var workDir = await ResolveWorkDirectoryAsync(principal.UserId, callbacks.ConversationId, ct);
         Directory.CreateDirectory(workDir);
         var skillCtx = new SkillContext(
             principal.UserId,
@@ -232,6 +232,34 @@ public sealed class ChatService(
             }
 
             assistantSoFar.Append('\n').Append("<tool_result>").Append(resultJson).Append("</tool_result>\n");
+        }
+    }
+
+    /// <summary>
+    /// Resolve the per-conversation work directory passed to skills as <c>workDirectory</c>.
+    /// Honors <see cref="User.WorkRoot"/> when set, falling back to <c>state\\output\\</c>.
+    /// Best-effort: any I/O failure on the user's WorkRoot (path missing, permission denied,
+    /// network share offline) is logged and silently falls back so the chat still proceeds.
+    /// </summary>
+    private async Task<string> ResolveWorkDirectoryAsync(Guid userId, Guid conversationId, CancellationToken ct)
+    {
+        var conv = conversationId.ToString("N");
+        var fallback = Path.Combine(ServerPaths.OutputDirectory, conv);
+        try
+        {
+            var workRoot = await db.Users.AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => u.WorkRoot)
+                .FirstOrDefaultAsync(ct);
+            if (string.IsNullOrWhiteSpace(workRoot)) return fallback;
+            var dir = Path.Combine(workRoot, conv);
+            Directory.CreateDirectory(dir);
+            return dir;
+        }
+        catch (Exception ex)
+        {
+            log.LogWarning(ex, "Failed to use user WorkRoot for {UserId}; falling back to {Fallback}.", userId, fallback);
+            return fallback;
         }
     }
 

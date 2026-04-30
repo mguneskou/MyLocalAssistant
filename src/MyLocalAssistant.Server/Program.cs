@@ -109,6 +109,10 @@ try
             await db.Database.EnsureDeletedAsync();
         }
         await db.Database.EnsureCreatedAsync();
+        // Phase 14: User.WorkRoot column added (per-user filesystem scratch root). Additive
+        // change - do an in-place ALTER instead of resetting the DB so existing user accounts,
+        // password hashes, agents and conversations all survive the upgrade.
+        await EnsureUserWorkRootColumnAsync(db);
         var userSvc = scope.ServiceProvider.GetRequiredService<UserService>();
         await userSvc.EnsureAdminBootstrapAsync();
         await userSvc.EnsureGlobalAdminAsync();
@@ -238,5 +242,27 @@ static async Task<bool> IsLegacySchemaAsync(AppDbContext db)
     catch
     {
         return false;
+    }
+}
+
+static async Task EnsureUserWorkRootColumnAsync(AppDbContext db)
+{
+    try
+    {
+        await using var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync();
+        await using (var probe = conn.CreateCommand())
+        {
+            probe.CommandText = "SELECT 1 FROM pragma_table_info('Users') WHERE name = 'WorkRoot' LIMIT 1";
+            if (await probe.ExecuteScalarAsync() is not null) return;
+        }
+        await using var alter = conn.CreateCommand();
+        alter.CommandText = "ALTER TABLE Users ADD COLUMN WorkRoot TEXT NULL";
+        await alter.ExecuteNonQueryAsync();
+        Log.Information("Added User.WorkRoot column to existing database.");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Could not add WorkRoot column to Users; per-user work directories will be unavailable until restart.");
     }
 }

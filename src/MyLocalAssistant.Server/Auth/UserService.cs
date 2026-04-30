@@ -265,6 +265,9 @@ public sealed class UserService(
             IsAdmin = req.IsAdmin,
             MustChangePassword = true,
         };
+        var (workRoot, workRootError) = NormalizeWorkRoot(req.WorkRoot);
+        if (workRootError is not null) return (null, workRootError);
+        user.WorkRoot = workRoot;
         db.Users.Add(user);
 
         // Admins implicitly have access to everything; ignore any provided list.
@@ -294,6 +297,12 @@ public sealed class UserService(
         }
         if (req.IsAdmin is not null) user.IsAdmin = req.IsAdmin.Value;
         if (req.IsDisabled is not null) user.IsDisabled = req.IsDisabled.Value;
+        if (req.WorkRoot is not null)
+        {
+            var (workRoot, workRootError) = NormalizeWorkRoot(req.WorkRoot);
+            if (workRootError is not null) return (null, workRootError);
+            user.WorkRoot = workRoot;
+        }
 
         // Clear departments for admins (implicit all-access). Otherwise apply list if provided.
         if (user.IsAdmin)
@@ -369,5 +378,35 @@ public sealed class UserService(
         u.Id, u.Username, u.DisplayName,
         u.Departments.Select(d => d.Department?.Name ?? "").Where(n => n.Length > 0).OrderBy(n => n).ToList(),
         u.IsAdmin, u.IsDisabled, u.MustChangePassword,
-        u.CreatedAt, u.LastLoginAt);
+        u.CreatedAt, u.LastLoginAt, u.WorkRoot);
+
+    /// <summary>
+    /// Validate and canonicalize a per-user WorkRoot. Empty string -> null (clear). A non-empty
+    /// value must be an absolute path (drive-letter or UNC) and must not contain wildcards or
+    /// path-traversal segments. Returns (normalized, errorCode); errorCode null on success.
+    /// </summary>
+    private static (string? Value, string? Error) NormalizeWorkRoot(string? raw)
+    {
+        if (raw is null) return (null, null);
+        var trimmed = raw.Trim();
+        if (trimmed.Length == 0) return (null, null);
+        if (trimmed.Length > 512) return (null, ProblemCodes.ValidationFailed);
+        if (trimmed.IndexOfAny(new[] { '*', '?', '"', '<', '>', '|' }) >= 0)
+            return (null, ProblemCodes.ValidationFailed);
+        if (trimmed.Contains("..", StringComparison.Ordinal))
+            return (null, ProblemCodes.ValidationFailed);
+        // Must be rooted (e.g. C:\foo or \\server\share\foo).
+        if (!Path.IsPathFullyQualified(trimmed))
+            return (null, ProblemCodes.ValidationFailed);
+        try
+        {
+            // Round-trip through GetFullPath to canonicalize separators.
+            var canonical = Path.GetFullPath(trimmed).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            return (canonical, null);
+        }
+        catch
+        {
+            return (null, ProblemCodes.ValidationFailed);
+        }
+    }
 }

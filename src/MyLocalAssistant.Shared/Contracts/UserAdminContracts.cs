@@ -9,19 +9,22 @@ public sealed record UserAdminDto(
     bool IsDisabled,
     bool MustChangePassword,
     DateTimeOffset CreatedAt,
-    DateTimeOffset? LastLoginAt);
+    DateTimeOffset? LastLoginAt,
+    string? WorkRoot);
 
 public sealed record CreateUserRequest(
     string Username,
     string DisplayName,
     string Password,
     IReadOnlyList<string>? Departments,
-    bool IsAdmin);
+    bool IsAdmin,
+    string? WorkRoot);
 
 public sealed record UpdateUserRequest(
     string? DisplayName,
     IReadOnlyList<string>? Departments,
     bool? IsAdmin,
-    bool? IsDisabled);
+    bool? IsDisabled,
+    string? WorkRoot);
 
 public sealed record ResetPasswordRequest(string NewPassword);

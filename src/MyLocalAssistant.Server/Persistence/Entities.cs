@@ -17,6 +17,13 @@ public sealed class User
     public bool IsGlobalAdmin { get; set; }
     public bool MustChangePassword { get; set; }
     public bool IsDisabled { get; set; }
+    /// <summary>
+    /// Optional per-user filesystem scratch root used by skills as the conversation work
+    /// directory (a per-conversation subfolder is created underneath it). Must be an
+    /// absolute, rooted path. When null/empty the server falls back to <c>state\output\</c>.
+    /// Validated by <see cref="Auth.UserService"/> on write.
+    /// </summary>
+    public string? WorkRoot { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset? LastLoginAt { get; set; }
     public List<UserRole> Roles { get; set; } = new();

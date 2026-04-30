@@ -49,6 +49,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             e.Property(x => x.DisplayName).HasMaxLength(128).IsRequired();
             e.Property(x => x.PasswordHash).HasMaxLength(512).IsRequired();
             e.Property(x => x.AuthSource).HasMaxLength(16).IsRequired();
+            e.Property(x => x.WorkRoot).HasMaxLength(512);
         });
 
         b.Entity<Department>(e =>

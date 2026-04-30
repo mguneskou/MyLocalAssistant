@@ -13,7 +13,17 @@ downloads.
 
 ---
 
-## v2.1.6.0 highlights (current release)
+## v2.1.7.0 highlights (current release)
+
+New **per-user work folder** for skills that touch the filesystem (Excel etc.).
+
+- Admin → Users → edit user now has a **Work folder** field. Set it to any absolute path on the **server PC** (e.g. `D:\AdminScratch` or `\\fileserver\share\bob`). Each conversation gets a subfolder underneath, and skills receive that as their `workDirectory`.
+- When unset, the existing default (`state\output\<conversationId>\`) is used — no behavior change for anyone you don't configure.
+- Validation: the path must be absolute (drive-letter or UNC) and may not contain wildcards or `..` segments. Permission and existence are checked at conversation start; if the configured root is unreachable, the server logs a warning and silently falls back to the default so chat still works.
+- DB upgrade is an in-place `ALTER TABLE Users ADD COLUMN WorkRoot` — existing accounts, password hashes, agents, conversations and downloaded models are preserved. Tested against the 2.1.6 schema.
+- This solves the **"Admin on the server PC"** half of file access. Per-tester-PC file access (Client app picks a folder on its own machine, server reverse-calls `fs.*` over the live connection) is the next milestone (v2.2.0).
+
+## v2.1.6.0 highlights
 
 The **Excel skill plug-in is now bundled in the installer** and seeded onto every install on first launch. New testers no longer need to copy the plug-in folder or trusted key by hand.
 
