@@ -74,6 +74,8 @@ try
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.TimeNowSkill>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.RagSearchSkill>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.SkillRegistry>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.Plugin.PluginSignatureVerifier>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.Plugin.PluginScanner>();
     builder.Services.AddHostedService<ModelBootstrapService>();
     builder.Services.AddHostedService<EmbeddingBootstrapService>();
     builder.Services.AddHostedService<MyLocalAssistant.Server.Hosting.RetentionService>();
@@ -114,6 +116,12 @@ try
         var agentSvc = scope.ServiceProvider.GetRequiredService<AgentService>();
         await agentSvc.SeedAsync();
         var skillRegistry = app.Services.GetRequiredService<MyLocalAssistant.Server.Skills.SkillRegistry>();
+        var pluginScanner = app.Services.GetRequiredService<MyLocalAssistant.Server.Skills.Plugin.PluginScanner>();
+        foreach (var plugin in pluginScanner.ScanAndLoad())
+        {
+            try { skillRegistry.Register(plugin); }
+            catch (Exception ex) { Log.Warning(ex, "Plug-in '{Id}' could not be registered.", plugin.Id); }
+        }
         await skillRegistry.SeedAsync();
     }
 

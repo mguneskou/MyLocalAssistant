@@ -25,6 +25,19 @@ public sealed class SkillRegistry(
         get { lock (_lock) return _skills.Values.ToArray(); }
     }
 
+    /// <summary>Register an extra skill (e.g. a verified plug-in) before <see cref="SeedAsync"/>
+    /// runs. Throws if the id collides with an existing skill — built-ins win because they
+    /// are wired in DI; a colliding plug-in id is a packaging bug.</summary>
+    public void Register(ISkill skill)
+    {
+        lock (_lock)
+        {
+            if (_skills.ContainsKey(skill.Id))
+                throw new InvalidOperationException($"Skill id '{skill.Id}' already registered (built-in or earlier plug-in).");
+            _skills[skill.Id] = skill;
+        }
+    }
+
     public bool TryGet(string id, out ISkill skill)
     {
         lock (_lock)

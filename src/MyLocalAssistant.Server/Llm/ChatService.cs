@@ -101,6 +101,8 @@ public sealed class ChatService(
 
         var assistantSoFar = new StringBuilder();
         var stops = toolMode ? new[] { ToolCallClose } : Array.Empty<string>();
+        var workDir = Path.Combine(ServerPaths.OutputDirectory, callbacks.ConversationId.ToString("N"));
+        Directory.CreateDirectory(workDir);
         var skillCtx = new SkillContext(
             principal.UserId,
             principal.Username ?? string.Empty,
@@ -110,7 +112,7 @@ public sealed class ChatService(
             IsGlobalAdmin: false,
             agent.Id,
             callbacks.ConversationId,
-            string.Empty, // plugin work-dir (Phase 3 fills this)
+            workDir,
             ct);
 
         for (var iteration = 0; iteration <= MaxToolCallsPerTurn; iteration++)

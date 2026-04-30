@@ -1,0 +1,25 @@
+{
+  "id": "echo",
+  "name": "Echo",
+  "description": "Reference plug-in that echoes the input text. Useful for verifying the plug-in pipeline end to end.",
+  "category": "Reference",
+  "version": "1.0.0",
+  "publisher": "MyLocalAssistant",
+  "keyId": "REPLACE-WITH-KEY-ID",
+  "toolMode": "tags",
+  "minContextK": 4,
+  "entry": {
+    "command": "echo.exe",
+    "args": []
+  },
+  "files": [
+    { "path": "echo.exe", "sha256": "REPLACE-WITH-SHA256" }
+  ],
+  "tools": [
+    {
+      "name": "echo.say",
+      "description": "Returns the input text verbatim.",
+      "argumentsSchemaJson": "{\"type\":\"object\",\"properties\":{\"text\":{\"type\":\"string\"}},\"required\":[\"text\"]}"
+    }
+  ]
+}
