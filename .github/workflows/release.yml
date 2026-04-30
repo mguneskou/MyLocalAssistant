@@ -45,20 +45,53 @@ jobs:
           dotnet test src\tests\MyLocalAssistant.Core.Tests\MyLocalAssistant.Core.Tests.csproj `
             -c Release --verbosity minimal
 
-      - name: Build & pack & upload via Velopack
+      - name: Install vpk (Velopack CLI)
+        shell: pwsh
+        run: |
+          dotnet tool install --global vpk
+          # Make tools dir visible to every subsequent step.
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+          vpk --help | Select-Object -First 3
+
+      - name: Publish all four exes into dist\stage
+        shell: pwsh
+        run: |
+          .\scripts\publish-all.ps1 -Configuration Release -Runtime win-x64 -OutDir "$PWD\dist\stage"
+          Get-ChildItem dist\stage -Filter *.exe | Select-Object Name, Length
+
+      - name: vpk pack
+        shell: pwsh
+        run: |
+          if (-not (Test-Path dist\releases)) { New-Item -ItemType Directory -Force -Path dist\releases | Out-Null }
+          vpk pack `
+            --packId      MyLocalAssistant `
+            --packVersion '${{ steps.ver.outputs.version }}' `
+            --packDir     "$PWD\dist\stage" `
+            --mainExe     MyLocalAssistant.ServerHost.exe `
+            --packTitle   MyLocalAssistant `
+            --packAuthors "Mehmet Gunes" `
+            --outputDir   "$PWD\dist\releases" `
+            --channel     win
+          Get-ChildItem dist\releases | Format-Table Name, Length -AutoSize
+
+      - name: vpk upload to GitHub Release
         shell: pwsh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          .\scripts\release.ps1 `
-            -Version '${{ steps.ver.outputs.version }}' `
-            -RepoUrl 'https://github.com/${{ github.repository }}' `
-            -Upload `
-            -GitHubToken $env:GH_TOKEN
+          vpk upload github `
+            --outputDir   "$PWD\dist\releases" `
+            --repoUrl     'https://github.com/${{ github.repository }}' `
+            --token       $env:GH_TOKEN `
+            --tag         'v${{ steps.ver.outputs.version }}' `
+            --releaseName 'MyLocalAssistant ${{ steps.ver.outputs.version }}' `
+            --publish
 
-      - name: Upload artifacts (also on this workflow run)
+      - name: Upload artifacts (always, for diagnosis)
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: MyLocalAssistant-${{ steps.ver.outputs.version }}-win
           path: dist/releases/*
-          if-no-files-found: error
+          if-no-files-found: warn
