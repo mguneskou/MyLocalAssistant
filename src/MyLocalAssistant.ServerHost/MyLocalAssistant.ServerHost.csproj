@@ -9,10 +9,10 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>MyLocalAssistant.ServerHost</AssemblyName>
     <RootNamespace>MyLocalAssistant.ServerHost</RootNamespace>
-    <Version>2.2.0.0</Version>
-    <AssemblyVersion>2.2.0.0</AssemblyVersion>
-    <FileVersion>2.2.0.0</FileVersion>
-    <InformationalVersion>2.2.0.0</InformationalVersion>
+    <Version>2.2.1.0</Version>
+    <AssemblyVersion>2.2.1.0</AssemblyVersion>
+    <FileVersion>2.2.1.0</FileVersion>
+    <InformationalVersion>2.2.1.0</InformationalVersion>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
 

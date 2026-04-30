@@ -54,6 +54,10 @@ internal sealed class TrayContext : ApplicationContext
     private Process? _server;
     private bool _shuttingDown;
     private UpdateManager? _updater;
+    // Velopack refuses to run two operations against the same install at once
+    // (it takes an exclusive file lock in the package folder). Serialize all
+    // calls through this gate so the timer Tick can't collide with the menu.
+    private readonly SemaphoreSlim _updateGate = new(1, 1);
 
     public TrayContext()
     {
@@ -263,17 +267,30 @@ internal sealed class TrayContext : ApplicationContext
 
     private async Task CheckForUpdatesAsync(bool interactive)
     {
+        if (AutoUpdatesPaused())
+        {
+            if (interactive)
+            {
+                MessageBox.Show("Auto-updates are paused on this machine.\n\nUncheck \"Pause auto-updates\" in the tray menu to resume.",
+                    "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            return;
+        }
+
+        // If a background check is already running, don't queue interactive
+        // clicks behind it — just tell the user.
+        if (!await _updateGate.WaitAsync(interactive ? 0 : Timeout.Infinite))
+        {
+            if (interactive)
+            {
+                MessageBox.Show("An update check is already in progress. Please try again in a moment.",
+                    "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            return;
+        }
+
         try
         {
-            if (AutoUpdatesPaused())
-            {
-                if (interactive)
-                {
-                    MessageBox.Show("Auto-updates are paused on this machine.\n\nUncheck \"Pause auto-updates\" in the tray menu to resume.",
-                        "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
-                return;
-            }
 
             // First call lazily creates the manager. Velopack only works once installed
             // (i.e. when launched from the Update.exe stub), so in-dev launches no-op.
@@ -307,10 +324,28 @@ internal sealed class TrayContext : ApplicationContext
             // ApplyUpdatesAndRestart relaunches ServerHost.exe after the swap.
             _updater.ApplyUpdatesAndRestart(info);
         }
+        catch (Exception ex) when (ex.Message.Contains("exclusive lock", StringComparison.OrdinalIgnoreCase))
+        {
+            // Stale lock from a previously-killed ServerHost, or a Velopack
+            // operation still running in another process. Restarting the tray
+            // (Quit + relaunch) clears it; auto-update will retry next hour.
+            if (interactive)
+            {
+                MessageBox.Show(
+                    "Another update operation is currently holding the install lock.\n\n" +
+                    "This usually clears on its own within a few minutes. If it persists, " +
+                    "right-click the tray icon and choose \"Quit (stop server)\", then re-launch MyLocalAssistant.",
+                    "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
         catch (Exception ex)
         {
             if (interactive) MessageBox.Show("Update check failed:\n" + ex.Message,
                 "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+        finally
+        {
+            _updateGate.Release();
         }
     }
 

@@ -13,7 +13,11 @@ downloads.
 
 ---
 
-## v2.2.0 highlights (current release)
+## v2.2.1 highlights (current release)
+
+- **Fix**: tray "Check for updates…" no longer fails with *"Failed to acquire exclusive lock file. Is another operation currently running?"* when the hourly background check happens to be in flight. All update operations are now serialized through a single gate; interactive clicks that arrive while a background check is running show a friendly "already in progress" message instead of the raw Velopack error. The genuinely-stuck case (stale lock from a previously-killed ServerHost) is also detected and gives the user the recovery step.
+
+## v2.2.0 highlights
 
 Files can now live on the **tester's PC**, not just the server.
 
