@@ -27,3 +27,9 @@ TestResults/
 *.trx
 coverage*.xml
 *.coverage
+
+# Build output
+bin/
+obj/
+dist/
+

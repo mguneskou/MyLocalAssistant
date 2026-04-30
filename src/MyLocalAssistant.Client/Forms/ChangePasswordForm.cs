@@ -71,7 +71,7 @@ internal sealed class ChangePasswordForm : Form
         _status.Text = "";
         if (string.IsNullOrEmpty(_current.Text) || string.IsNullOrEmpty(_next.Text)) { _status.Text = "All fields required."; return; }
         if (_next.Text != _confirm.Text) { _status.Text = "New passwords do not match."; return; }
-        if (_next.Text.Length < 6) { _status.Text = "New password must be at least 6 characters."; return; }
+        if (_next.Text.Length < 8) { _status.Text = "New password must be at least 8 characters."; return; }
 
         try
         {

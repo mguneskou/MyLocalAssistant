@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 namespace MyLocalAssistant.Server.Persistence;
 
@@ -21,6 +22,26 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
 
     protected override void OnModelCreating(ModelBuilder b)
     {
+        // SQLite has no native datetime type and EF Core refuses to translate ORDER BY
+        // on DateTimeOffset (the default TEXT representation isn't lexically sortable
+        // because of timezone offsets). Store all timestamps as UTC ticks (long) so
+        // ORDER BY works in SQL. Round-trips lossless for DateTimeOffset (offset is
+        // dropped — we always treat persisted timestamps as UTC).
+        var dtoConverter = new ValueConverter<DateTimeOffset, long>(
+            v => v.UtcTicks,
+            v => new DateTimeOffset(v, TimeSpan.Zero));
+        var nullableDtoConverter = new ValueConverter<DateTimeOffset?, long?>(
+            v => v.HasValue ? v.Value.UtcTicks : (long?)null,
+            v => v.HasValue ? new DateTimeOffset(v.Value, TimeSpan.Zero) : (DateTimeOffset?)null);
+        foreach (var entity in b.Model.GetEntityTypes())
+        {
+            foreach (var prop in entity.GetProperties())
+            {
+                if (prop.ClrType == typeof(DateTimeOffset)) prop.SetValueConverter(dtoConverter);
+                else if (prop.ClrType == typeof(DateTimeOffset?)) prop.SetValueConverter(nullableDtoConverter);
+            }
+        }
+
         b.Entity<User>(e =>
         {
             e.HasIndex(x => x.Username).IsUnique();

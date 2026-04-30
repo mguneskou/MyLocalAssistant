@@ -4,6 +4,7 @@
     <Project Path="src/MyLocalAssistant.Client/MyLocalAssistant.Client.csproj" />
     <Project Path="src/MyLocalAssistant.Core/MyLocalAssistant.Core.csproj" />
     <Project Path="src/MyLocalAssistant.Server/MyLocalAssistant.Server.csproj" />
+    <Project Path="src/MyLocalAssistant.ServerHost/MyLocalAssistant.ServerHost.csproj" />
     <Project Path="src/MyLocalAssistant.Shared/MyLocalAssistant.Shared.csproj" />
   </Folder>
   <Folder Name="/src/tests/">

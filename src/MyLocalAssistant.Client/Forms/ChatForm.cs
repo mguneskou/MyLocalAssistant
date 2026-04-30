@@ -84,13 +84,34 @@ internal sealed class ChatForm : Form
         {
             Dock = DockStyle.Fill,
             FixedPanel = FixedPanel.Panel1,
-            Panel1MinSize = 200,
-            Panel2MinSize = 420,
             BackColor = UiTheme.Border,
             SplitterWidth = 1,
+            // NOTE: Panel1MinSize / Panel2MinSize / SplitterDistance are deliberately NOT
+            // set here. SplitContainer re-validates SplitterDistance every time you touch
+            // any of those, against the container's CURRENT width (which is the default
+            // 150 px until docking takes effect on the first layout pass). Setting them
+            // now throws InvalidOperationException; we apply them in HandleCreated below
+            // once the container has been resized to the form's full width.
         };
         _split.Panel1.BackColor = UiTheme.SurfaceAlt;
         _split.Panel2.BackColor = UiTheme.Surface;
+        _split.HandleCreated += (_, _) =>
+        {
+            try
+            {
+                _split.SuspendLayout();
+                // Always satisfy Panel1MinSize <= SplitterDistance <= Width - Panel2MinSize.
+                var width = Math.Max(_split.Width, 600);
+                var p1Min = Math.Min(120, width / 4);
+                var p2Min = Math.Min(320, width / 2);
+                var dist = Math.Clamp(260, p1Min, Math.Max(p1Min + 1, width - p2Min));
+                _split.Panel1MinSize = p1Min;
+                _split.Panel2MinSize = p2Min;
+                _split.SplitterDistance = dist;
+            }
+            catch { /* keep defaults rather than crash */ }
+            finally { _split.ResumeLayout(); }
+        };
 
         // Left pane: conversations.
         var leftHeader = new Label
@@ -217,7 +238,6 @@ internal sealed class ChatForm : Form
         Controls.Add(_split);
         Controls.Add(_status);
         Controls.Add(_toolbar);
-        _split.SplitterDistance = 260;
 
         Load += async (_, _) => await ReloadAgentsAsync();
         FormClosing += (_, _) => _streamCts?.Cancel();
