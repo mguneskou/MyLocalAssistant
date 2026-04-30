@@ -17,6 +17,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<RagCollection> RagCollections => Set<RagCollection>();
     public DbSet<RagDocument> RagDocuments => Set<RagDocument>();
     public DbSet<RagCollectionGrant> RagCollectionGrants => Set<RagCollectionGrant>();
+    public DbSet<SkillState> Skills => Set<SkillState>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -112,6 +113,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             // Defense-in-depth: prevent duplicate grants for the same principal.
             e.HasIndex(x => new { x.CollectionId, x.PrincipalKind, x.PrincipalId }).IsUnique();
             e.HasIndex(x => new { x.PrincipalKind, x.PrincipalId });
+        });
+
+        b.Entity<SkillState>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Id).HasMaxLength(64);
+            e.Property(x => x.Source).HasMaxLength(16).IsRequired();
+            e.Property(x => x.InstalledVersion).HasMaxLength(32);
+            // ConfigJson is intentionally unbounded; admin sees raw JSON in the editor.
         });
     }
 }

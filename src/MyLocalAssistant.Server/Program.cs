@@ -67,6 +67,12 @@ try
     builder.Services.AddScoped<MyLocalAssistant.Server.Rag.RagAuthorizationService>();
     builder.Services.AddScoped<MyLocalAssistant.Server.Rag.RagService>();
     builder.Services.AddScoped<ChatService>();
+
+    // Skills (Phase 1): in-process built-ins. Plug-in discovery comes in Phase 3.
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.MathEvalSkill>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.TimeNowSkill>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.RagSearchSkill>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.SkillRegistry>();
     builder.Services.AddHostedService<ModelBootstrapService>();
     builder.Services.AddHostedService<EmbeddingBootstrapService>();
     builder.Services.AddHostedService<MyLocalAssistant.Server.Hosting.RetentionService>();
@@ -106,6 +112,8 @@ try
         await deptSvc.SeedAsync();
         var agentSvc = scope.ServiceProvider.GetRequiredService<AgentService>();
         await agentSvc.SeedAsync();
+        var skillRegistry = app.Services.GetRequiredService<MyLocalAssistant.Server.Skills.SkillRegistry>();
+        await skillRegistry.SeedAsync();
     }
 
     app.UseSerilogRequestLogging();
@@ -125,6 +133,7 @@ try
     app.MapAuditEndpoints();
     app.MapSettingsEndpoints();
     app.MapAttachmentEndpoints();
+    app.MapSkillEndpoints();
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
         settings.ListenUrl, ServerPaths.AppDirectory);
 

@@ -61,6 +61,15 @@ internal sealed class MainForm : Form
         if (_client.CurrentUser?.IsGlobalAdmin == true)
             _tabs.TabPages.Add(agentsPage);
 
+        // Skill catalog (built-in + plug-in) is also owner-only — it controls what every
+        // agent in the system is capable of, so a regular admin shouldn't see or change it.
+        if (_client.CurrentUser?.IsGlobalAdmin == true)
+        {
+            var skillsPage = new TabPage("Skills") { UseVisualStyleBackColor = true };
+            skillsPage.Controls.Add(new SkillsTab(_client));
+            _tabs.TabPages.Add(skillsPage);
+        }
+
         var modelsPage = new TabPage("Models") { UseVisualStyleBackColor = true };
         modelsPage.Controls.Add(new ModelsTab(_client));
         _tabs.TabPages.Add(modelsPage);

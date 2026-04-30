@@ -190,6 +190,23 @@ public sealed class ServerClient : IDisposable
             ?? throw new InvalidOperationException("Empty update-agent response.");
     }
 
+    // ---------- Admin: skills ----------
+
+    public async Task<List<SkillDto>> ListSkillsAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/skills/", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<SkillDto>>(s_json, ct) ?? new();
+    }
+
+    public async Task<SkillDto> UpdateSkillAsync(string id, SkillUpdateRequest req, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Patch, $"api/admin/skills/{id}", req, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<SkillDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty update-skill response.");
+    }
+
     // ---------- Admin: RAG ----------
 
     public async Task<List<RagCollectionDto>> ListCollectionsAsync(CancellationToken ct = default)
