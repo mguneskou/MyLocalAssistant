@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>MyLocalAssistant.Plugins.Excel</RootNamespace>
+    <AssemblyName>excel</AssemblyName>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ClosedXML" Version="0.104.1" />
+    <ProjectReference Include="..\..\src\MyLocalAssistant.Shared\MyLocalAssistant.Shared.csproj" />
+  </ItemGroup>
+</Project>

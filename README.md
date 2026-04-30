@@ -13,7 +13,18 @@ downloads.
 
 ---
 
-## v2.1.3.0 highlights (current release)
+## v2.1.4.0 highlights (current release)
+
+New **Excel skill plug-in** — a signed plug-in (`plugins/excel/`) that lets agents read, query, write, format, and recalculate `.xlsx` workbooks entirely in-process via [ClosedXML](https://github.com/ClosedXML/ClosedXML). No Microsoft Office install required.
+
+- **13 tools**: `list_sheets`, `read_range`, `read_table`, `find`, `describe`, `pivot`, `write_cells`, `append_row`, `create_workbook`, `set_format`, `set_formula`, `recalculate`, `evaluate`.
+- **Live formula engine** — `set_formula` returns the computed result immediately; `recalculate` re-runs every formula in the workbook before saving; `evaluate` runs a one-off formula against a workbook context.
+- **Sandboxed file access** — admin-controlled `allowedRoots` plus the per-conversation work directory; everything else returns `path_not_allowed`.
+- **Writes are opt-in** — every mutating tool returns `writes_disabled` until the owner sets `"allowWrites": true` in the plug-in's `ConfigJson` from the Skills tab.
+- **Bounded responses** — `maxRowsPerCall` and `maxCellBytes` cap payloads to keep the model's context lean.
+- See [`plugins/excel/README.md`](plugins/excel/README.md) for the full tool list, config schema and build instructions (`pwsh ./plugins/excel/build.ps1`).
+
+## v2.1.3.0 highlights
 
 Follow-up to 2.1.2: the first-launch migration now also scans Velopack's prior-version `app-X.Y.Z\` sibling folders for leftover state, so users upgrading from 2.1.0 / 2.1.1 (which wrote everything inside the doomed `current\`) will have their downloaded models, database, vector store, plug-ins and settings auto-recovered if Velopack hasn't yet purged the old install.
 
