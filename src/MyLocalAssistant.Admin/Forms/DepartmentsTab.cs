@@ -50,6 +50,7 @@ internal sealed class DepartmentsTab : UserControl
             new DataGridViewTextBoxColumn { HeaderText = "Members", DataPropertyName = nameof(DepartmentDto.UserCount), Width = 90 },
         });
         _grid.DataSource = _rows;
+        MyLocalAssistant.Admin.UI.UiTheme.StyleGrid(_grid);
 
         _statusLabel = new ToolStripStatusLabel("");
         _status = new StatusStrip();

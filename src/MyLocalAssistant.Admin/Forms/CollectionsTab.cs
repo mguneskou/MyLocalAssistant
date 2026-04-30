@@ -107,19 +107,24 @@ internal sealed class CollectionsTab : UserControl
         Load += async (_, _) => await ReloadCollectionsAsync();
     }
 
-    private static DataGridView MakeGrid() => new()
+    private static DataGridView MakeGrid()
     {
-        Dock = DockStyle.Fill,
-        AutoGenerateColumns = false,
-        AllowUserToAddRows = false,
-        AllowUserToDeleteRows = false,
-        ReadOnly = true,
-        SelectionMode = DataGridViewSelectionMode.FullRowSelect,
-        MultiSelect = false,
-        RowHeadersVisible = false,
-        BackgroundColor = SystemColors.Window,
-        BorderStyle = BorderStyle.None,
-    };
+        var g = new DataGridView
+        {
+            Dock = DockStyle.Fill,
+            AutoGenerateColumns = false,
+            AllowUserToAddRows = false,
+            AllowUserToDeleteRows = false,
+            ReadOnly = true,
+            SelectionMode = DataGridViewSelectionMode.FullRowSelect,
+            MultiSelect = false,
+            RowHeadersVisible = false,
+            BackgroundColor = SystemColors.Window,
+            BorderStyle = BorderStyle.None,
+        };
+        MyLocalAssistant.Admin.UI.UiTheme.StyleGrid(g);
+        return g;
+    }
 
     private RagCollectionDto? SelectedCollection =>
         _collGrid.CurrentRow?.DataBoundItem as RagCollectionDto;

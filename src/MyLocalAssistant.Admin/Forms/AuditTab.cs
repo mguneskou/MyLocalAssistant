@@ -115,6 +115,7 @@ internal sealed class AuditTab : UserControl
             new DataGridViewTextBoxColumn { HeaderText = "Detail", DataPropertyName = nameof(AuditEntryDto.Detail), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill },
         });
         _grid.DataSource = _rows;
+        MyLocalAssistant.Admin.UI.UiTheme.StyleGrid(_grid);
         _grid.CellDoubleClick += (_, e) =>
         {
             if (e.RowIndex < 0 || e.RowIndex >= _rows.Count) return;

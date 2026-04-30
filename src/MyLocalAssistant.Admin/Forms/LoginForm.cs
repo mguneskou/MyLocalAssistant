@@ -1,4 +1,5 @@
 using MyLocalAssistant.Admin.Services;
+using MyLocalAssistant.Admin.UI;
 
 namespace MyLocalAssistant.Admin.Forms;
 
@@ -25,9 +26,17 @@ internal sealed class LoginForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;
-        Size = new Size(420, 320);
-        Font = new Font("Segoe UI", 9F);
-        Padding = new Padding(20);
+        Size = new Size(460, 420);
+        UiTheme.ApplyForm(this);
+
+        var header = new BrandHeader("MyLocalAssistant Admin", "Manage your AI workspace");
+
+        var card = new Panel
+        {
+            Dock = DockStyle.Fill,
+            BackColor = UiTheme.Surface,
+            Padding = new Padding(28, 22, 28, 22),
+        };
 
         var layout = new TableLayoutPanel
         {
@@ -63,8 +72,10 @@ internal sealed class LoginForm : Form
             FlowDirection = FlowDirection.RightToLeft,
             Dock = DockStyle.Fill,
         };
-        _login = new Button { Text = "Sign in", Width = 110, Height = 30 };
-        _exit = new Button { Text = "Exit", Width = 90, Height = 30, Margin = new Padding(8, 0, 0, 0) };
+        _login = new Button { Text = "Sign in", Width = 120, Height = 34 };
+        _exit = new Button { Text = "Exit", Width = 90, Height = 34, Margin = new Padding(8, 0, 0, 0) };
+        UiTheme.Primary(_login);
+        UiTheme.Secondary(_exit);
         _login.Click += async (_, _) => await DoLoginAsync();
         _exit.Click += (_, _) => { DialogResult = DialogResult.Cancel; Close(); };
         buttons.Controls.Add(_login);
@@ -72,7 +83,9 @@ internal sealed class LoginForm : Form
         layout.SetColumnSpan(buttons, 2);
         layout.Controls.Add(buttons, 0, 5);
 
-        Controls.Add(layout);
+        card.Controls.Add(layout);
+        Controls.Add(card);
+        Controls.Add(header);
         AcceptButton = _login;
         CancelButton = _exit;
         ActiveControl = string.IsNullOrEmpty(_username.Text) ? _username : _password;

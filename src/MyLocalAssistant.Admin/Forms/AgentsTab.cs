@@ -87,6 +87,7 @@ internal sealed class AgentsTab : UserControl
             new DataGridViewTextBoxColumn { HeaderText = "Description", DataPropertyName = nameof(AgentRow.Description), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, ReadOnly = true },
         });
         _grid.DataSource = _rows;
+        MyLocalAssistant.Admin.UI.UiTheme.StyleGrid(_grid);
         _grid.CellValueChanged += OnCellValueChanged;
         _grid.CellContentClick += OnCellContentClick;
         _grid.CurrentCellDirtyStateChanged += (_, _) =>

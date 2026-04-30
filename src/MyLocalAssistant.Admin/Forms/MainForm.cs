@@ -1,4 +1,5 @@
 using MyLocalAssistant.Admin.Services;
+using MyLocalAssistant.Admin.UI;
 
 namespace MyLocalAssistant.Admin.Forms;
 
@@ -8,18 +9,23 @@ internal sealed class MainForm : Form
     private readonly TabControl _tabs;
     private readonly ToolStripStatusLabel _statusUser;
     private readonly ToolStripStatusLabel _statusServer;
+    private readonly ToolStripStatusLabel _statusRole;
 
     public MainForm(ServerClient client)
     {
         _client = client;
 
+        var role = client.CurrentUser?.IsGlobalAdmin == true
+            ? "Global admin"
+            : client.CurrentUser?.IsAdmin == true ? "Administrator" : "User";
+
         Text = $"MyLocalAssistant Admin — {client.CurrentUser?.DisplayName ?? "?"} @ {client.BaseUrl}";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(900, 600);
-        Size = new Size(1100, 720);
-        Font = new Font("Segoe UI", 9F);
+        MinimumSize = new Size(960, 640);
+        Size = new Size(1180, 760);
+        UiTheme.ApplyForm(this);
 
-        var menu = new MenuStrip();
+        var menu = new MenuStrip { BackColor = UiTheme.SurfaceCard, Renderer = new ToolStripProfessionalRenderer() };
         var fileMenu = new ToolStripMenuItem("&File");
         var changePwd = new ToolStripMenuItem("Change my &password…", null, async (_, _) => await OnChangePasswordAsync());
         var signOut = new ToolStripMenuItem("Sign &out", null, (_, _) => { _client.Logout(); DialogResult = DialogResult.Retry; Close(); });
@@ -28,7 +34,18 @@ internal sealed class MainForm : Form
         menu.Items.Add(fileMenu);
         MainMenuStrip = menu;
 
-        _tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(12, 6) };
+        var contentHost = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(10, 10, 10, 0),
+            BackColor = UiTheme.Surface,
+        };
+        _tabs = new TabControl
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Point(14, 8),
+            Font = UiTheme.BaseFont,
+        };
 
         var usersPage = new TabPage("Users") { UseVisualStyleBackColor = true };
         usersPage.Controls.Add(new UsersTab(_client));
@@ -60,15 +77,30 @@ internal sealed class MainForm : Form
         settingsPage.Controls.Add(new SettingsTab(_client));
         _tabs.TabPages.Add(settingsPage);
 
-        var status = new StatusStrip();
+        var status = new StatusStrip { BackColor = UiTheme.SurfaceCard, SizingGrip = false };
+        _statusRole = new ToolStripStatusLabel($"\u25CF {role}")
+        {
+            ForeColor = client.CurrentUser?.IsGlobalAdmin == true ? UiTheme.Warning : UiTheme.Success,
+            Font = UiTheme.BaseBold,
+            Margin = new Padding(6, 2, 12, 2),
+        };
         _statusUser = new ToolStripStatusLabel($"Signed in as {_client.CurrentUser?.Username}");
-        _statusServer = new ToolStripStatusLabel($"Server: {_client.BaseUrl}") { Spring = true, TextAlign = ContentAlignment.MiddleRight };
+        _statusServer = new ToolStripStatusLabel($"Server: {_client.BaseUrl}")
+        {
+            Spring = true,
+            TextAlign = ContentAlignment.MiddleRight,
+            ForeColor = UiTheme.TextSecondary,
+        };
+        status.Items.Add(_statusRole);
+        status.Items.Add(new ToolStripSeparator());
         status.Items.Add(_statusUser);
         status.Items.Add(_statusServer);
 
+        contentHost.Controls.Add(_tabs);
+
         // Add Fill control FIRST so it sits at the bottom of the z-order; Top/Bottom-docked
         // siblings (menu, status) then claim their edges from the remaining client area.
-        Controls.Add(_tabs);
+        Controls.Add(contentHost);
         Controls.Add(status);
         Controls.Add(menu);
     }

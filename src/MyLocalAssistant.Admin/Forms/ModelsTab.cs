@@ -64,6 +64,7 @@ internal sealed class ModelsTab : UserControl
             new DataGridViewTextBoxColumn { HeaderText = "License", DataPropertyName = nameof(ModelRow.License), Width = 110 },
         });
         _grid.DataSource = _rows;
+        MyLocalAssistant.Admin.UI.UiTheme.StyleGrid(_grid);
 
         _statusLabel = new ToolStripStatusLabel("");
         _status = new StatusStrip();

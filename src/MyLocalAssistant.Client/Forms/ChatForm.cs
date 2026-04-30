@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using MyLocalAssistant.Client.Services;
+using MyLocalAssistant.Client.UI;
 using MyLocalAssistant.Shared.Contracts;
 
 namespace MyLocalAssistant.Client.Forms;
@@ -45,18 +46,26 @@ internal sealed class ChatForm : Form
 
         Text = $"MyLocalAssistant \u2014 {_client.CurrentUser?.DisplayName ?? "?"} @ {_client.BaseUrl}";
         StartPosition = FormStartPosition.CenterScreen;
-        MinimumSize = new Size(820, 560);
-        Size = new Size(1080, 720);
-        Font = new Font("Segoe UI", 10F);
+        MinimumSize = new Size(900, 600);
+        Size = new Size(1180, 760);
+        UiTheme.ApplyForm(this);
 
-        _toolbar = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top, ImageScalingSize = new Size(16, 16) };
-        _agentCombo = new ToolStripComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 240 };
+        _toolbar = new ToolStrip
+        {
+            GripStyle = ToolStripGripStyle.Hidden,
+            Dock = DockStyle.Top,
+            ImageScalingSize = new Size(16, 16),
+            BackColor = UiTheme.SurfaceCard,
+            Padding = new Padding(8, 4, 8, 4),
+            Renderer = new ToolStripProfessionalRenderer(),
+        };
+        _agentCombo = new ToolStripComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260, Font = UiTheme.BaseFont };
         _agentCombo.ComboBox!.DisplayMember = nameof(AgentDto.Name);
         _agentCombo.SelectedIndexChanged += async (_, _) => await OnAgentChangedAsync();
-        _agentDescription = new ToolStripLabel("") { ForeColor = SystemColors.GrayText };
-        _changePwdBtn = new ToolStripButton("Change password\u2026");
+        _agentDescription = new ToolStripLabel("") { ForeColor = UiTheme.TextSecondary, Font = UiTheme.Caption };
+        _changePwdBtn = new ToolStripButton("Change password\u2026") { Font = UiTheme.BaseFont };
         _changePwdBtn.Click += (_, _) => { using var d = new ChangePasswordForm(_client, forced: false); d.ShowDialog(this); };
-        _signOutBtn = new ToolStripButton("Sign out");
+        _signOutBtn = new ToolStripButton("Sign out") { Font = UiTheme.BaseFont };
         _signOutBtn.Click += (_, _) => { DialogResult = DialogResult.Retry; Close(); };
         _toolbar.Items.AddRange(new ToolStripItem[]
         {
@@ -75,29 +84,37 @@ internal sealed class ChatForm : Form
         {
             Dock = DockStyle.Fill,
             FixedPanel = FixedPanel.Panel1,
-            Panel1MinSize = 180,
-            Panel2MinSize = 380,
+            Panel1MinSize = 200,
+            Panel2MinSize = 420,
+            BackColor = UiTheme.Border,
+            SplitterWidth = 1,
         };
+        _split.Panel1.BackColor = UiTheme.SurfaceAlt;
+        _split.Panel2.BackColor = UiTheme.Surface;
 
         // Left pane: conversations.
         var leftHeader = new Label
         {
-            Text = "Conversations",
+            Text = "  Conversations",
             Dock = DockStyle.Top,
-            Height = 24,
-            Padding = new Padding(8, 4, 0, 0),
-            Font = new Font(Font, FontStyle.Bold),
+            Height = 36,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Font = UiTheme.BaseBold,
+            ForeColor = UiTheme.TextPrimary,
+            BackColor = UiTheme.SurfaceAlt,
         };
-        var leftButtons = new FlowLayoutPanel
+        var leftButtons = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 36,
-            FlowDirection = FlowDirection.LeftToRight,
-            Padding = new Padding(4),
+            Height = 48,
+            Padding = new Padding(8, 6, 8, 8),
+            BackColor = UiTheme.SurfaceAlt,
         };
-        _newChatBtn = new Button { Text = "New chat", Width = 100, Height = 26 };
+        _newChatBtn = new Button { Text = "+  New chat", Width = 110, Height = 32, Dock = DockStyle.Left };
+        UiTheme.Primary(_newChatBtn);
         _newChatBtn.Click += (_, _) => StartNewChat();
-        _deleteChatBtn = new Button { Text = "Delete", Width = 80, Height = 26, Enabled = false };
+        _deleteChatBtn = new Button { Text = "Delete", Width = 80, Height = 32, Dock = DockStyle.Right, Enabled = false };
+        UiTheme.Secondary(_deleteChatBtn);
         _deleteChatBtn.Click += async (_, _) => await OnDeleteConversationAsync();
         leftButtons.Controls.Add(_newChatBtn);
         leftButtons.Controls.Add(_deleteChatBtn);
@@ -108,7 +125,12 @@ internal sealed class ChatForm : Form
             IntegralHeight = false,
             BorderStyle = BorderStyle.None,
             DisplayMember = nameof(ConversationSummaryDto.Title),
+            BackColor = UiTheme.SurfaceAlt,
+            ForeColor = UiTheme.TextPrimary,
+            DrawMode = DrawMode.OwnerDrawFixed,
+            ItemHeight = 46,
         };
+        _conversationList.DrawItem += OnDrawConversationItem;
         _conversationList.SelectedIndexChanged += async (_, _) => await OnConversationSelectedAsync();
         _split.Panel1.Controls.Add(_conversationList);
         _split.Panel1.Controls.Add(leftButtons);
@@ -120,11 +142,19 @@ internal sealed class ChatForm : Form
             Dock = DockStyle.Fill,
             ReadOnly = true,
             BorderStyle = BorderStyle.None,
-            Font = new Font("Segoe UI", 10F),
-            BackColor = Color.White,
+            Font = new Font("Segoe UI", 10.5F),
+            BackColor = UiTheme.SurfaceCard,
+            ForeColor = UiTheme.TextPrimary,
             DetectUrls = false,
+            Margin = new Padding(0),
         };
-        var inputPanel = new Panel { Dock = DockStyle.Bottom, Height = 140, Padding = new Padding(8) };
+        var inputPanel = new Panel
+        {
+            Dock = DockStyle.Bottom,
+            Height = 150,
+            Padding = new Padding(12, 10, 12, 12),
+            BackColor = UiTheme.Surface,
+        };
 
         // Attachment chip strip (hidden when no attachment is pending).
         _attachChip = new Panel
@@ -148,7 +178,9 @@ internal sealed class ChatForm : Form
             AcceptsReturn = false,
             ScrollBars = ScrollBars.Vertical,
             Dock = DockStyle.Fill,
-            Font = new Font("Segoe UI", 10F),
+            Font = new Font("Segoe UI", 10.5F),
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = UiTheme.SurfaceCard,
         };
         _input.KeyDown += OnInputKeyDown;
 
@@ -156,13 +188,16 @@ internal sealed class ChatForm : Form
         {
             Dock = DockStyle.Right,
             FlowDirection = FlowDirection.TopDown,
-            Width = 110,
+            Width = 120,
             WrapContents = false,
-            Padding = new Padding(4, 0, 0, 0),
+            Padding = new Padding(8, 0, 0, 0),
+            BackColor = UiTheme.Surface,
         };
-        _attachBtn = new Button { Text = "Attach\u2026", Width = 100, Height = 28 };
+        _attachBtn = new Button { Text = "\uD83D\uDCCE  Attach", Width = 110, Height = 34 };
+        UiTheme.Secondary(_attachBtn);
         _attachBtn.Click += async (_, _) => await OnAttachAsync();
-        _send = new Button { Text = "Send", Width = 100, Height = 28 };
+        _send = new Button { Text = "Send  \u23CE", Width = 110, Height = 60, Margin = new Padding(0, 8, 0, 0) };
+        UiTheme.Primary(_send);
         _send.Click += async (_, _) => await OnSendOrCancelAsync();
         buttons.Controls.Add(_attachBtn);
         buttons.Controls.Add(_send);
@@ -174,15 +209,15 @@ internal sealed class ChatForm : Form
         _split.Panel2.Controls.Add(inputPanel);
 
         _statusLabel = new ToolStripStatusLabel("Ready");
-        _statsLabel = new ToolStripStatusLabel("") { Spring = true, TextAlign = ContentAlignment.MiddleRight };
-        _status = new StatusStrip();
+        _statsLabel = new ToolStripStatusLabel("") { Spring = true, TextAlign = ContentAlignment.MiddleRight, ForeColor = UiTheme.TextSecondary };
+        _status = new StatusStrip { BackColor = UiTheme.SurfaceCard, SizingGrip = false };
         _status.Items.Add(_statusLabel);
         _status.Items.Add(_statsLabel);
 
         Controls.Add(_split);
         Controls.Add(_status);
         Controls.Add(_toolbar);
-        _split.SplitterDistance = 240;
+        _split.SplitterDistance = 260;
 
         Load += async (_, _) => await ReloadAgentsAsync();
         FormClosing += (_, _) => _streamCts?.Cancel();
@@ -290,12 +325,12 @@ internal sealed class ChatForm : Form
             {
                 if (string.Equals(m.Role, "User", StringComparison.OrdinalIgnoreCase))
                 {
-                    AppendRoleLine("You", Color.SteelBlue);
+                    AppendRoleLine("You", UiTheme.UserName);
                     AppendBody((m.Body ?? "(empty)") + "\n\n");
                 }
                 else if (string.Equals(m.Role, "Assistant", StringComparison.OrdinalIgnoreCase))
                 {
-                    AppendRoleLine(assistantName, Color.SeaGreen);
+                    AppendRoleLine(assistantName, UiTheme.AssistantName);
                     AppendBody((m.Body ?? "(empty)") + "\n\n");
                 }
             }
@@ -367,9 +402,9 @@ internal sealed class ChatForm : Form
 
         _input.Clear();
         ClearAttachment();
-        AppendRoleLine("You", Color.SteelBlue);
+        AppendRoleLine("You", UiTheme.UserName);
         AppendBody(displayMessage + "\n\n");
-        AppendRoleLine(agent.Name, Color.SeaGreen);
+        AppendRoleLine(agent.Name, UiTheme.AssistantName);
 
         SetStreaming(true);
         var sw = Stopwatch.StartNew();
@@ -433,7 +468,7 @@ internal sealed class ChatForm : Form
         _history.SelectionStart = _history.TextLength;
         _history.SelectionLength = 0;
         _history.SelectionColor = color;
-        _history.SelectionFont = new Font(_history.Font, FontStyle.Bold);
+        _history.SelectionFont = new Font("Segoe UI Semibold", 10.5F);
         _history.AppendText(who + "\n");
         _history.SelectionColor = _history.ForeColor;
         _history.SelectionFont = _history.Font;
@@ -515,5 +550,50 @@ internal sealed class ChatForm : Form
         var note = a.Truncated ? " (truncated)" : "";
         _attachLabel.Text = $"\uD83D\uDCCE  {a.FileName}  \u00b7  {a.PageCount} page(s)  \u00b7  {a.CharCount:N0} chars{note}";
         _attachChip.Visible = true;
+    }
+
+    /// <summary>
+    /// Owner-drawn conversation row: title on top, last-activity timestamp below in muted gray.
+    /// Falls back to the raw title for empty rows.
+    /// </summary>
+    private void OnDrawConversationItem(object? sender, DrawItemEventArgs e)
+    {
+        if (e.Index < 0) return;
+        var item = _conversationList.Items[e.Index] as ConversationSummaryDto;
+
+        var selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
+        var bg = selected ? Color.FromArgb(225, 238, 251) : UiTheme.SurfaceAlt;
+        using (var bgBrush = new SolidBrush(bg)) e.Graphics.FillRectangle(bgBrush, e.Bounds);
+
+        if (item is null)
+        {
+            e.DrawFocusRectangle();
+            return;
+        }
+
+        var titleFont = UiTheme.BaseBold;
+        var subFont = UiTheme.Caption;
+        var titleColor = UiTheme.TextPrimary;
+        var subColor = UiTheme.TextSecondary;
+
+        var rect = e.Bounds;
+        var titleRect = new Rectangle(rect.Left + 12, rect.Top + 6, rect.Width - 16, 20);
+        var subRect = new Rectangle(rect.Left + 12, rect.Top + 24, rect.Width - 16, 18);
+
+        TextRenderer.DrawText(e.Graphics, item.Title, titleFont, titleRect, titleColor,
+            TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+
+        var stamp = item.UpdatedAt.ToLocalTime();
+        var subText = stamp.Date == DateTime.Today
+            ? $"Today {stamp:HH:mm}"
+            : (DateTime.Today - stamp.Date).TotalDays < 7
+                ? stamp.ToString("ddd HH:mm")
+                : stamp.ToString("yyyy-MM-dd HH:mm");
+        TextRenderer.DrawText(e.Graphics, subText, subFont, subRect, subColor,
+            TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
+
+        // Subtle bottom separator.
+        using var pen = new Pen(UiTheme.Border);
+        e.Graphics.DrawLine(pen, rect.Left + 8, rect.Bottom - 1, rect.Right - 8, rect.Bottom - 1);
     }
 }

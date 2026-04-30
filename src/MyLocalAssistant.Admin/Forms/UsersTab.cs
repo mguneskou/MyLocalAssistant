@@ -64,6 +64,7 @@ internal sealed class UsersTab : UserControl
             new DataGridViewTextBoxColumn { HeaderText = "Created", DataPropertyName = nameof(UserAdminDto.CreatedAt), Width = 140, DefaultCellStyle = new DataGridViewCellStyle { Format = "yyyy-MM-dd HH:mm" } },
         });
         _grid.DataSource = _rows;
+        MyLocalAssistant.Admin.UI.UiTheme.StyleGrid(_grid);
         _grid.CellFormatting += (_, e) =>
         {
             if (e.RowIndex < 0 || e.ColumnIndex < 0) return;
