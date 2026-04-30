@@ -13,7 +13,20 @@ downloads.
 
 ---
 
-## v2.1.0.0 highlights (current release)
+## v2.1.1.0 highlights (current release)
+
+Client chat polish release. Adds a modern bubble-style transcript and several quality-of-life tweaks; no server, contract, or installer changes.
+
+### Client chat (new)
+
+- **Bubble transcript** — user messages right-aligned in accent blue; assistant messages on a left-aligned light card; tool calls / system notes shown as centered amber chips; errors as centered red chips.
+- **Speaker + timestamp** rendered under each bubble (e.g. `Assistant · 14:32`).
+- **Pulsing typing indicator** — three dots in the empty assistant bubble until the first token arrives.
+- **Sticky-bottom auto-scroll** — stream only follows the bottom if you were already there; scroll up to read history without being yanked back.
+- **Selectable text in every bubble** + right-click *Copy message* / *Select all in this message* / *Copy whole transcript*.
+- **Re-flow on resize** — bubbles cap at 78% of the pane width and re-wrap when the splitter moves.
+
+## v2.1.0.0 highlights
 
 Second v2 release. Hardens the platform, adds a plug-in skill runtime, and ships a
 proper installer + auto-updater so testers can be onboarded with a single download.
@@ -169,16 +182,16 @@ Local end-to-end build of an installer:
 
 ```powershell
 .\scripts\publish-all.ps1                      # publishes 4 exes into dist\stage\
-.\scripts\release.ps1 -Version 2.1.0           # publish + vpk pack -> dist\releases\
-.\scripts\release.ps1 -Version 2.1.0 -Upload `
+.\scripts\release.ps1 -Version 2.1.1           # publish + vpk pack -> dist\releases\
+.\scripts\release.ps1 -Version 2.1.1 -Upload `
     -GitHubToken $env:GH_PAT                   # also upload to GitHub Releases
 ```
 
 In CI, just push a tag — `.github/workflows/release.yml` does the rest:
 
 ```powershell
-git tag v2.1.0.0
-git push origin v2.1.0.0
+git tag v2.1.1.0
+git push origin v2.1.1.0
 ```
 
 The workflow restores, runs tests, builds with `vpk`, and attaches
@@ -198,6 +211,7 @@ uninstall walkthrough aimed at non-developer testers.
 | `v1.0.0.0`  | First v1 desktop release (skeleton + first-run model wizard).      |
 | `v1.0.1`    | v1 patch release.                                                  |
 | `v2.0.0.0`  | First v2 release — server + admin + client + RAG + ACL + owner.    |
+| `v2.1.1.0`  | Client chat bubbles, typing indicator, sticky-bottom scroll, per-bubble copy. |
 | `v2.1.0.0`  | ServerHost tray launcher, Velopack auto-update, plug-in skill runtime, stability fixes. |
 
 ## License

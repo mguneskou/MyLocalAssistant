@@ -18,7 +18,7 @@ internal sealed class ChatForm : Form
     private readonly ListBox _conversationList;
     private readonly Button _newChatBtn;
     private readonly Button _deleteChatBtn;
-    private readonly RichTextBox _history;
+    private readonly ChatTranscript _history;
     private readonly TextBox _input;
     private readonly Button _send;
     private readonly StatusStrip _status;
@@ -158,17 +158,7 @@ internal sealed class ChatForm : Form
         _split.Panel1.Controls.Add(leftHeader);
 
         // Right pane: history + input.
-        _history = new RichTextBox
-        {
-            Dock = DockStyle.Fill,
-            ReadOnly = true,
-            BorderStyle = BorderStyle.None,
-            Font = new Font("Segoe UI", 10.5F),
-            BackColor = UiTheme.SurfaceCard,
-            ForeColor = UiTheme.TextPrimary,
-            DetectUrls = false,
-            Margin = new Padding(0),
-        };
+        _history = new ChatTranscript { Dock = DockStyle.Fill };
         var inputPanel = new Panel
         {
             Dock = DockStyle.Bottom,
@@ -344,16 +334,11 @@ internal sealed class ChatForm : Form
             foreach (var m in detail.Messages)
             {
                 if (string.Equals(m.Role, "User", StringComparison.OrdinalIgnoreCase))
-                {
-                    AppendRoleLine("You", UiTheme.UserName);
-                    AppendBody((m.Body ?? "(empty)") + "\n\n");
-                }
+                    _history.AppendUserMessage(m.Body ?? "(empty)");
                 else if (string.Equals(m.Role, "Assistant", StringComparison.OrdinalIgnoreCase))
-                {
-                    AppendRoleLine(assistantName, UiTheme.AssistantName);
-                    AppendBody((m.Body ?? "(empty)") + "\n\n");
-                }
+                    _history.AppendAssistantMessage(assistantName, m.Body ?? "(empty)");
             }
+            _history.ScrollToEnd();
             _statusLabel.Text = $"{detail.Messages.Count} message(s) loaded.";
         }
         catch (Exception ex)
@@ -422,9 +407,8 @@ internal sealed class ChatForm : Form
 
         _input.Clear();
         ClearAttachment();
-        AppendRoleLine("You", UiTheme.UserName);
-        AppendBody(displayMessage + "\n\n");
-        AppendRoleLine(agent.Name, UiTheme.AssistantName);
+        _history.AppendUserMessage(displayMessage);
+        _history.BeginAssistantStream(agent.Name);
 
         SetStreaming(true);
         var sw = Stopwatch.StartNew();
@@ -442,14 +426,15 @@ internal sealed class ChatForm : Form
                 }
                 else if (frame.Kind == TokenStreamFrameKind.Token && frame.Text is not null)
                 {
-                    AppendBody(frame.Text);
+                    _history.AppendAssistantText(frame.Text);
                     tokens++;
                     var rate = sw.Elapsed.TotalSeconds > 0 ? tokens / sw.Elapsed.TotalSeconds : 0;
                     _statsLabel.Text = $"{tokens} tokens \u00b7 {rate:F1} tok/s";
                 }
                 else if (frame.Kind == TokenStreamFrameKind.Error)
                 {
-                    AppendBody("\n\n[Error: " + (frame.ErrorMessage ?? "unknown") + "]");
+                    _history.EndAssistantStream();
+                    _history.AppendNote("Error: " + (frame.ErrorMessage ?? "unknown"), BubbleKind.Error);
                     break;
                 }
                 else if (frame.Kind == TokenStreamFrameKind.End)
@@ -458,27 +443,30 @@ internal sealed class ChatForm : Form
                 }
                 else if (frame.Kind == TokenStreamFrameKind.ToolUnavailable)
                 {
-                    AppendBody($"\n[tool unavailable: {frame.ToolName ?? "?"} \u2014 {frame.ToolReason ?? "?"}]\n");
+                    _history.AppendNote($"tool unavailable: {frame.ToolName ?? "?"} \u2014 {frame.ToolReason ?? "?"}");
                 }
                 else if (frame.Kind == TokenStreamFrameKind.ToolCall)
                 {
-                    AppendBody($"\n[\u2192 tool call: {frame.ToolName ?? "?"} {frame.ToolJson ?? ""}]\n");
+                    _history.AppendNote($"\u2192 tool call: {frame.ToolName ?? "?"} {frame.ToolJson ?? ""}");
                 }
                 else if (frame.Kind == TokenStreamFrameKind.ToolResult)
                 {
-                    var label = string.Equals(frame.ToolReason, "error", StringComparison.Ordinal) ? "tool error" : "tool result";
-                    AppendBody($"[\u2190 {label}: {frame.ToolName ?? "?"} {frame.ToolJson ?? ""}]\n");
+                    var isErr = string.Equals(frame.ToolReason, "error", StringComparison.Ordinal);
+                    _history.AppendNote($"\u2190 {(isErr ? "tool error" : "tool result")}: {frame.ToolName ?? "?"} {frame.ToolJson ?? ""}",
+                        isErr ? BubbleKind.Error : BubbleKind.Note);
                 }
             }
-            AppendBody("\n\n");
+            _history.EndAssistantStream();
         }
         catch (OperationCanceledException)
         {
-            AppendBody("\n\n[Cancelled]\n\n");
+            _history.EndAssistantStream();
+            _history.AppendNote("Cancelled");
         }
         catch (Exception ex)
         {
-            AppendBody("\n\n[Error: " + ex.Message + "]\n\n");
+            _history.EndAssistantStream();
+            _history.AppendNote("Error: " + ex.Message, BubbleKind.Error);
         }
         finally
         {
@@ -494,28 +482,6 @@ internal sealed class ChatForm : Form
             if (wasNew || tokens > 0)
                 await ReloadConversationsAsync();
         }
-    }
-
-    private void AppendRoleLine(string who, Color color)
-    {
-        _history.SelectionStart = _history.TextLength;
-        _history.SelectionLength = 0;
-        _history.SelectionColor = color;
-        _history.SelectionFont = new Font("Segoe UI Semibold", 10.5F);
-        _history.AppendText(who + "\n");
-        _history.SelectionColor = _history.ForeColor;
-        _history.SelectionFont = _history.Font;
-        _history.ScrollToCaret();
-    }
-
-    private void AppendBody(string text)
-    {
-        _history.SelectionStart = _history.TextLength;
-        _history.SelectionLength = 0;
-        _history.SelectionColor = _history.ForeColor;
-        _history.SelectionFont = _history.Font;
-        _history.AppendText(text);
-        _history.ScrollToCaret();
     }
 
     private void SetStreaming(bool streaming)
