@@ -39,3 +39,6 @@ bin/
 obj/
 dist/
 
+
+plugins/*/.keys/
+
