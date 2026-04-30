@@ -41,6 +41,15 @@ internal sealed class SettingsTab : UserControl
             },
         });
 
+        // Global admin only: cloud LLM key management lives behind a dialog so it doesn't
+        // pollute the main settings form for regular admins.
+        if (_client.CurrentUser?.IsGlobalAdmin == true)
+        {
+            var cloudBtn = new ToolStripButton("Cloud keys\u2026");
+            cloudBtn.Click += async (_, _) => await OpenCloudKeysAsync();
+            _toolbar.Items.Insert(2, cloudBtn);
+        }
+
         _form = new TableLayoutPanel
         {
             Dock = DockStyle.Fill,
@@ -182,6 +191,21 @@ internal sealed class SettingsTab : UserControl
             _statusLabel.Text = "Save failed: " + ex.Message;
             _saveBtn.Enabled = true;
             MessageBox.Show(this, ex.Message, "Save failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private async Task OpenCloudKeysAsync()
+    {
+        try
+        {
+            var status = await _client.GetCloudKeysAsync();
+            using var dlg = new CloudKeysDialog(_client, status);
+            dlg.ShowDialog(this);
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = "Cloud keys failed: " + ex.Message;
+            MessageBox.Show(this, ex.Message, "Cloud keys", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
 }

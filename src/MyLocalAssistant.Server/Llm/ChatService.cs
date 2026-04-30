@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using MyLocalAssistant.Core.Catalog;
 using MyLocalAssistant.Core.Inference;
 using MyLocalAssistant.Server.Configuration;
 using MyLocalAssistant.Server.Persistence;
@@ -15,7 +16,8 @@ namespace MyLocalAssistant.Server.Llm;
 public sealed class ChatService(
     AppDbContext db,
     InferenceQueue queue,
-    LLamaSharpProvider provider,
+    ChatProviderRouter router,
+    ModelCatalogService catalog,
     ModelManager models,
     RagService rag,
     SkillRegistry skills,
@@ -89,6 +91,10 @@ public sealed class ChatService(
         callbacks.OnRetrieval?.Invoke(retrieval);
 
         var activeModelId = models.ActiveModelId;
+        var activeEntry = activeModelId is null ? null : catalog.FindById(activeModelId);
+        if (activeEntry is null)
+            throw new InvalidOperationException("Active model is not in the catalog.");
+        var chatProvider = router.Get(activeEntry);
         var capability = capabilities.Get(activeModelId);
         var resolvedSkills = ResolveSkills(agent, capability, callbacks.OnToolUnavailable);
         var toolMode = resolvedSkills.Count > 0;
@@ -130,7 +136,7 @@ public sealed class ChatService(
             var toolBuffer = new StringBuilder();
             string? completedToolJson = null;
 
-            await foreach (var token in provider.GenerateAsync(prompt, maxTokens, stops, ct).ConfigureAwait(false))
+            await foreach (var token in chatProvider.GenerateAsync(activeEntry, prompt, maxTokens, stops, ct).ConfigureAwait(false))
             {
                 assistantSoFar.Append(token);
                 if (!hideMode)

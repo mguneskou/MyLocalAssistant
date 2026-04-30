@@ -13,7 +13,15 @@ downloads.
 
 ---
 
-## v2.2.4 highlights (current release)
+## v2.3.0 highlights (current release)
+
+- **Cloud LLMs (OpenAI + Anthropic) alongside local models.** A global admin can register a single shared OpenAI and/or Anthropic API key under **Server Settings → Cloud keys…**, and four new entries (`gpt-4o-mini`, `gpt-4o`, `claude-3-5-haiku`, `claude-3-5-sonnet`) appear in the **Models** tab marked with a 🌐 badge. Cloud entries have nothing to download — Activate them like any other model and the server routes generation through the provider. Existing tool-calling, RAG, and `<tool_call>` parsing all keep working unchanged because the same prompt is sent as a single user message.
+- **Owner-only by design.** Cloud entries are filtered out of the model list for non-global-admins (no UI, no `/api/admin/models` exposure), so a regular department admin can't accidentally activate a model that bills the owner's account or send conversation data off-network. The "Cloud keys…" button is also visible only to the global admin.
+- **Keys are DPAPI-encrypted at rest.** OpenAI/Anthropic keys are stored in `state\config\server.json` under a Windows DPAPI machine-scope envelope (`dpapi:<base64>`), and the admin API never returns the plaintext — `GET /api/admin/settings/cloud-keys` only returns `{ openAiConfigured, anthropicConfigured, openAiBaseUrl }`. The dialog has a **Test** button per provider that performs a tiny round-trip without exposing the key.
+- **Bring-your-own endpoint.** `OpenAiBaseUrl` lets you point the OpenAI provider at an Azure OpenAI deployment or any OpenAI-compatible proxy without rebuilding.
+- **Heads-up:** conversations sent to a cloud model leave this network and are billed against the configured account. The dialog states this; activate cloud models only when the trade-off is acceptable.
+
+## v2.2.4 highlights
 
 - **Fix**: tray menu → "Open logs folder" was opening `<install>\current\logs` (always empty) instead of `<install>\state\logs`, where the server actually writes `server-*.log` since v2.1.2 split state from binaries. Now resolves the same path Serilog writes to.
 

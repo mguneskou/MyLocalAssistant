@@ -22,3 +22,20 @@ public sealed record UpdateServerSettingsRequest(
 public sealed record GlobalSystemPromptDto(string SystemPrompt);
 
 public sealed record UpdateGlobalSystemPromptRequest(string? SystemPrompt);
+
+/// <summary>
+/// Status of cloud LLM provider keys. Booleans only \u2014 the actual key strings are
+/// never sent back to clients. Owner-only on the server.
+/// </summary>
+public sealed record CloudKeysStatusDto(
+    bool OpenAiConfigured,
+    bool AnthropicConfigured,
+    string? OpenAiBaseUrl);
+
+/// <summary>Replace the OpenAI/Anthropic API keys. <c>null</c> field = leave unchanged; empty string = clear.</summary>
+public sealed record UpdateCloudKeysRequest(
+    string? OpenAiApiKey,
+    string? AnthropicApiKey,
+    string? OpenAiBaseUrl);
+
+public sealed record CloudKeyTestResultDto(bool Ok, string? Detail);

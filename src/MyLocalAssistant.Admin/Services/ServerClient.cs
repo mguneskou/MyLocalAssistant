@@ -413,6 +413,32 @@ public sealed class ServerClient : IDisposable
         return dto?.SystemPrompt ?? "";
     }
 
+    // ---------- Owner: cloud LLM keys (v2.3) ----------
+
+    public async Task<CloudKeysStatusDto> GetCloudKeysAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/settings/cloud-keys", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<CloudKeysStatusDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty cloud-keys response.");
+    }
+
+    public async Task<CloudKeysStatusDto> SetCloudKeysAsync(UpdateCloudKeysRequest req, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Put, "api/admin/settings/cloud-keys", req, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<CloudKeysStatusDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty cloud-keys response.");
+    }
+
+    public async Task<CloudKeyTestResultDto> TestCloudKeyAsync(string provider, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, $"api/admin/settings/cloud-keys/test/{provider}", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<CloudKeyTestResultDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty test response.");
+    }
+
     private void SetTokens(LoginResponse login)
     {
         _accessToken = login.AccessToken;

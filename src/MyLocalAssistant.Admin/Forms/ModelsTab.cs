@@ -56,11 +56,12 @@ internal sealed class ModelsTab : UserControl
         _grid.Columns.AddRange(new DataGridViewColumn[]
         {
             new DataGridViewTextBoxColumn { HeaderText = "Model", DataPropertyName = nameof(ModelRow.DisplayName), Width = 220 },
+            new DataGridViewTextBoxColumn { HeaderText = "Source", DataPropertyName = nameof(ModelRow.SourceText), Width = 95 },
             new DataGridViewTextBoxColumn { HeaderText = "Tier", DataPropertyName = nameof(ModelRow.Tier), Width = 90 },
             new DataGridViewTextBoxColumn { HeaderText = "Quant", DataPropertyName = nameof(ModelRow.Quantization), Width = 70 },
             new DataGridViewTextBoxColumn { HeaderText = "Size", DataPropertyName = nameof(ModelRow.SizeText), Width = 80 },
             new DataGridViewTextBoxColumn { HeaderText = "RAM", DataPropertyName = nameof(ModelRow.MinRamGb), Width = 50 },
-            new DataGridViewTextBoxColumn { HeaderText = "Status", DataPropertyName = nameof(ModelRow.StatusText), Width = 200 },
+            new DataGridViewTextBoxColumn { HeaderText = "Status", DataPropertyName = nameof(ModelRow.StatusText), Width = 220 },
             new DataGridViewTextBoxColumn { HeaderText = "License", DataPropertyName = nameof(ModelRow.License), Width = 110 },
         });
         _grid.DataSource = _rows;
@@ -95,10 +96,13 @@ internal sealed class ModelsTab : UserControl
     {
         var sel = Selected;
         var dlActive = sel?.IsDownloading == true;
-        _downloadBtn.Enabled = sel is { IsInstalled: false, IsDownloading: false };
+        // Cloud entries have no local files: no download, no delete; Activate routes through the cloud provider.
+        _downloadBtn.Enabled = sel is { IsCloud: false, IsInstalled: false, IsDownloading: false };
         _cancelBtn.Enabled = dlActive;
-        _activateBtn.Enabled = sel is { IsInstalled: true, IsActive: false, IsActiveEmbedding: false };
-        _deleteBtn.Enabled = sel is { IsInstalled: true, IsActive: false, IsActiveEmbedding: false, IsDownloading: false };
+        var canActivate = sel is { IsActive: false, IsActiveEmbedding: false } &&
+                          (sel.IsCloud ? sel.IsCloudConfigured : sel.IsInstalled);
+        _activateBtn.Enabled = canActivate;
+        _deleteBtn.Enabled = sel is { IsCloud: false, IsInstalled: true, IsActive: false, IsActiveEmbedding: false, IsDownloading: false };
     }
 
     private async Task ReloadAsync()
@@ -226,6 +230,10 @@ internal sealed class ModelsTab : UserControl
         public bool IsActive { get; set; }
         public bool IsActiveEmbedding { get; set; }
         public bool IsDownloading { get; set; }
+        public string Source { get; set; } = "Local";
+        public bool IsCloud { get; set; }
+        public bool IsCloudConfigured { get; set; }
+        public string SourceText { get; set; } = "Local";
         public string StatusText { get; set; } = "";
 
         public static ModelRow From(ModelDto m)
@@ -237,12 +245,16 @@ internal sealed class ModelsTab : UserControl
                 Tier = m.Tier,
                 Quantization = m.Quantization,
                 TotalBytes = m.TotalBytes,
-                SizeText = FormatBytes(m.TotalBytes),
+                SizeText = m.IsCloud ? "\u2014" : FormatBytes(m.TotalBytes),
                 MinRamGb = m.MinRamGb,
                 License = m.License,
                 IsInstalled = m.IsInstalled,
                 IsActive = m.IsActive,
                 IsActiveEmbedding = m.IsActiveEmbedding,
+                Source = m.Source,
+                IsCloud = m.IsCloud,
+                IsCloudConfigured = m.IsCloudConfigured,
+                SourceText = m.IsCloud ? $"\uD83C\uDF10 {m.Source}" : "Local",
             };
             // Best-effort host name from any HuggingFace URL pattern.
             row.HostName = m.LicenseUrl.StartsWith("http") ? new Uri(m.LicenseUrl).Host : "huggingface.co";
@@ -272,6 +284,8 @@ internal sealed class ModelsTab : UserControl
                 row.StatusText = "Installed (active chat)";
             else if (m.IsActiveEmbedding)
                 row.StatusText = "Installed (active embedding)";
+            else if (m.IsCloud)
+                row.StatusText = m.IsCloudConfigured ? "Cloud (key configured)" : "Cloud (no key — set in Settings)";
             else if (m.IsInstalled)
                 row.StatusText = "Installed";
             else

@@ -33,6 +33,23 @@ public sealed class ServerSettings
     /// Editable only by the global admin. Max 8 KB. Empty = disabled.
     /// </summary>
     public string? GlobalSystemPrompt { get; set; }
+
+    /// <summary>
+    /// Cloud provider keys. Stored DPAPI-encrypted on disk; never round-tripped to clients.
+    /// Read via <see cref="GetOpenAiApiKey"/> / <see cref="GetAnthropicApiKey"/>.
+    /// </summary>
+    public string? OpenAiApiKeyProtected { get; set; }
+    public string? AnthropicApiKeyProtected { get; set; }
+    /// <summary>
+    /// Optional override for the OpenAI base URL. Lets admins point at Azure OpenAI / vLLM /
+    /// any OpenAI-compatible gateway without code changes. Default <c>https://api.openai.com/v1</c>.
+    /// </summary>
+    public string? OpenAiBaseUrl { get; set; }
+
+    public string? GetOpenAiApiKey() => SecretProtector.Unprotect(OpenAiApiKeyProtected);
+    public string? GetAnthropicApiKey() => SecretProtector.Unprotect(AnthropicApiKeyProtected);
+    public bool IsOpenAiConfigured => !string.IsNullOrEmpty(GetOpenAiApiKey());
+    public bool IsAnthropicConfigured => !string.IsNullOrEmpty(GetAnthropicApiKey());
 }
 
 public sealed class LdapSettings

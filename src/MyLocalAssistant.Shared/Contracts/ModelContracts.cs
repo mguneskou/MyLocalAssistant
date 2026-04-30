@@ -15,7 +15,13 @@ public sealed record ModelDto(
     long? SizeOnDisk,
     bool IsActive,
     bool IsActiveEmbedding,
-    DownloadStatusDto? Download);
+    DownloadStatusDto? Download,
+    /// <summary>"Local", "OpenAi" or "Anthropic". Cloud rows are admin-only and have no Download/Delete actions.</summary>
+    string Source = "Local",
+    /// <summary>True for cloud entries that need a configured API key. False for local GGUFs.</summary>
+    bool IsCloud = false,
+    /// <summary>True for cloud entries when the matching provider key is set on the server. Always false for local.</summary>
+    bool IsCloudConfigured = false);
 
 public sealed record DownloadStatusDto(
     string Stage,

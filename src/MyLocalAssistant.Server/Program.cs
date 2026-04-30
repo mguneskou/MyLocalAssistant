@@ -60,6 +60,12 @@ try
     builder.Services.AddSingleton<DownloadCoordinator>();
     builder.Services.AddSingleton<LLamaSharpProvider>();
     builder.Services.AddSingleton<EmbeddingService>();
+    // Chat providers (v2.3): one per ModelSource. Router picks based on the active catalog entry.
+    builder.Services.AddHttpClient();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.IChatProvider, MyLocalAssistant.Server.Llm.LocalChatProvider>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.IChatProvider, MyLocalAssistant.Server.Llm.OpenAiChatProvider>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.IChatProvider, MyLocalAssistant.Server.Llm.AnthropicChatProvider>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.ChatProviderRouter>();
     builder.Services.AddSingleton<ModelManager>();
     builder.Services.AddSingleton<InferenceQueue>();
     builder.Services.AddSingleton<AuditWriter>();

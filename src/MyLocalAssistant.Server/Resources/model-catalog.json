@@ -385,5 +385,53 @@
         "sha256": ""
       }
     ]
+  },
+  {
+    "id": "openai-gpt-4o-mini",
+    "displayName": "OpenAI GPT-4o mini (cloud)",
+    "tier": "lightweight",
+    "source": "openAi",
+    "remoteModel": "gpt-4o-mini",
+    "license": "OpenAI Terms of Use",
+    "licenseUrl": "https://openai.com/policies/terms-of-use/",
+    "recommendedContextSize": 128000,
+    "minRamGb": 0,
+    "description": "OpenAI GPT-4o mini, served via the OpenAI API. Fast, cheap, 128k context. Requires the OpenAI key configured in Server Settings. Conversations sent to a cloud model leave your network."
+  },
+  {
+    "id": "openai-gpt-4o",
+    "displayName": "OpenAI GPT-4o (cloud)",
+    "tier": "mid",
+    "source": "openAi",
+    "remoteModel": "gpt-4o",
+    "license": "OpenAI Terms of Use",
+    "licenseUrl": "https://openai.com/policies/terms-of-use/",
+    "recommendedContextSize": 128000,
+    "minRamGb": 0,
+    "description": "OpenAI GPT-4o, served via the OpenAI API. Strongest general-purpose OpenAI model in this catalog, 128k context. Requires the OpenAI key configured in Server Settings."
+  },
+  {
+    "id": "anthropic-claude-3-5-haiku",
+    "displayName": "Anthropic Claude 3.5 Haiku (cloud)",
+    "tier": "lightweight",
+    "source": "anthropic",
+    "remoteModel": "claude-3-5-haiku-latest",
+    "license": "Anthropic Usage Policies",
+    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
+    "recommendedContextSize": 200000,
+    "minRamGb": 0,
+    "description": "Anthropic Claude 3.5 Haiku, served via the Anthropic API. Fast and inexpensive, 200k context. Requires the Anthropic key configured in Server Settings."
+  },
+  {
+    "id": "anthropic-claude-3-5-sonnet",
+    "displayName": "Anthropic Claude 3.5 Sonnet (cloud)",
+    "tier": "mid",
+    "source": "anthropic",
+    "remoteModel": "claude-3-5-sonnet-latest",
+    "license": "Anthropic Usage Policies",
+    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
+    "recommendedContextSize": 200000,
+    "minRamGb": 0,
+    "description": "Anthropic Claude 3.5 Sonnet, served via the Anthropic API. Strongest Anthropic model in this catalog, 200k context. Requires the Anthropic key configured in Server Settings."
   }
 ]

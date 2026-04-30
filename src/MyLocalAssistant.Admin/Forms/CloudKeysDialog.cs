@@ -1,0 +1,225 @@
+using MyLocalAssistant.Admin.Services;
+using MyLocalAssistant.Admin.UI;
+using MyLocalAssistant.Shared.Contracts;
+
+namespace MyLocalAssistant.Admin.Forms;
+
+/// <summary>
+/// Owner-only dialog for setting OpenAI / Anthropic API keys and an optional OpenAI base URL.
+/// The server never returns the key strings — this dialog only shows whether each provider is
+/// configured. Leaving a field blank on save keeps the existing key; choosing "Clear" deletes it.
+/// </summary>
+internal sealed class CloudKeysDialog : Form
+{
+    private readonly ServerClient _client;
+    private CloudKeysStatusDto _status;
+
+    private readonly Label _openAiState;
+    private readonly TextBox _openAiKey;
+    private readonly TextBox _openAiBaseUrl;
+    private readonly Button _openAiTestBtn;
+    private readonly Button _openAiClearBtn;
+
+    private readonly Label _anthropicState;
+    private readonly TextBox _anthropicKey;
+    private readonly Button _anthropicTestBtn;
+    private readonly Button _anthropicClearBtn;
+
+    private readonly Label _statusLbl;
+    private readonly Button _saveBtn;
+    private readonly Button _closeBtn;
+
+    private bool _clearOpenAi;
+    private bool _clearAnthropic;
+
+    public CloudKeysDialog(ServerClient client, CloudKeysStatusDto status)
+    {
+        _client = client;
+        _status = status;
+
+        Text = "Cloud LLM keys (global admin)";
+        StartPosition = FormStartPosition.CenterParent;
+        UiTheme.ApplyDialog(this);
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        MinimizeBox = false; MaximizeBox = false; ShowInTaskbar = false;
+        Width = 720; Height = 500;
+
+        var hint = new Label
+        {
+            Dock = DockStyle.Top,
+            AutoSize = false,
+            Height = 56,
+            Padding = new Padding(12, 10, 12, 4),
+            ForeColor = SystemColors.GrayText,
+            Text = "Conversations sent to a cloud model leave this network and are billed against the configured account. " +
+                   "Keys are stored DPAPI-encrypted on the server and are never returned to clients.",
+        };
+
+        var grid = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 2,
+            Padding = new Padding(16, 8, 16, 8),
+            AutoSize = false,
+        };
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 160));
+        grid.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+
+        // --- OpenAI ---
+        _openAiState = StateLabel(_status.OpenAiConfigured);
+        grid.Controls.Add(SectionLabel("OpenAI"), 0, 0);
+        grid.Controls.Add(_openAiState, 1, 0);
+
+        _openAiKey = SecretBox();
+        _openAiKey.PlaceholderText = _status.OpenAiConfigured ? "(unchanged — leave blank to keep existing key)" : "sk-…";
+        grid.Controls.Add(RowLabel("API key"), 0, 1);
+        grid.Controls.Add(_openAiKey, 1, 1);
+
+        _openAiBaseUrl = new TextBox
+        {
+            Dock = DockStyle.Top,
+            Text = _status.OpenAiBaseUrl ?? "",
+            PlaceholderText = "https://api.openai.com/v1 (override for Azure / proxies)",
+        };
+        grid.Controls.Add(RowLabel("Base URL (optional)"), 0, 2);
+        grid.Controls.Add(_openAiBaseUrl, 1, 2);
+
+        _openAiTestBtn = new Button { Text = "Test", AutoSize = true, Enabled = _status.OpenAiConfigured };
+        _openAiClearBtn = new Button { Text = "Clear key", AutoSize = true, Enabled = _status.OpenAiConfigured };
+        var openAiBtns = ButtonRow(_openAiTestBtn, _openAiClearBtn);
+        grid.Controls.Add(new Label(), 0, 3);
+        grid.Controls.Add(openAiBtns, 1, 3);
+
+        // --- Anthropic ---
+        _anthropicState = StateLabel(_status.AnthropicConfigured);
+        grid.Controls.Add(SectionLabel("Anthropic"), 0, 4);
+        grid.Controls.Add(_anthropicState, 1, 4);
+
+        _anthropicKey = SecretBox();
+        _anthropicKey.PlaceholderText = _status.AnthropicConfigured ? "(unchanged — leave blank to keep existing key)" : "sk-ant-…";
+        grid.Controls.Add(RowLabel("API key"), 0, 5);
+        grid.Controls.Add(_anthropicKey, 1, 5);
+
+        _anthropicTestBtn = new Button { Text = "Test", AutoSize = true, Enabled = _status.AnthropicConfigured };
+        _anthropicClearBtn = new Button { Text = "Clear key", AutoSize = true, Enabled = _status.AnthropicConfigured };
+        var anthBtns = ButtonRow(_anthropicTestBtn, _anthropicClearBtn);
+        grid.Controls.Add(new Label(), 0, 6);
+        grid.Controls.Add(anthBtns, 1, 6);
+
+        _statusLbl = new Label { Dock = DockStyle.Bottom, Height = 24, Padding = new Padding(12, 4, 12, 0), ForeColor = SystemColors.GrayText };
+        _saveBtn = new Button { Text = "Save", DialogResult = DialogResult.None, AutoSize = true };
+        _closeBtn = new Button { Text = "Close", DialogResult = DialogResult.Cancel, AutoSize = true };
+        var bottomBtns = new FlowLayoutPanel
+        {
+            Dock = DockStyle.Bottom,
+            FlowDirection = FlowDirection.RightToLeft,
+            Height = 44,
+            Padding = new Padding(12, 8, 12, 8),
+        };
+        bottomBtns.Controls.Add(_closeBtn);
+        bottomBtns.Controls.Add(_saveBtn);
+        AcceptButton = _saveBtn;
+        CancelButton = _closeBtn;
+
+        Controls.Add(grid);
+        Controls.Add(_statusLbl);
+        Controls.Add(bottomBtns);
+        Controls.Add(hint);
+
+        _saveBtn.Click += async (_, _) => await SaveAsync();
+        _openAiTestBtn.Click += async (_, _) => await TestAsync("openai");
+        _anthropicTestBtn.Click += async (_, _) => await TestAsync("anthropic");
+        _openAiClearBtn.Click += (_, _) =>
+        {
+            if (Confirm("Clear the OpenAI API key?")) { _clearOpenAi = true; _openAiKey.Text = ""; _openAiKey.PlaceholderText = "(will be cleared on save)"; }
+        };
+        _anthropicClearBtn.Click += (_, _) =>
+        {
+            if (Confirm("Clear the Anthropic API key?")) { _clearAnthropic = true; _anthropicKey.Text = ""; _anthropicKey.PlaceholderText = "(will be cleared on save)"; }
+        };
+    }
+
+    private static Label SectionLabel(string text) => new()
+    {
+        Text = text,
+        Font = new Font(UiTheme.BaseFont, FontStyle.Bold),
+        AutoSize = true,
+        Margin = new Padding(0, 12, 0, 4),
+    };
+
+    private static Label StateLabel(bool configured) => new()
+    {
+        Text = configured ? "Configured" : "Not configured",
+        ForeColor = configured ? UiTheme.Success : UiTheme.Warning,
+        AutoSize = true,
+        Margin = new Padding(0, 14, 0, 4),
+    };
+
+    private static Label RowLabel(string text) => new()
+    {
+        Text = text + ":",
+        AutoSize = true,
+        Margin = new Padding(0, 8, 8, 0),
+    };
+
+    private static TextBox SecretBox() => new()
+    {
+        Dock = DockStyle.Top,
+        UseSystemPasswordChar = true,
+    };
+
+    private static FlowLayoutPanel ButtonRow(params Button[] buttons)
+    {
+        var p = new FlowLayoutPanel { FlowDirection = FlowDirection.LeftToRight, AutoSize = true, Margin = Padding.Empty };
+        foreach (var b in buttons) p.Controls.Add(b);
+        return p;
+    }
+
+    private bool Confirm(string message) =>
+        MessageBox.Show(this, message, "Confirm", MessageBoxButtons.OKCancel, MessageBoxIcon.Question) == DialogResult.OK;
+
+    private async Task SaveAsync()
+    {
+        try
+        {
+            _saveBtn.Enabled = false;
+            _statusLbl.Text = "Saving\u2026";
+            // Encoding: null = leave alone; "" = clear; non-empty = set new value.
+            var req = new UpdateCloudKeysRequest(
+                OpenAiApiKey: _clearOpenAi ? "" : (string.IsNullOrWhiteSpace(_openAiKey.Text) ? null : _openAiKey.Text),
+                AnthropicApiKey: _clearAnthropic ? "" : (string.IsNullOrWhiteSpace(_anthropicKey.Text) ? null : _anthropicKey.Text),
+                OpenAiBaseUrl: _openAiBaseUrl.Text ?? "");
+            _status = await _client.SetCloudKeysAsync(req);
+            _clearOpenAi = false;
+            _clearAnthropic = false;
+            _openAiKey.Text = "";
+            _anthropicKey.Text = "";
+            _openAiState.Text = _status.OpenAiConfigured ? "Configured" : "Not configured";
+            _openAiState.ForeColor = _status.OpenAiConfigured ? UiTheme.Success : UiTheme.Warning;
+            _anthropicState.Text = _status.AnthropicConfigured ? "Configured" : "Not configured";
+            _anthropicState.ForeColor = _status.AnthropicConfigured ? UiTheme.Success : UiTheme.Warning;
+            _openAiTestBtn.Enabled = _openAiClearBtn.Enabled = _status.OpenAiConfigured;
+            _anthropicTestBtn.Enabled = _anthropicClearBtn.Enabled = _status.AnthropicConfigured;
+            _openAiKey.PlaceholderText = _status.OpenAiConfigured ? "(unchanged — leave blank to keep existing key)" : "sk-…";
+            _anthropicKey.PlaceholderText = _status.AnthropicConfigured ? "(unchanged — leave blank to keep existing key)" : "sk-ant-…";
+            _statusLbl.Text = "Saved.";
+        }
+        catch (Exception ex)
+        {
+            _statusLbl.Text = "Save failed: " + ex.Message;
+            MessageBox.Show(this, ex.Message, "Save failed", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        finally { _saveBtn.Enabled = true; }
+    }
+
+    private async Task TestAsync(string provider)
+    {
+        try
+        {
+            _statusLbl.Text = $"Testing {provider}\u2026";
+            var r = await _client.TestCloudKeyAsync(provider);
+            _statusLbl.Text = $"{provider}: {(r.Ok ? "OK" : "FAIL")} — {r.Detail}";
+        }
+        catch (Exception ex) { _statusLbl.Text = $"{provider}: error — {ex.Message}"; }
+    }
+}

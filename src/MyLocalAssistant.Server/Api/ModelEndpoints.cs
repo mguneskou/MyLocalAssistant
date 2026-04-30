@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using Microsoft.AspNetCore.Mvc;
+using MyLocalAssistant.Server.Auth;
 using MyLocalAssistant.Server.Llm;
 using MyLocalAssistant.Shared.Contracts;
 
@@ -12,7 +14,8 @@ public static class ModelEndpoints
             .WithTags("Admin/Models")
             .RequireAuthorization("Admin");
 
-        group.MapGet("/", (ModelManager mgr) => Results.Ok(mgr.List()));
+        group.MapGet("/", (ClaimsPrincipal user, ModelManager mgr) =>
+            Results.Ok(mgr.List(isGlobalAdmin: user.HasClaim(JwtIssuer.ClaimIsGlobalAdmin, "1"))));
 
         group.MapGet("/status", (ModelManager mgr) => Results.Ok(mgr.GetStatus()));
 

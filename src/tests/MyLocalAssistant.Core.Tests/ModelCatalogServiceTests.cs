@@ -44,6 +44,13 @@ public class ModelCatalogServiceTests
             Assert.False(string.IsNullOrWhiteSpace(e.Id), $"missing id: {e.DisplayName}");
             Assert.False(string.IsNullOrWhiteSpace(e.DisplayName), $"missing displayName: {e.Id}");
             Assert.False(string.IsNullOrWhiteSpace(e.License), $"missing license: {e.Id}");
+            if (e.IsCloud)
+            {
+                // Cloud entries are pure remote endpoints — they have no downloadable files.
+                Assert.False(string.IsNullOrWhiteSpace(e.RemoteModel), $"cloud entry missing remoteModel: {e.Id}");
+                Assert.Empty(e.Files);
+                continue;
+            }
             Assert.NotEmpty(e.Files);
             foreach (var f in e.Files)
             {
