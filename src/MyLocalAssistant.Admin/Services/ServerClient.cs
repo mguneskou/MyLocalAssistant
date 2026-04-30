@@ -369,6 +369,24 @@ public sealed class ServerClient : IDisposable
             ?? throw new InvalidOperationException("Empty settings response.");
     }
 
+    // ---------- Owner: global system prompt ----------
+
+    public async Task<string> GetGlobalSystemPromptAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/settings/global-prompt", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        var dto = await resp.Content.ReadFromJsonAsync<GlobalSystemPromptDto>(s_json, ct);
+        return dto?.SystemPrompt ?? "";
+    }
+
+    public async Task<string> SetGlobalSystemPromptAsync(string prompt, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Put, "api/admin/settings/global-prompt", new UpdateGlobalSystemPromptRequest(prompt), ct);
+        await EnsureSuccessAsync(resp, ct);
+        var dto = await resp.Content.ReadFromJsonAsync<GlobalSystemPromptDto>(s_json, ct);
+        return dto?.SystemPrompt ?? "";
+    }
+
     private void SetTokens(LoginResponse login)
     {
         _accessToken = login.AccessToken;

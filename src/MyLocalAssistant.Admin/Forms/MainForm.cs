@@ -40,7 +40,9 @@ internal sealed class MainForm : Form
 
         var agentsPage = new TabPage("Agents") { UseVisualStyleBackColor = true };
         agentsPage.Controls.Add(new AgentsTab(_client));
-        _tabs.TabPages.Add(agentsPage);
+        // Editing agents and the global system prompt is reserved for the global admin (owner).
+        if (_client.CurrentUser?.IsGlobalAdmin == true)
+            _tabs.TabPages.Add(agentsPage);
 
         var modelsPage = new TabPage("Models") { UseVisualStyleBackColor = true };
         modelsPage.Controls.Add(new ModelsTab(_client));

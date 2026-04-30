@@ -9,13 +9,16 @@ public sealed record AgentDto(
     bool Enabled,
     string? DefaultModelId,
     bool RagEnabled,
-    IReadOnlyList<Guid> RagCollectionIds);
+    IReadOnlyList<Guid> RagCollectionIds,
+    string SystemPrompt = "");
 
 public sealed record AgentUpdateRequest(
     bool Enabled,
     string? DefaultModelId,
     bool RagEnabled,
-    IReadOnlyList<Guid>? RagCollectionIds);
+    IReadOnlyList<Guid>? RagCollectionIds,
+    string? SystemPrompt = null,
+    string? Description = null);
 
 public sealed record ChatTurnRequest(
     string AgentId,

@@ -81,6 +81,7 @@ try
     builder.Services.AddAuthorization(o =>
     {
         o.AddPolicy("Admin", p => p.RequireClaim(JwtIssuer.ClaimIsAdmin, "1"));
+        o.AddPolicy("GlobalAdmin", p => p.RequireClaim(JwtIssuer.ClaimIsGlobalAdmin, "1"));
     });
 
     builder.Services.AddProblemDetails();
@@ -100,6 +101,7 @@ try
         await db.Database.EnsureCreatedAsync();
         var userSvc = scope.ServiceProvider.GetRequiredService<UserService>();
         await userSvc.EnsureAdminBootstrapAsync();
+        await userSvc.EnsureGlobalAdminAsync();
         var deptSvc = scope.ServiceProvider.GetRequiredService<DepartmentService>();
         await deptSvc.SeedAsync();
         var agentSvc = scope.ServiceProvider.GetRequiredService<AgentService>();
@@ -204,6 +206,12 @@ static async Task<bool> IsLegacySchemaAsync(AppDbContext db)
         await using (var cmd = conn.CreateCommand())
         {
             cmd.CommandText = "SELECT 1 FROM pragma_table_info('Users') WHERE name = 'AuthSource' LIMIT 1";
+            if (await cmd.ExecuteScalarAsync() is null) return true;
+        }
+        // Phase 13: User.IsGlobalAdmin column added (global admin tier).
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = "SELECT 1 FROM pragma_table_info('Users') WHERE name = 'IsGlobalAdmin' LIMIT 1";
             if (await cmd.ExecuteScalarAsync() is null) return true;
         }
         return false;

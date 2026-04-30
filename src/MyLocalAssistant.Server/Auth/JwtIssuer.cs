@@ -12,6 +12,7 @@ public sealed class JwtIssuer(ServerSettings settings)
 {
     public const string ClaimDepartment = "dept";
     public const string ClaimIsAdmin = "adm";
+    public const string ClaimIsGlobalAdmin = "gadm";
 
     private readonly SymmetricSecurityKey _key = new(Convert.FromBase64String(settings.JwtSigningKey));
 
@@ -24,7 +25,8 @@ public sealed class JwtIssuer(ServerSettings settings)
             new(JwtRegisteredClaimNames.UniqueName, user.Username),
             new(ClaimTypes.Name, user.Username),
         };
-        if (user.IsAdmin) claims.Add(new Claim(ClaimIsAdmin, "1"));
+        if (user.IsAdmin || user.IsGlobalAdmin) claims.Add(new Claim(ClaimIsAdmin, "1"));
+        if (user.IsGlobalAdmin) claims.Add(new Claim(ClaimIsGlobalAdmin, "1"));
         // Emit one "dept" claim per department. Admins implicitly have access to all (not enumerated).
         foreach (var ud in user.Departments)
         {

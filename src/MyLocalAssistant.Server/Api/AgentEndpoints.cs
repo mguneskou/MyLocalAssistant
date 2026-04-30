@@ -27,6 +27,7 @@ public static class AgentEndpoints
         admin.MapGet("/", async (AgentService svc, CancellationToken ct) =>
             Results.Ok(await svc.ListAllAsync(ct)));
 
+        // Editing agents (enabled flag, model, RAG bindings, system prompt) is reserved for the global admin.
         admin.MapPatch("/{id}", async (string id, AgentUpdateRequest req, AgentService svc, CancellationToken ct) =>
         {
             try
@@ -38,7 +39,11 @@ public static class AgentEndpoints
             {
                 return Results.Problem(title: ex.Message, statusCode: StatusCodes.Status404NotFound);
             }
-        });
+            catch (ArgumentException ex)
+            {
+                return Results.Problem(title: ex.Message, statusCode: StatusCodes.Status400BadRequest);
+            }
+        }).RequireAuthorization("GlobalAdmin");
 
         return app;
     }

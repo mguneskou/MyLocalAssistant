@@ -17,3 +17,8 @@ public sealed record UpdateServerSettingsRequest(
     int RefreshTokenDays,
     int MessageBodyRetentionDays,
     int AuditRetentionDays);
+
+/// <summary>Server-wide system prompt prepended to every chat. Owner-only.</summary>
+public sealed record GlobalSystemPromptDto(string SystemPrompt);
+
+public sealed record UpdateGlobalSystemPromptRequest(string? SystemPrompt);

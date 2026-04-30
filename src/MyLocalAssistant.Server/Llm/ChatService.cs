@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using MyLocalAssistant.Core.Inference;
+using MyLocalAssistant.Server.Configuration;
 using MyLocalAssistant.Server.Persistence;
 using MyLocalAssistant.Server.Rag;
 
@@ -14,6 +15,7 @@ public sealed class ChatService(
     LLamaSharpProvider provider,
     ModelManager models,
     RagService rag,
+    ServerSettings settings,
     ILogger<ChatService> log)
 {
     public sealed record VisibilityCheck(bool Allowed, string? Reason, Agent? Agent);
@@ -52,7 +54,7 @@ public sealed class ChatService(
 
         var retrieval = await rag.RetrieveAsync(agent, principal, userMessage, k: 4, ct);
         onRetrieval?.Invoke(retrieval);
-        var prompt = BuildPrompt(agent.SystemPrompt, userMessage, retrieval.Chunks, history);
+        var prompt = BuildPrompt(settings.GlobalSystemPrompt, agent.SystemPrompt, userMessage, retrieval.Chunks, history);
         log.LogDebug("Chat: agent={AgentId}, user={User}, ragChunks={Chunks}, allowed={Allow}/{Total}, history={Hist}, promptChars={Chars}",
             agent.Id, principal.Username ?? principal.UserId.ToString(),
             retrieval.Chunks.Count, retrieval.Allowed.Count, retrieval.Requested.Count, history.Count, prompt.Length);
@@ -65,12 +67,18 @@ public sealed class ChatService(
     }
 
     private static string BuildPrompt(
+        string? globalSystemPrompt,
         string systemPrompt,
         string userMessage,
         IReadOnlyList<RagContextChunk> chunks,
         IReadOnlyList<HistoryTurn> history)
     {
         var sb = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(globalSystemPrompt))
+        {
+            sb.Append(globalSystemPrompt!.Trim());
+            sb.Append("\n\n");
+        }
         sb.Append(systemPrompt.Trim());
         if (chunks.Count > 0)
         {

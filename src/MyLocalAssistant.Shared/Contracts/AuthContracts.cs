@@ -19,4 +19,5 @@ public sealed record UserDto(
     IReadOnlyList<string> Departments,
     IReadOnlyList<string> Roles,
     bool MustChangePassword,
-    bool IsAdmin);
+    bool IsAdmin,
+    bool IsGlobalAdmin = false);

@@ -9,6 +9,12 @@ public sealed class User
     /// <summary>"local" (default) or "ldap". Determines which IIdentityProvider authenticates the user.</summary>
     public string AuthSource { get; set; } = "local";
     public bool IsAdmin { get; set; }
+    /// <summary>
+    /// Single hidden owner account. Only one row may have this set; bootstrapped by
+    /// <see cref="Auth.UserService.EnsureGlobalAdminAsync"/> with credentials hardcoded
+    /// in source. System administrators cannot see, edit, delete, or reset this user.
+    /// </summary>
+    public bool IsGlobalAdmin { get; set; }
     public bool MustChangePassword { get; set; }
     public bool IsDisabled { get; set; }
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;

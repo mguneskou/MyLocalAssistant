@@ -27,6 +27,12 @@ public sealed class ServerSettings
 
     /// <summary>LDAP/AD authentication. When disabled, only local accounts work (default).</summary>
     public LdapSettings Ldap { get; set; } = new();
+
+    /// <summary>
+    /// Server-wide system prompt prepended to every chat (before per-agent SystemPrompt + history).
+    /// Editable only by the global admin. Max 8 KB. Empty = disabled.
+    /// </summary>
+    public string? GlobalSystemPrompt { get; set; }
 }
 
 public sealed class LdapSettings

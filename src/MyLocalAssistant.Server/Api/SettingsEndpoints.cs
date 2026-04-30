@@ -5,11 +5,27 @@ namespace MyLocalAssistant.Server.Api;
 
 public static class SettingsEndpoints
 {
+    /// <summary>Cap on global system prompt length: 8 KB (~2k tokens).</summary>
+    public const int MaxGlobalPromptBytes = 8 * 1024;
+
     public static IEndpointRouteBuilder MapSettingsEndpoints(this IEndpointRouteBuilder app)
     {
         var g = app.MapGroup("/api/admin/settings").WithTags("Settings").RequireAuthorization("Admin");
         g.MapGet("/", Get);
         g.MapPatch("/", Patch);
+
+        // Global system prompt is owner-only on both read and write.
+        var owner = app.MapGroup("/api/admin/settings").WithTags("Settings").RequireAuthorization("GlobalAdmin");
+        owner.MapGet("/global-prompt", (ServerSettings s) => Results.Ok(new GlobalSystemPromptDto(s.GlobalSystemPrompt ?? "")));
+        owner.MapPut("/global-prompt", (UpdateGlobalSystemPromptRequest req, ServerSettings s, ServerSettingsStore store) =>
+        {
+            var text = req.SystemPrompt ?? "";
+            if (text.Length > MaxGlobalPromptBytes)
+                return Results.BadRequest(new { detail = $"SystemPrompt exceeds {MaxGlobalPromptBytes} chars." });
+            s.GlobalSystemPrompt = string.IsNullOrWhiteSpace(text) ? null : text;
+            store.Save(s);
+            return Results.Ok(new GlobalSystemPromptDto(s.GlobalSystemPrompt ?? ""));
+        });
         return app;
     }
 

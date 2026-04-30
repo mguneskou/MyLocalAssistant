@@ -100,15 +100,13 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
             }
             else
             {
-                // Always refresh sealed fields from seed (Name/Description/Category/SystemPrompt/IsGeneric).
-                // Local-admin-tunable fields (Enabled, DefaultModelId) are preserved.
-                if (a.Name != s.Name || a.Description != s.Description || a.Category != s.Category
-                    || a.SystemPrompt != s.SystemPrompt || a.IsGeneric != s.IsGeneric)
+                // Refresh sealed metadata (Name/Category/IsGeneric) so renames in the seed
+                // catalog still propagate, but do NOT touch SystemPrompt or Description —
+                // those belong to the global admin once the row exists.
+                if (a.Name != s.Name || a.Category != s.Category || a.IsGeneric != s.IsGeneric)
                 {
                     a.Name = s.Name;
-                    a.Description = s.Description;
                     a.Category = s.Category;
-                    a.SystemPrompt = s.SystemPrompt;
                     a.IsGeneric = s.IsGeneric;
                     refreshed++;
                 }
@@ -157,13 +155,26 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
         a.DefaultModelId = string.IsNullOrWhiteSpace(req.DefaultModelId) ? null : req.DefaultModelId;
         a.RagEnabled = req.RagEnabled;
         a.RagCollectionIds = RagService.FormatCollectionIds(req.RagCollectionIds);
+        if (req.SystemPrompt is not null)
+        {
+            var sp = req.SystemPrompt;
+            if (sp.Length > 8 * 1024)
+                throw new ArgumentException("SystemPrompt exceeds 8 KB.");
+            a.SystemPrompt = sp;
+        }
+        if (req.Description is not null)
+        {
+            var d = req.Description.Trim();
+            if (d.Length > 512) throw new ArgumentException("Description exceeds 512 characters.");
+            a.Description = d;
+        }
         await db.SaveChangesAsync(ct);
-        log.LogInformation("Agent {Id} updated: enabled={Enabled}, model={Model}, rag={Rag}, collections={Coll}.",
-            id, a.Enabled, a.DefaultModelId, a.RagEnabled, a.RagCollectionIds);
+        log.LogInformation("Agent {Id} updated: enabled={Enabled}, model={Model}, rag={Rag}, collections={Coll}, promptChars={Prompt}.",
+            id, a.Enabled, a.DefaultModelId, a.RagEnabled, a.RagCollectionIds, a.SystemPrompt.Length);
         return ToDto(a);
     }
 
     private static AgentDto ToDto(Agent a) => new(
         a.Id, a.Name, a.Description, a.Category, a.IsGeneric, a.Enabled, a.DefaultModelId,
-        a.RagEnabled, RagService.ParseCollectionIds(a.RagCollectionIds));
+        a.RagEnabled, RagService.ParseCollectionIds(a.RagCollectionIds), a.SystemPrompt);
 }
