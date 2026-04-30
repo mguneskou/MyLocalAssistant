@@ -19,8 +19,10 @@ internal sealed class AgentsTab : UserControl
     private DataGridViewComboBoxColumn _modelCol = null!;
     private DataGridViewButtonColumn _collectionsCol = null!;
     private DataGridViewButtonColumn _promptCol = null!;
+    private DataGridViewButtonColumn _skillsCol = null!;
     private readonly ToolStripButton _globalPromptBtn;
     private List<RagCollectionDto> _allCollections = new();
+    private List<SkillDto> _allSkills = new();
     private bool _suppressEvents;
 
     public AgentsTab(ServerClient client)
@@ -74,6 +76,14 @@ internal sealed class AgentsTab : UserControl
             Width = 80,
             FlatStyle = FlatStyle.Standard,
         };
+        _skillsCol = new DataGridViewButtonColumn
+        {
+            HeaderText = "Skills",
+            DataPropertyName = nameof(AgentRow.SkillsDisplay),
+            Width = 160,
+            UseColumnTextForButtonValue = false,
+            FlatStyle = FlatStyle.Standard,
+        };
         _grid.Columns.AddRange(new DataGridViewColumn[]
         {
             new DataGridViewTextBoxColumn { HeaderText = "Agent", DataPropertyName = nameof(AgentRow.Name), Width = 180, ReadOnly = true },
@@ -83,6 +93,7 @@ internal sealed class AgentsTab : UserControl
             _modelCol,
             new DataGridViewCheckBoxColumn { HeaderText = "RAG", DataPropertyName = nameof(AgentRow.RagEnabled), Width = 50 },
             _collectionsCol,
+            _skillsCol,
             _promptCol,
             new DataGridViewTextBoxColumn { HeaderText = "Description", DataPropertyName = nameof(AgentRow.Description), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, ReadOnly = true },
         });
@@ -130,21 +141,30 @@ internal sealed class AgentsTab : UserControl
         {
             var modelTask = _client.ListModelsAsync();
             var collTask = _client.ListCollectionsAsync();
+            var skillTask = SafeListSkillsAsync();
             var agents = await _client.ListAgentsAsync();
             var models = await modelTask;
             _allCollections = await collTask;
+            _allSkills = await skillTask;
             var modelChoices = new List<string> { NoModelOverride };
             modelChoices.AddRange(models.Where(m => m.IsInstalled).Select(m => m.Id));
             _modelCol.DataSource = modelChoices;
 
             _suppressEvents = true;
             _rows.Clear();
-            foreach (var a in agents) _rows.Add(AgentRow.From(a, modelChoices, _allCollections));
+            foreach (var a in agents) _rows.Add(AgentRow.From(a, modelChoices, _allCollections, _allSkills));
             _suppressEvents = false;
-            _statusLabel.Text = $"{agents.Count} agent(s); {models.Count(m => m.IsInstalled)} installed model(s); {_allCollections.Count} collection(s).";
+            _statusLabel.Text = $"{agents.Count} agent(s); {models.Count(m => m.IsInstalled)} installed model(s); {_allCollections.Count} collection(s); {_allSkills.Count} skill(s).";
         }
         catch (Exception ex) { ShowError("Load failed", ex); }
         finally { SetBusy(false); }
+    }
+
+    /// <summary>Skills endpoint requires admin; tab works without skills for non-admins.</summary>
+    private async Task<List<SkillDto>> SafeListSkillsAsync()
+    {
+        try { return await _client.ListSkillsAsync(); }
+        catch { return new List<SkillDto>(); }
     }
 
     private void OnCellContentClick(object? sender, DataGridViewCellEventArgs e)
@@ -161,15 +181,30 @@ internal sealed class AgentsTab : UserControl
             _ = SaveRowAsync(row);
             return;
         }
-        if (e.ColumnIndex != _collectionsCol.Index) return;
-        using (var dlg = new CollectionPickerForm(_allCollections, row.RagCollectionIds))
+        if (e.ColumnIndex == _collectionsCol.Index)
         {
-            if (dlg.ShowDialog(this) != DialogResult.OK) return;
-            row.RagCollectionIds = dlg.SelectedIds;
+            using (var dlg = new CollectionPickerForm(_allCollections, row.RagCollectionIds))
+            {
+                if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                row.RagCollectionIds = dlg.SelectedIds;
+            }
+            row.RecomputeCollectionsDisplay(_allCollections);
+            _ = SaveRowAsync(row);
+            _grid.InvalidateRow(e.RowIndex);
+            return;
         }
-        row.RecomputeCollectionsDisplay(_allCollections);
-        _ = SaveRowAsync(row);
-        _grid.InvalidateRow(e.RowIndex);
+        if (e.ColumnIndex == _skillsCol.Index)
+        {
+            using (var dlg = new SkillPickerForm(_allSkills, row.SkillIds))
+            {
+                if (dlg.ShowDialog(this) != DialogResult.OK) return;
+                row.SkillIds = dlg.SelectedIds;
+            }
+            row.RecomputeSkillsDisplay(_allSkills);
+            _ = SaveRowAsync(row);
+            _grid.InvalidateRow(e.RowIndex);
+            return;
+        }
     }
 
     private async Task SaveRowAsync(AgentRow row)
@@ -178,8 +213,8 @@ internal sealed class AgentsTab : UserControl
         {
             var defaultModelId = row.DefaultModelDisplay == NoModelOverride ? null : row.DefaultModelDisplay;
             var updated = await _client.UpdateAgentAsync(row.Id,
-                new AgentUpdateRequest(row.Enabled, defaultModelId, row.RagEnabled, row.RagCollectionIds, row.SystemPrompt));
-            _statusLabel.Text = $"Saved {updated.Name} (rag={updated.RagEnabled}, collections={updated.RagCollectionIds.Count}).";
+                new AgentUpdateRequest(row.Enabled, defaultModelId, row.RagEnabled, row.RagCollectionIds, row.SystemPrompt, Description: null, SkillIds: row.SkillIds));
+            _statusLabel.Text = $"Saved {updated.Name} (rag={updated.RagEnabled}, collections={updated.RagCollectionIds.Count}, skills={updated.SkillIds?.Count ?? 0}).";
         }
         catch (Exception ex) { ShowError("Save failed", ex); await ReloadAsync(); }
     }
@@ -187,7 +222,7 @@ internal sealed class AgentsTab : UserControl
     private async void OnCellValueChanged(object? sender, DataGridViewCellEventArgs e)
     {
         if (_suppressEvents || e.RowIndex < 0 || e.RowIndex >= _rows.Count) return;
-        if (e.ColumnIndex == _collectionsCol.Index || e.ColumnIndex == _promptCol.Index) return; // handled by content-click
+        if (e.ColumnIndex == _collectionsCol.Index || e.ColumnIndex == _promptCol.Index || e.ColumnIndex == _skillsCol.Index) return; // handled by content-click
         await SaveRowAsync(_rows[e.RowIndex]);
     }
 
@@ -217,8 +252,10 @@ internal sealed class AgentsTab : UserControl
         public IReadOnlyList<Guid> RagCollectionIds { get; set; } = Array.Empty<Guid>();
         public string CollectionsDisplay { get; set; } = "(none)";
         public string SystemPrompt { get; set; } = "";
+        public IReadOnlyList<string> SkillIds { get; set; } = Array.Empty<string>();
+        public string SkillsDisplay { get; set; } = "(choose\u2026)";
 
-        public static AgentRow From(AgentDto a, IReadOnlyList<string> modelChoices, IReadOnlyList<RagCollectionDto> allCollections)
+        public static AgentRow From(AgentDto a, IReadOnlyList<string> modelChoices, IReadOnlyList<RagCollectionDto> allCollections, IReadOnlyList<SkillDto> allSkills)
         {
             var display = a.DefaultModelId is null
                 ? NoModelOverride
@@ -235,8 +272,10 @@ internal sealed class AgentsTab : UserControl
                 RagEnabled = a.RagEnabled,
                 RagCollectionIds = a.RagCollectionIds,
                 SystemPrompt = a.SystemPrompt,
+                SkillIds = a.SkillIds ?? Array.Empty<string>(),
             };
             row.RecomputeCollectionsDisplay(allCollections);
+            row.RecomputeSkillsDisplay(allSkills);
             return row;
         }
 
@@ -247,6 +286,15 @@ internal sealed class AgentsTab : UserControl
                 .Select(id => all.FirstOrDefault(c => c.Id == id)?.Name ?? id.ToString())
                 .ToList();
             CollectionsDisplay = string.Join(", ", names);
+        }
+
+        public void RecomputeSkillsDisplay(IReadOnlyList<SkillDto> all)
+        {
+            if (SkillIds.Count == 0) { SkillsDisplay = "(choose…)"; return; }
+            var names = SkillIds
+                .Select(id => all.FirstOrDefault(s => string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase))?.Name ?? id)
+                .ToList();
+            SkillsDisplay = string.Join(", ", names);
         }
     }
 }
@@ -294,5 +342,58 @@ internal sealed class CollectionPickerForm : Form
             SelectedIds = picks;
         };
         Controls.AddRange(new Control[] { _list, ok, cancel });
+    }
+}
+
+internal sealed class SkillPickerForm : Form
+{
+    private readonly CheckedListBox _list;
+    private readonly List<SkillDto> _all;
+
+    public IReadOnlyList<string> SelectedIds { get; private set; } = Array.Empty<string>();
+
+    public SkillPickerForm(IReadOnlyList<SkillDto> all, IReadOnlyList<string> initiallySelected)
+    {
+        _all = all.ToList();
+        Text = "Select skills";
+        FormBorderStyle = FormBorderStyle.FixedDialog;
+        StartPosition = FormStartPosition.CenterParent;
+        MaximizeBox = false;
+        MinimizeBox = false;
+        ClientSize = new Size(420, 380);
+        Font = new Font("Segoe UI", 9F);
+
+        _list = new CheckedListBox
+        {
+            Left = 12, Top = 12, Width = 396, Height = 290,
+            CheckOnClick = true,
+            IntegralHeight = false,
+        };
+        var initialSet = new HashSet<string>(initiallySelected, StringComparer.OrdinalIgnoreCase);
+        foreach (var s in _all)
+        {
+            var marker = s.Enabled ? "" : "  (disabled)";
+            var label = $"{s.Name} \u2014 {s.Id}{marker}";
+            _list.Items.Add(label, initialSet.Contains(s.Id));
+        }
+        var hint = new Label
+        {
+            Left = 12, Top = 306, Width = 396, Height = 32,
+            ForeColor = SystemColors.GrayText,
+            Text = "Disabled skills can be bound here but won't be exposed at runtime.\nThe active model must support tool calling for any skill to fire.",
+        };
+
+        var ok = new Button { Text = "OK", DialogResult = DialogResult.OK, Left = 240, Top = 342, Width = 80 };
+        var cancel = new Button { Text = "Cancel", DialogResult = DialogResult.Cancel, Left = 328, Top = 342, Width = 80 };
+        AcceptButton = ok;
+        CancelButton = cancel;
+        ok.Click += (_, _) =>
+        {
+            var picks = new List<string>();
+            for (int i = 0; i < _list.Items.Count; i++)
+                if (_list.GetItemChecked(i)) picks.Add(_all[i].Id);
+            SelectedIds = picks;
+        };
+        Controls.AddRange(new Control[] { _list, hint, ok, cancel });
     }
 }

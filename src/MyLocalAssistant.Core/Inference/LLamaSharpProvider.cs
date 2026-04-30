@@ -39,21 +39,33 @@ public sealed class LLamaSharpProvider : ILlmProvider
         _logger.LogInformation("Model {Id} loaded.", modelId);
     }
 
+    public IAsyncEnumerable<string> GenerateAsync(
+        string prompt,
+        int maxTokens,
+        CancellationToken ct = default)
+        => GenerateAsync(prompt, maxTokens, Array.Empty<string>(), ct);
+
     public async IAsyncEnumerable<string> GenerateAsync(
         string prompt,
         int maxTokens,
+        IReadOnlyList<string> extraStops,
         [EnumeratorCancellation] CancellationToken ct = default)
     {
         if (_weights is null || _params is null)
             throw new InvalidOperationException("No model is loaded. Call LoadAsync first.");
 
         var executor = new StatelessExecutor(_weights, _params);
+        var antis = new List<string> { "\nUser:", "\nuser:" };
+        if (extraStops is { Count: > 0 })
+            foreach (var s in extraStops)
+                if (!string.IsNullOrEmpty(s)) antis.Add(s);
         var inferenceParams = new InferenceParams
         {
             MaxTokens = maxTokens,
             // Stop the moment the model tries to start a new "User:" turn (matches the
-            // simple plain-text framing emitted by ChatService.BuildPrompt).
-            AntiPrompts = new List<string> { "\nUser:", "\nuser:" },
+            // simple plain-text framing emitted by ChatService.BuildPrompt) or hits one
+            // of the caller-supplied tool-loop stops (e.g. </tool_call>).
+            AntiPrompts = antis,
             SamplingPipeline = new DefaultSamplingPipeline(),
         };
 

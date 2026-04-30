@@ -436,6 +436,19 @@ internal sealed class ChatForm : Form
                 {
                     break;
                 }
+                else if (frame.Kind == TokenStreamFrameKind.ToolUnavailable)
+                {
+                    AppendBody($"\n[tool unavailable: {frame.ToolName ?? "?"} \u2014 {frame.ToolReason ?? "?"}]\n");
+                }
+                else if (frame.Kind == TokenStreamFrameKind.ToolCall)
+                {
+                    AppendBody($"\n[\u2192 tool call: {frame.ToolName ?? "?"} {frame.ToolJson ?? ""}]\n");
+                }
+                else if (frame.Kind == TokenStreamFrameKind.ToolResult)
+                {
+                    var label = string.Equals(frame.ToolReason, "error", StringComparison.Ordinal) ? "tool error" : "tool result";
+                    AppendBody($"[\u2190 {label}: {frame.ToolName ?? "?"} {frame.ToolJson ?? ""}]\n");
+                }
             }
             AppendBody("\n\n");
         }

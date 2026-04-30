@@ -51,6 +51,27 @@ public sealed class SkillRegistry(
         }
     }
 
+    /// <summary>Parse the semicolon-separated <c>Agent.SkillIds</c> column.</summary>
+    public static IReadOnlyList<string> ParseSkillIds(string? csv)
+    {
+        if (string.IsNullOrWhiteSpace(csv)) return Array.Empty<string>();
+        return csv.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(s => s.Length > 0)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+    }
+
+    /// <summary>Format a skill-id list for storage. Returns <c>null</c> when the list is empty.</summary>
+    public static string? FormatSkillIds(IEnumerable<string>? ids)
+    {
+        if (ids is null) return null;
+        var arr = ids.Where(s => !string.IsNullOrWhiteSpace(s))
+            .Select(s => s.Trim())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+        return arr.Length == 0 ? null : string.Join(';', arr);
+    }
+
     /// <summary>
     /// Reconcile the in-memory catalog with the <c>SkillState</c> table. New built-in
     /// skills are inserted disabled; obsolete rows (skill id no longer registered)

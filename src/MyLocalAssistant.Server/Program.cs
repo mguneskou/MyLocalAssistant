@@ -66,6 +66,7 @@ try
     builder.Services.AddScoped<MyLocalAssistant.Server.Rag.IngestionService>();
     builder.Services.AddScoped<MyLocalAssistant.Server.Rag.RagAuthorizationService>();
     builder.Services.AddScoped<MyLocalAssistant.Server.Rag.RagService>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.ModelCapabilityRegistry>();
     builder.Services.AddScoped<ChatService>();
 
     // Skills (Phase 1): in-process built-ins. Plug-in discovery comes in Phase 3.

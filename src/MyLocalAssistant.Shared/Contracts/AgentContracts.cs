@@ -10,7 +10,8 @@ public sealed record AgentDto(
     string? DefaultModelId,
     bool RagEnabled,
     IReadOnlyList<Guid> RagCollectionIds,
-    string SystemPrompt = "");
+    string SystemPrompt = "",
+    IReadOnlyList<string>? SkillIds = null);
 
 public sealed record AgentUpdateRequest(
     bool Enabled,
@@ -18,7 +19,8 @@ public sealed record AgentUpdateRequest(
     bool RagEnabled,
     IReadOnlyList<Guid>? RagCollectionIds,
     string? SystemPrompt = null,
-    string? Description = null);
+    string? Description = null,
+    IReadOnlyList<string>? SkillIds = null);
 
 public sealed record ChatTurnRequest(
     string AgentId,
@@ -37,10 +39,19 @@ public enum TokenStreamFrameKind
     End,
     Error,
     Meta,
+    /// <summary>The model issued a tool call (informational; UI may display it).</summary>
+    ToolCall,
+    /// <summary>The tool returned a result (informational; UI may display it).</summary>
+    ToolResult,
+    /// <summary>An agent-bound skill was skipped (disabled, missing, model lacks tool support, or context too small).</summary>
+    ToolUnavailable,
 }
 
 public sealed record TokenStreamFrame(
     TokenStreamFrameKind Kind,
     string? Text = null,
     string? ErrorMessage = null,
-    System.Guid? ConversationId = null);
+    System.Guid? ConversationId = null,
+    string? ToolName = null,
+    string? ToolJson = null,
+    string? ToolReason = null);

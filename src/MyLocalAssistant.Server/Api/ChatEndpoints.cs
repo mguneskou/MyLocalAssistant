@@ -130,8 +130,44 @@ public static class ChatEndpoints
         {
             // Resolve principal from DB (NOT JWT) so revocations apply immediately.
             var principal = await authz.ResolveAsync(userId, username, isAdmin, ct);
+            var conversationIdLocal = conversation.Id;
+            var callbacks = new ChatService.ChatStreamCallbacks
+            {
+                OnRetrieval = r => lastRetrieval = r,
+                ConversationId = conversationIdLocal,
+                OnToolUnavailable = (skillId, reason) =>
+                {
+                    try
+                    {
+                        WriteFrameAsync(http.Response,
+                            new TokenStreamFrame(TokenStreamFrameKind.ToolUnavailable, ToolName: skillId, ToolReason: reason),
+                            ct).GetAwaiter().GetResult();
+                    }
+                    catch { /* response broken */ }
+                },
+                OnToolCall = (toolName, argsJson) =>
+                {
+                    try
+                    {
+                        WriteFrameAsync(http.Response,
+                            new TokenStreamFrame(TokenStreamFrameKind.ToolCall, ToolName: toolName, ToolJson: argsJson),
+                            ct).GetAwaiter().GetResult();
+                    }
+                    catch { /* response broken */ }
+                },
+                OnToolResult = (toolName, resultJson, isErrorFlag) =>
+                {
+                    try
+                    {
+                        WriteFrameAsync(http.Response,
+                            new TokenStreamFrame(TokenStreamFrameKind.ToolResult, ToolName: toolName, ToolJson: resultJson, ToolReason: isErrorFlag ? "error" : null),
+                            ct).GetAwaiter().GetResult();
+                    }
+                    catch { /* response broken */ }
+                },
+            };
             await foreach (var token in chat.StreamAsync(check.Agent, principal, req.Message, maxTokens,
-                history, onRetrieval: r => lastRetrieval = r, ct))
+                history, callbacks, ct))
             {
                 tokenCount++;
                 totalChars += token.Length;

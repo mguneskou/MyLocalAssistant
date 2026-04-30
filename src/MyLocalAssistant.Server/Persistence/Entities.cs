@@ -84,6 +84,8 @@ public sealed class Agent
     public bool RagEnabled { get; set; }
     /// <summary>Semicolon-separated list of RagCollection.Id (Guid) strings the agent retrieves from.</summary>
     public string? RagCollectionIds { get; set; }
+    /// <summary>Semicolon-separated list of SkillState.Id strings the agent is allowed to invoke as tools.</summary>
+    public string? SkillIds { get; set; }
 }
 
 public sealed class Conversation
