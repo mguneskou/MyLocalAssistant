@@ -63,6 +63,28 @@ jobs:
           .\scripts\publish-all.ps1 -Configuration Release -Runtime win-x64 -OutDir "$PWD\dist\stage"
           Get-ChildItem dist\stage -Filter *.exe | Select-Object Name, Length
 
+      - name: Bundle plug-ins (Excel) + trusted dev key
+        shell: pwsh
+        run: |
+          # Build, sign, and stage the Excel plug-in. CI generates a fresh dev keypair
+          # each run; the matching public key is bundled so signature verification on
+          # the tester's machine succeeds without any out-of-band key distribution.
+          .\plugins\excel\build.ps1 -KeyId dev -Configuration Release -Runtime win-x64
+
+          $bundleDir = "$PWD\dist\stage\bundled\plugins\excel"
+          New-Item -ItemType Directory -Force -Path $bundleDir | Out-Null
+          # Copy everything published except the packed .mlaplugin (we ship the unpacked layout).
+          Get-ChildItem "$PWD\plugins\excel\publish" -Force `
+            | Where-Object { $_.Name -ne ".keys" -and $_.Extension -ne ".mlaplugin" } `
+            | Copy-Item -Destination $bundleDir -Recurse -Force
+
+          $keyDir = "$PWD\dist\stage\bundled\config\trusted-keys"
+          New-Item -ItemType Directory -Force -Path $keyDir | Out-Null
+          Copy-Item "$PWD\src\MyLocalAssistant.Server\config\trusted-keys\dev.pub" $keyDir -Force
+
+          Write-Host "Bundled plug-ins:"
+          Get-ChildItem "$PWD\dist\stage\bundled" -Recurse -File | Select-Object FullName, Length
+
       - name: vpk pack
         shell: pwsh
         run: |

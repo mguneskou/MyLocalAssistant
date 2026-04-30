@@ -13,7 +13,16 @@ downloads.
 
 ---
 
-## v2.1.5.0 highlights (current release)
+## v2.1.6.0 highlights (current release)
+
+The **Excel skill plug-in is now bundled in the installer** and seeded onto every install on first launch. New testers no longer need to copy the plug-in folder or trusted key by hand.
+
+- The release pipeline now builds, signs, and stages `plugins/excel/` plus the matching dev public key under `<install>\bundled\plugins\excel\` and `<install>\bundled\config\trusted-keys\dev.pub`.
+- On startup the server seeds anything in `bundled\` into `state\plugins\` / `state\config\trusted-keys\` if the destination doesn't already exist. Idempotent — admins who delete a bundled plug-in (or replace it via the Skills tab) won't have it auto-reinstall.
+- Existing 2.1.5 (and earlier) testers will get the Excel plug-in seeded automatically the first time they launch 2.1.6.
+- Admins who want to **update** the bundled plug-in version on an existing machine: delete `state\plugins\excel\` and restart the server — it'll be re-seeded from the new bundle.
+
+## v2.1.5.0 highlights
 
 Operational toggle release. Adds a way to **pause auto-updates** on individual machines so testers can be frozen on a known build while you keep cutting releases.
 

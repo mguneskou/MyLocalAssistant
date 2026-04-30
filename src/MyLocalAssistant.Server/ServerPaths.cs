@@ -59,6 +59,7 @@ public static class ServerPaths
             {
                 _ensured = true;
                 if (IsVelopackInstall) TryMigrateLegacyState();
+                TrySeedBundledAssets();
             }
         }
     }
@@ -155,5 +156,72 @@ public static class ServerPaths
             if (Directory.Exists(dest)) MoveDirectoryContents(sub, dest);
             else Directory.Move(sub, dest);
         }
+    }
+
+    /// <summary>
+    /// Copies plug-ins and trusted public keys that the installer ships in
+    /// <c>&lt;install&gt;\bundled\plugins\</c> and <c>&lt;install&gt;\bundled\config\trusted-keys\</c>
+    /// into <see cref="PluginsDirectory"/> / <see cref="TrustedKeysDirectory"/>. Idempotent: if the
+    /// destination already exists it is left alone, so an admin who deletes a bundled plug-in
+    /// (or replaces it via the Skills tab) will not have it auto-reinstalled on next launch.
+    /// </summary>
+    private static void TrySeedBundledAssets()
+    {
+        try
+        {
+            var bundledRoot = Path.Combine(AppDirectory, "bundled");
+            if (!Directory.Exists(bundledRoot)) return;
+            SeedBundledPluginFolders(Path.Combine(bundledRoot, "plugins"));
+            SeedBundledTrustedKeys(Path.Combine(bundledRoot, "config", "trusted-keys"));
+        }
+        catch
+        {
+            // best-effort
+        }
+    }
+
+    private static void SeedBundledPluginFolders(string sourceRoot)
+    {
+        if (!Directory.Exists(sourceRoot)) return;
+        foreach (var src in Directory.EnumerateDirectories(sourceRoot, "*", SearchOption.TopDirectoryOnly))
+        {
+            try
+            {
+                var dest = Path.Combine(PluginsDirectory, Path.GetFileName(src));
+                if (Directory.Exists(dest)) continue;
+                CopyDirectoryRecursive(src, dest);
+            }
+            catch
+            {
+                // best-effort per plug-in
+            }
+        }
+    }
+
+    private static void SeedBundledTrustedKeys(string sourceRoot)
+    {
+        if (!Directory.Exists(sourceRoot)) return;
+        foreach (var src in Directory.EnumerateFiles(sourceRoot, "*.pub", SearchOption.TopDirectoryOnly))
+        {
+            try
+            {
+                var dest = Path.Combine(TrustedKeysDirectory, Path.GetFileName(src));
+                if (File.Exists(dest)) continue;
+                File.Copy(src, dest);
+            }
+            catch
+            {
+                // best-effort per key
+            }
+        }
+    }
+
+    private static void CopyDirectoryRecursive(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.TopDirectoryOnly))
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
+        foreach (var sub in Directory.EnumerateDirectories(source, "*", SearchOption.TopDirectoryOnly))
+            CopyDirectoryRecursive(sub, Path.Combine(destination, Path.GetFileName(sub)));
     }
 }
