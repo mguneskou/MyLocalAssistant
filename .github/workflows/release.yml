@@ -19,10 +19,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup .NET 8
+      - name: Setup .NET (8 for build, 9 for slnx-aware tooling)
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: |
+            8.0.x
+            9.0.x
 
       - name: Resolve version
         id: ver
@@ -39,8 +41,9 @@ jobs:
       - name: Restore + test
         shell: pwsh
         run: |
-          dotnet restore MyLocalAssistant.slnx
-          dotnet test src\tests\MyLocalAssistant.Core.Tests\MyLocalAssistant.Core.Tests.csproj --no-restore -c Release --verbosity minimal
+          # Test project pulls in everything it transitively needs; auto-restores.
+          dotnet test src\tests\MyLocalAssistant.Core.Tests\MyLocalAssistant.Core.Tests.csproj `
+            -c Release --verbosity minimal
 
       - name: Build & pack & upload via Velopack
         shell: pwsh
