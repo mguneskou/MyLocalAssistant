@@ -18,6 +18,12 @@ models/
 config/
 *.log
 
+# Source folders accidentally matched by the patterns above
+!src/MyLocalAssistant.Core/Models/
+!src/MyLocalAssistant.Core/Models/**
+!src/MyLocalAssistant.Server/Configuration/
+!src/MyLocalAssistant.Server/Configuration/**
+
 # OS
 Thumbs.db
 .DS_Store
