@@ -13,6 +13,56 @@ downloads.
 
 ---
 
+## v2.1.0.0 highlights (current release)
+
+Second v2 release. Hardens the platform, adds a plug-in skill runtime, and ships a
+proper installer + auto-updater so testers can be onboarded with a single download.
+
+### Distribution & lifecycle (new)
+
+- **`MyLocalAssistant.ServerHost.exe`** — system-tray launcher that spawns the server
+  as a child process, polls `/healthz` every 2 s, and exposes Open Admin / Open Client /
+  Restart server / Open logs / About / Quit menu items. Single-instance via a global mutex.
+- **Velopack-based installer**: `MyLocalAssistant-win-Setup.exe` installs per-user under
+  `%LocalAppData%\MyLocalAssistant\current\` — no admin rights, no UAC prompt.
+- **Automatic updates** from GitHub Releases: hourly silent check + manual
+  *Check for updates…* menu item. Delta packages keep upgrades small.
+- **GitHub Actions release pipeline** (`.github/workflows/release.yml`): pushing a
+  `v*` tag builds, tests, packs (`scripts/release.ps1` → `vpk pack` → `vpk upload github`),
+  and publishes the release.
+- **Tester guide** ([tester_guide_v2.pdf](tester_guide_v2.pdf)) — install / use / update /
+  uninstall / suggested test scenarios, including default credentials.
+
+### Skills & plug-in runtime (new)
+
+- **Skill catalog** with three built-in skills: `math.eval`, `time.now`,
+  `rag.search_collection`. Per-agent capability binding from the Admin console.
+- **Tag-mode tool calling**: agents emit `<tool>{...}</tool>` blocks, the server runs the
+  skill, and feeds the result back into the same turn — model-agnostic, no JSON-grammar
+  required.
+- **Plug-in runtime**: out-of-process JSON-RPC over stdio, manifest + ed25519 signing,
+  Windows **Job Object** sandbox (memory + CPU caps, no child processes, network ACL).
+- **Reference plug-in** (`plugins/echo/`) and **`SkillTools` CLI** for signing /
+  verifying / packaging plug-ins.
+
+### Stability & polish
+
+- **`DateTimeOffset` ↔ `long` (UtcTicks) value converter** — fixes the
+  *"SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY clauses"*
+  crash on chat history.
+- **Client crash hardening** — global `Application.ThreadException`,
+  `AppDomain.UnhandledException`, `TaskScheduler.UnobservedTaskException` handlers all
+  log to `%LocalAppData%\MyLocalAssistant\client.log` + show a MessageBox; deferred
+  `SplitContainer` sizing to `HandleCreated` to stop ctor-time `InvalidOperationException`.
+- **Telemetry & hot-reload** of agent config; **sandbox ACL + UI limits** in the Admin
+  console; minimum password length raised to 8 to match the server.
+- **Modern WinForms theme**: rounded buttons, app icon, themed tool-strips and dialogs,
+  branded login header.
+- **31 → expanded** xUnit test suite (now also covers plug-in manifest parsing,
+  signing, sandbox enforcement).
+
+---
+
 ## v2.0.0.0 highlights
 
 ### Server (`MyLocalAssistant.Server`)
@@ -52,13 +102,18 @@ JWT auto-refresh, offline indicator.
 
 ```
 src/
-  MyLocalAssistant.Server/   ASP.NET Core service (LLM, RAG, auth, audit, REST/SSE)
-  MyLocalAssistant.Admin/    WinForms admin console
-  MyLocalAssistant.Client/   WinForms end-user chat client
-  MyLocalAssistant.Shared/   DTOs / contracts shared by server + clients
-  MyLocalAssistant.Core/     Catalog, downloader, hashing (shared with v1)
-  MyLocalAssistant.App/      v1 single-user desktop app (legacy, still buildable)
-  tests/                     xUnit test project (31 tests)
+  MyLocalAssistant.Server/      ASP.NET Core service (LLM, RAG, auth, audit, REST/SSE)
+  MyLocalAssistant.ServerHost/  Tray-icon launcher + Velopack auto-updater
+  MyLocalAssistant.Admin/       WinForms admin console
+  MyLocalAssistant.Client/      WinForms end-user chat client
+  MyLocalAssistant.Shared/      DTOs / contracts shared by server + clients
+  MyLocalAssistant.Core/        Catalog, downloader, hashing (shared with v1)
+  MyLocalAssistant.App/         v1 single-user desktop app (legacy, still buildable)
+  tests/                        xUnit test project
+plugins/echo/                   Reference plug-in skill (out-of-process, signed)
+tools/MyLocalAssistant.SkillTools/  Sign / verify / pack plug-ins
+scripts/                        publish-all.ps1, release.ps1, install/uninstall service
+.github/workflows/release.yml   Tag-driven Velopack release pipeline
 ```
 
 ---
@@ -108,6 +163,34 @@ dotnet test src\tests\MyLocalAssistant.Core.Tests
 
 ---
 
+## Packaging a release
+
+Local end-to-end build of an installer:
+
+```powershell
+.\scripts\publish-all.ps1                      # publishes 4 exes into dist\stage\
+.\scripts\release.ps1 -Version 2.1.0           # publish + vpk pack -> dist\releases\
+.\scripts\release.ps1 -Version 2.1.0 -Upload `
+    -GitHubToken $env:GH_PAT                   # also upload to GitHub Releases
+```
+
+In CI, just push a tag — `.github/workflows/release.yml` does the rest:
+
+```powershell
+git tag v2.1.0.0
+git push origin v2.1.0.0
+```
+
+The workflow restores, runs tests, builds with `vpk`, and attaches
+`MyLocalAssistant-win-Setup.exe` + delta `nupkg` + `RELEASES` manifest to the
+created GitHub Release. Installed `ServerHost.exe` instances pick up the new
+version within an hour (or immediately via *Check for updates…*).
+
+See [tester_guide_v2.pdf](tester_guide_v2.pdf) for a full install / use / update /
+uninstall walkthrough aimed at non-developer testers.
+
+---
+
 ## Versioning
 
 | Tag         | What it is                                                         |
@@ -115,6 +198,7 @@ dotnet test src\tests\MyLocalAssistant.Core.Tests
 | `v1.0.0.0`  | First v1 desktop release (skeleton + first-run model wizard).      |
 | `v1.0.1`    | v1 patch release.                                                  |
 | `v2.0.0.0`  | First v2 release — server + admin + client + RAG + ACL + owner.    |
+| `v2.1.0.0`  | ServerHost tray launcher, Velopack auto-update, plug-in skill runtime, stability fixes. |
 
 ## License
 
