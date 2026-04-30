@@ -7,6 +7,7 @@ using MyLocalAssistant.Core.Inference;
 using MyLocalAssistant.Server;
 using MyLocalAssistant.Server.Api;
 using MyLocalAssistant.Server.Auth;
+using MyLocalAssistant.Server.ClientBridge;
 using MyLocalAssistant.Server.Configuration;
 using MyLocalAssistant.Server.Llm;
 using MyLocalAssistant.Server.Persistence;
@@ -68,6 +69,7 @@ try
     builder.Services.AddScoped<MyLocalAssistant.Server.Rag.RagService>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.ModelCapabilityRegistry>();
     builder.Services.AddScoped<ChatService>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.ClientBridge.ClientBridgeHub>();
 
     // Skills (Phase 1): in-process built-ins. Plug-in discovery comes in Phase 3.
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.MathEvalSkill>();
@@ -131,6 +133,7 @@ try
     }
 
     app.UseSerilogRequestLogging();
+    app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
     app.UseAuthentication();
     app.UseAuthorization();
 
@@ -148,6 +151,7 @@ try
     app.MapSettingsEndpoints();
     app.MapAttachmentEndpoints();
     app.MapSkillEndpoints();
+    app.MapClientBridgeEndpoints();
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
         settings.ListenUrl, ServerPaths.AppDirectory);
 
