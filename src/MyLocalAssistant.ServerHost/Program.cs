@@ -196,7 +196,9 @@ internal sealed class TrayContext : ApplicationContext
             _server.CloseMainWindow();
             if (!_server.WaitForExit(3000))
                 _server.Kill(entireProcessTree: true);
-            await _server.WaitForExitAsync();
+            // ConfigureAwait(false) so the continuation does NOT try to resume on
+            // the WinForms UI thread; Quit() blocks that thread on .GetResult().
+            await _server.WaitForExitAsync().ConfigureAwait(false);
         }
         catch { /* best-effort */ }
     }
@@ -205,7 +207,10 @@ internal sealed class TrayContext : ApplicationContext
     {
         _shuttingDown = true;
         try { _healthTimer.Stop(); } catch { }
-        try { StopServerAsync().GetAwaiter().GetResult(); } catch { }
+        try { _updateTimer.Stop(); } catch { }
+        // Run on a worker thread so an async continuation inside StopServerAsync
+        // can never deadlock against the UI thread we're standing on.
+        try { Task.Run(StopServerAsync).GetAwaiter().GetResult(); } catch { }
         _icon.Visible = false;
         _icon.Dispose();
         _http.Dispose();
