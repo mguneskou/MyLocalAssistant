@@ -1,0 +1,61 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'                  # any vX.Y.Z tag triggers a release
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 2.1.0). Leave blank to use the tag.'
+        required: false
+
+permissions:
+  contents: write             # needed to create the GitHub Release
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $v = '${{ github.event.inputs.version }}'
+          if ([string]::IsNullOrWhiteSpace($v)) {
+            $v = '${{ github.ref_name }}'.TrimStart('v')
+          }
+          if ([string]::IsNullOrWhiteSpace($v)) { throw 'Could not resolve version.' }
+          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Releasing version $v"
+
+      - name: Restore + test
+        shell: pwsh
+        run: |
+          dotnet restore MyLocalAssistant.slnx
+          dotnet test src\tests\MyLocalAssistant.Core.Tests\MyLocalAssistant.Core.Tests.csproj --no-restore -c Release --verbosity minimal
+
+      - name: Build & pack & upload via Velopack
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          .\scripts\release.ps1 `
+            -Version '${{ steps.ver.outputs.version }}' `
+            -RepoUrl 'https://github.com/${{ github.repository }}' `
+            -Upload `
+            -GitHubToken $env:GH_TOKEN
+
+      - name: Upload artifacts (also on this workflow run)
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyLocalAssistant-${{ steps.ver.outputs.version }}-win
+          path: dist/releases/*
+          if-no-files-found: error

@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using System.Net.Http;
 using System.Reflection;
+using Velopack;
+using Velopack.Sources;
 
 namespace MyLocalAssistant.ServerHost;
 
@@ -20,8 +22,11 @@ namespace MyLocalAssistant.ServerHost;
 internal static class Program
 {
     [STAThread]
-    private static void Main()
+    private static void Main(string[] args)
     {
+        // MUST be first: Velopack handles install/update/uninstall hooks and exits early.
+        VelopackApp.Build().Run();
+
         // Single-instance: a second launch just brings up the menu of the running one.
         using var mtx = new Mutex(initiallyOwned: true, name: "Global\\MyLocalAssistant.ServerHost", out var owned);
         if (!owned) return;
@@ -43,9 +48,11 @@ internal sealed class TrayContext : ApplicationContext
     private readonly ToolStripMenuItem _openAdminItem;
     private readonly ToolStripMenuItem _openClientItem;
     private readonly System.Windows.Forms.Timer _healthTimer;
+    private readonly System.Windows.Forms.Timer _updateTimer;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(2) };
     private Process? _server;
     private bool _shuttingDown;
+    private UpdateManager? _updater;
 
     public TrayContext()
     {
@@ -63,6 +70,10 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(new ToolStripMenuItem("Open install folder", null, (_, _) => OpenFolder(".")));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Restart server", null, async (_, _) => await RestartServerAsync()));
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("Check for updates\u2026", null, async (_, _) => await CheckForUpdatesAsync(interactive: true)));
+        menu.Items.Add(new ToolStripMenuItem("About", null, (_, _) => ShowAbout()));
+        menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Quit (stop server)", null, (_, _) => Quit()));
 
         _icon = new NotifyIcon
@@ -80,6 +91,12 @@ internal sealed class TrayContext : ApplicationContext
         _healthTimer = new System.Windows.Forms.Timer { Interval = 2000 };
         _healthTimer.Tick += async (_, _) => await PollHealthAsync();
         _healthTimer.Start();
+
+        // Quietly check for updates 5 s after launch, and once an hour after that.
+        _ = Task.Run(async () => { await Task.Delay(TimeSpan.FromSeconds(5)); await CheckForUpdatesAsync(interactive: false); });
+        _updateTimer = new System.Windows.Forms.Timer { Interval = (int)TimeSpan.FromHours(1).TotalMilliseconds };
+        _updateTimer.Tick += async (_, _) => await CheckForUpdatesAsync(interactive: false);
+        _updateTimer.Start();
     }
 
     private void StartServer()
@@ -230,5 +247,68 @@ internal sealed class TrayContext : ApplicationContext
         var custom = Path.Combine(AppContext.BaseDirectory, "MyLocalAssistant.ico");
         if (!File.Exists(custom)) return;
         try { _icon.Icon = new Icon(custom); } catch { /* keep default */ }
+    }
+
+    /// <summary>
+    /// GitHub release feed used by Velopack to discover updates. Configurable via the
+    /// MLA_UPDATE_REPO env var so internal/forked builds can point elsewhere without a recompile.
+    /// </summary>
+    private static string UpdateRepoUrl =>
+        Environment.GetEnvironmentVariable("MLA_UPDATE_REPO")
+        ?? "https://github.com/mguneskou/MyLocalAssistant";
+
+    private async Task CheckForUpdatesAsync(bool interactive)
+    {
+        try
+        {
+            // First call lazily creates the manager. Velopack only works once installed
+            // (i.e. when launched from the Update.exe stub), so in-dev launches no-op.
+            _updater ??= new UpdateManager(new GithubSource(UpdateRepoUrl, accessToken: null, prerelease: false));
+            if (!_updater.IsInstalled)
+            {
+                if (interactive) MessageBox.Show("Auto-update only works on installed builds.\nThis appears to be a dev/portable launch.",
+                    "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var info = await _updater.CheckForUpdatesAsync();
+            if (info is null)
+            {
+                if (interactive) ShowBalloon("MyLocalAssistant", "You are on the latest version.", ToolTipIcon.Info);
+                return;
+            }
+
+            if (interactive)
+            {
+                var ok = MessageBox.Show(
+                    $"Update {info.TargetFullRelease.Version} is available. Download and install now?\n\nThe server will restart and Admin/Client must be re-opened.",
+                    "MyLocalAssistant update",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+                if (ok != DialogResult.Yes) return;
+            }
+
+            await _updater.DownloadUpdatesAsync(info);
+            await StopServerAsync();
+            // ApplyUpdatesAndRestart relaunches ServerHost.exe after the swap.
+            _updater.ApplyUpdatesAndRestart(info);
+        }
+        catch (Exception ex)
+        {
+            if (interactive) MessageBox.Show("Update check failed:\n" + ex.Message,
+                "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        }
+    }
+
+    private static void ShowAbout()
+    {
+        var asm = Assembly.GetExecutingAssembly();
+        var ver = asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
+                  ?? asm.GetName().Version?.ToString() ?? "?";
+        MessageBox.Show(
+            $"MyLocalAssistant ServerHost\nVersion {ver}\n\nUpdate feed: {UpdateRepoUrl}",
+            "About",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
     }
 }
