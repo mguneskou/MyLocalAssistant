@@ -1,4 +1,5 @@
 using MyLocalAssistant.Server.Skills;
+using MyLocalAssistant.Server.Skills.Plugin;
 using MyLocalAssistant.Shared.Contracts;
 
 namespace MyLocalAssistant.Server.Api;
@@ -36,6 +37,22 @@ public static class SkillEndpoints
             {
                 return Results.Problem(title: ex.Message, statusCode: StatusCodes.Status400BadRequest);
             }
+        }).RequireAuthorization("GlobalAdmin");
+
+        // Hot-reload: rescan ./plugins/, dispose old PluginSkill instances, register fresh ones.
+        // Built-in skills are untouched. Owner-only.
+        admin.MapPost("/reload", async (PluginScanner scanner, SkillRegistry registry) =>
+        {
+            var fresh = await scanner.ReloadAsync(registry);
+            return Results.Ok(new { count = fresh.Count, ids = fresh.Select(p => p.Id).ToArray() });
+        }).RequireAuthorization("GlobalAdmin");
+
+        // Lightweight in-memory tool-call counters (since server start or last reset).
+        admin.MapGet("/stats", (ToolCallStats stats) => Results.Ok(stats.Snapshot()));
+        admin.MapPost("/stats/reset", (ToolCallStats stats) =>
+        {
+            stats.Reset();
+            return Results.NoContent();
         }).RequireAuthorization("GlobalAdmin");
 
         return app;

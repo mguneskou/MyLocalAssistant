@@ -38,6 +38,19 @@ public sealed class SkillRegistry(
         }
     }
 
+    /// <summary>Remove a previously registered plug-in skill. Returns the removed instance
+    /// so the caller can dispose it. Built-in skills cannot be removed (DI owns their lifetime).</summary>
+    public ISkill? Unregister(string id)
+    {
+        lock (_lock)
+        {
+            if (!_skills.TryGetValue(id, out var s)) return null;
+            if (s.Source != SkillSources.Plugin) return null;
+            _skills.Remove(id);
+            return s;
+        }
+    }
+
     public bool TryGet(string id, out ISkill skill)
     {
         lock (_lock)
@@ -185,6 +198,8 @@ public sealed class SkillRegistry(
         Category: skill.Category,
         Source: skill.Source,
         Version: skill.Version,
+        Publisher: skill.Publisher,
+        KeyId: skill.KeyId,
         Enabled: state?.Enabled ?? false,
         ConfigJson: state?.ConfigJson,
         Requires: skill.Requirements,

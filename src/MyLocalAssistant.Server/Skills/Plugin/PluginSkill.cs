@@ -39,6 +39,8 @@ public sealed class PluginSkill : ISkill, IAsyncDisposable
     public string Category => string.IsNullOrWhiteSpace(_manifest.Category) ? "Plugin" : _manifest.Category;
     public string Source => SkillSources.Plugin;
     public string Version => _manifest.Version;
+    public string? Publisher => string.IsNullOrWhiteSpace(_manifest.Publisher) ? null : _manifest.Publisher;
+    public string? KeyId => string.IsNullOrWhiteSpace(_manifest.KeyId) ? null : _manifest.KeyId;
     public IReadOnlyList<SkillToolDto> Tools { get; }
     public SkillRequirementsDto Requirements { get; }
 
@@ -49,7 +51,7 @@ public sealed class PluginSkill : ISkill, IAsyncDisposable
     public async Task<SkillResult> InvokeAsync(SkillInvocation invocation, SkillContext ctx)
     {
         var workDir = Path.Combine(_outputRoot, ctx.ConversationId.ToString("N"));
-        Directory.CreateDirectory(workDir);
+        SecureDirectory.EnsureLockedDown(workDir);
         try
         {
             var channel = await EnsureChannelAsync(ctx.CancellationToken).ConfigureAwait(false);

@@ -20,6 +20,7 @@ public sealed class ChatService(
     RagService rag,
     SkillRegistry skills,
     ModelCapabilityRegistry capabilities,
+    ToolCallStats toolStats,
     ServerSettings settings,
     ILogger<ChatService> log)
 {
@@ -107,9 +108,7 @@ public sealed class ChatService(
             principal.UserId,
             principal.Username ?? string.Empty,
             principal.IsAdmin,
-            // IsGlobalAdmin is not currently propagated through UserPrincipals; no built-in
-            // skill differentiates global vs. local admin yet. Wire when a skill needs it.
-            IsGlobalAdmin: false,
+            principal.IsGlobalAdmin,
             agent.Id,
             callbacks.ConversationId,
             workDir,
@@ -208,19 +207,25 @@ public sealed class ChatService(
                 }
                 else
                 {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
                     try
                     {
                         var inv = new SkillInvocation(toolName!, argsJson ?? "{}");
                         var result = await skill!.InvokeAsync(inv, skillCtx).ConfigureAwait(false);
+                        sw.Stop();
                         resultJson = result.StructuredJson
                             ?? JsonSerializer.Serialize(new { content = result.Content });
                         isError = result.IsError;
+                        if (isError) toolStats.RecordError(skill.Id, toolName!, sw.Elapsed.TotalMilliseconds);
+                        else toolStats.RecordSuccess(skill.Id, toolName!, sw.Elapsed.TotalMilliseconds);
                     }
                     catch (Exception ex)
                     {
+                        sw.Stop();
                         log.LogWarning(ex, "Skill {Tool} threw during invocation.", toolName);
                         resultJson = JsonSerializer.Serialize(new { error = ex.Message });
                         isError = true;
+                        toolStats.RecordError(skill?.Id ?? toolName!, toolName!, sw.Elapsed.TotalMilliseconds);
                     }
                 }
                 callbacks.OnToolResult?.Invoke(toolName!, resultJson, isError);

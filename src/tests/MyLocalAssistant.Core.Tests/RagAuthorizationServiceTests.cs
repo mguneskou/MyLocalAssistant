@@ -11,7 +11,7 @@ public class RagAuthorizationServiceTests
         .UseInMemoryDatabase("rag-authz-" + Guid.NewGuid()).Options);
 
     private static UserPrincipals U(Guid uid, bool admin = false, IEnumerable<Guid>? depts = null, IEnumerable<Guid>? roles = null)
-        => new(uid, "u", admin, (depts ?? Array.Empty<Guid>()).ToHashSet(), (roles ?? Array.Empty<Guid>()).ToHashSet());
+        => new(uid, "u", admin, false, (depts ?? Array.Empty<Guid>()).ToHashSet(), (roles ?? Array.Empty<Guid>()).ToHashSet());
 
     [Fact]
     public void CanRead_PublicCollection_AnyAuthenticatedUser()
@@ -155,7 +155,7 @@ public class RagAuthorizationServiceTests
         db.UserRoles.Add(new UserRole { UserId = user.Id, RoleId = role.Id });
         await db.SaveChangesAsync();
 
-        var p = await svc.ResolveAsync(user.Id, "alice", isAdmin: false, default);
+        var p = await svc.ResolveAsync(user.Id, "alice", isAdminHint: false, default);
         Assert.False(p.IsAdmin);
         Assert.Single(p.DepartmentIds);
         Assert.Contains(dept.Id, p.DepartmentIds);

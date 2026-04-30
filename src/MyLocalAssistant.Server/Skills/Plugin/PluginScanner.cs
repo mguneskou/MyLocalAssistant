@@ -18,6 +18,9 @@ public sealed class PluginScanner
     private readonly ILogger<PluginScanner> _log;
     private readonly string _pluginsRoot;
     private readonly string _outputRoot;
+    private readonly object _lock = new();
+    /// <summary>Plug-ins this scanner has loaded into the registry. Used by <see cref="ReloadAsync"/> to dispose old instances on rescan.</summary>
+    private readonly Dictionary<string, PluginSkill> _loaded = new(StringComparer.OrdinalIgnoreCase);
 
     public PluginScanner(PluginSignatureVerifier verifier, ILoggerFactory lf, ILogger<PluginScanner> log)
     {
@@ -54,8 +57,40 @@ public sealed class PluginScanner
                 _log.LogWarning(ex, "Plug-in folder {Dir} failed to load.", dir);
             }
         }
+        lock (_lock)
+        {
+            foreach (var s in loaded) _loaded[s.Id] = s;
+        }
         _log.LogInformation("Plug-in scanner: {Count} plug-in(s) verified and loaded from {Root}.", loaded.Count, _pluginsRoot);
         return loaded;
+    }
+
+    /// <summary>Hot-reload: dispose every plug-in this scanner has registered, re-scan, and
+    /// register the fresh set on <paramref name="registry"/>. Built-in skills are untouched.
+    /// In-flight tool calls hitting an old PluginSkill instance will fault and surface as a
+    /// tool error; the next call gets the new instance.</summary>
+    public async Task<IReadOnlyList<PluginSkill>> ReloadAsync(SkillRegistry registry)
+    {
+        PluginSkill[] previous;
+        lock (_lock)
+        {
+            previous = _loaded.Values.ToArray();
+            _loaded.Clear();
+        }
+        foreach (var p in previous)
+        {
+            registry.Unregister(p.Id);
+            try { await p.DisposeAsync(); }
+            catch (Exception ex) { _log.LogWarning(ex, "Disposing previous plug-in {Id} threw.", p.Id); }
+        }
+        var fresh = ScanAndLoad();
+        foreach (var p in fresh)
+        {
+            try { registry.Register(p); }
+            catch (Exception ex) { _log.LogWarning(ex, "Plug-in '{Id}' could not be registered.", p.Id); }
+        }
+        await registry.SeedAsync();
+        return fresh;
     }
 
     private PluginSkill? TryLoad(string folder)

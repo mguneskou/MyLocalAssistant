@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -27,6 +28,8 @@ try
         "hash"   => HashFiles(args.AsSpan(1)),
         "sign"   => Sign(args.AsSpan(1)),
         "verify" => Verify(args.AsSpan(1)),
+        "pack"   => Pack(args.AsSpan(1)),
+        "install" => Install(args.AsSpan(1)),
         _ => UnknownCommand(args[0]),
     };
 }
@@ -137,8 +140,90 @@ static void PrintUsage()
     Console.WriteLine("SkillTools — MyLocalAssistant plug-in developer CLI");
     Console.WriteLine();
     Console.WriteLine("Commands:");
-    Console.WriteLine("  keygen --pub <out.pub> --priv <out.key>");
-    Console.WriteLine("  hash <plugin-folder>");
-    Console.WriteLine("  sign <manifest.json> --key <priv.key>");
-    Console.WriteLine("  verify <manifest.json> --key <pub.pub>");
+    Console.WriteLine("  keygen  --pub <out.pub> --priv <out.key>");
+    Console.WriteLine("  hash    <plugin-folder>");
+    Console.WriteLine("  sign    <manifest.json> --key <priv.key>");
+    Console.WriteLine("  verify  <manifest.json> --key <pub.pub>");
+    Console.WriteLine("  pack    <plugin-folder> --out <pkg.mlaplugin>");
+    Console.WriteLine("  install <pkg.mlaplugin> --to <install-dir>");
+}
+
+static int Pack(ReadOnlySpan<string> a)
+{
+    if (a.Length < 1) throw new ArgumentException("usage: pack <plugin-folder> --out <pkg>");
+    var folder = Path.GetFullPath(a[0]);
+    var outPath = TakeOpt(a[1..], "--out") ?? throw new ArgumentException("--out <pkg> required");
+    var manifestPath = Path.Combine(folder, "manifest.json");
+    var sigPath = manifestPath + ".sig";
+    if (!File.Exists(manifestPath)) throw new FileNotFoundException("manifest.json not found", manifestPath);
+    if (!File.Exists(sigPath)) throw new FileNotFoundException("manifest.json.sig not found — run `sign` first.", sigPath);
+
+    var bytes = File.ReadAllBytes(manifestPath);
+    var manifest = JsonSerializer.Deserialize<SkillManifest>(bytes, JsonRpcFraming.Json)
+        ?? throw new InvalidDataException("manifest.json is not a valid SkillManifest.");
+
+    Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(outPath))!);
+    if (File.Exists(outPath)) File.Delete(outPath);
+
+    using var zip = ZipFile.Open(outPath, ZipArchiveMode.Create);
+    AddEntry(zip, folder, "manifest.json");
+    AddEntry(zip, folder, "manifest.json.sig");
+    foreach (var f in manifest.Files)
+    {
+        var src = Path.Combine(folder, f.Path);
+        if (!File.Exists(src)) throw new FileNotFoundException($"manifest references missing file '{f.Path}'.");
+        zip.CreateEntryFromFile(src, NormalizePath(f.Path), CompressionLevel.Optimal);
+    }
+    Console.WriteLine($"Packed plug-in '{manifest.Id}' v{manifest.Version} → {outPath}");
+    return 0;
+}
+
+static void AddEntry(ZipArchive zip, string folder, string name)
+{
+    var src = Path.Combine(folder, name);
+    if (File.Exists(src)) zip.CreateEntryFromFile(src, NormalizePath(name), CompressionLevel.Optimal);
+}
+
+static string NormalizePath(string p) => p.Replace('\\', '/');
+
+static int Install(ReadOnlySpan<string> a)
+{
+    if (a.Length < 1) throw new ArgumentException("usage: install <pkg.mlaplugin> --to <install-dir>");
+    var pkg = Path.GetFullPath(a[0]);
+    var installDir = TakeOpt(a[1..], "--to") ?? throw new ArgumentException("--to <install-dir> required");
+    if (!File.Exists(pkg)) throw new FileNotFoundException("package not found", pkg);
+
+    using var zip = ZipFile.OpenRead(pkg);
+    var manifestEntry = zip.GetEntry("manifest.json") ?? throw new InvalidDataException("package missing manifest.json");
+    SkillManifest manifest;
+    using (var s = manifestEntry.Open())
+    using (var ms = new MemoryStream())
+    {
+        s.CopyTo(ms);
+        manifest = JsonSerializer.Deserialize<SkillManifest>(ms.ToArray(), JsonRpcFraming.Json)
+            ?? throw new InvalidDataException("manifest.json invalid.");
+    }
+    if (string.IsNullOrWhiteSpace(manifest.Id)) throw new InvalidDataException("manifest.id is empty.");
+
+    var pluginsRoot = Path.Combine(installDir, "plugins");
+    var target = Path.Combine(pluginsRoot, manifest.Id);
+    Directory.CreateDirectory(target);
+    // Replace contents (simple upgrade): wipe target before extract.
+    foreach (var existing in Directory.EnumerateFileSystemEntries(target))
+    {
+        if (Directory.Exists(existing)) Directory.Delete(existing, recursive: true);
+        else File.Delete(existing);
+    }
+    foreach (var e in zip.Entries)
+    {
+        if (string.IsNullOrEmpty(e.Name)) continue; // directory entry
+        var dest = Path.GetFullPath(Path.Combine(target, e.FullName));
+        if (!dest.StartsWith(target, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidDataException($"Refusing zip-slip path '{e.FullName}'.");
+        Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+        e.ExtractToFile(dest, overwrite: true);
+    }
+    Console.WriteLine($"Installed plug-in '{manifest.Id}' v{manifest.Version} → {target}");
+    Console.WriteLine("Restart the server (or use Admin → Skills → Reload) to load it.");
+    return 0;
 }

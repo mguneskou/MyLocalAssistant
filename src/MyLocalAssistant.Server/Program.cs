@@ -74,6 +74,7 @@ try
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.TimeNowSkill>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.RagSearchSkill>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.SkillRegistry>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ToolCallStats>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.Plugin.PluginSignatureVerifier>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.Plugin.PluginScanner>();
     builder.Services.AddHostedService<ModelBootstrapService>();

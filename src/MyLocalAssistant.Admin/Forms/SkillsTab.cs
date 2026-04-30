@@ -16,6 +16,7 @@ internal sealed class SkillsTab : UserControl
     private readonly ServerClient _client;
     private readonly ToolStrip _toolbar;
     private readonly ToolStripButton _refreshBtn;
+    private readonly ToolStripButton _reloadBtn;
     private readonly ToolStripLabel _hint;
     private readonly DataGridView _grid;
     private readonly StatusStrip _status;
@@ -33,11 +34,12 @@ internal sealed class SkillsTab : UserControl
 
         _toolbar = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top };
         _refreshBtn = new ToolStripButton("Refresh");
+        _reloadBtn = new ToolStripButton("Reload plug-ins") { ToolTipText = "Rescan ./plugins/ on the server. Owner-only." };
         _hint = new ToolStripLabel("  Toggle Enabled, click Tools to inspect, click Config to edit JSON. Disabled skills are not exposed to any agent.")
         {
             ForeColor = SystemColors.GrayText,
         };
-        _toolbar.Items.AddRange(new ToolStripItem[] { _refreshBtn, new ToolStripSeparator(), _hint });
+        _toolbar.Items.AddRange(new ToolStripItem[] { _refreshBtn, _reloadBtn, new ToolStripSeparator(), _hint });
 
         _grid = new DataGridView
         {
@@ -74,6 +76,8 @@ internal sealed class SkillsTab : UserControl
             new DataGridViewTextBoxColumn { HeaderText = "Id",          DataPropertyName = nameof(SkillRow.Id),         Width = 140, ReadOnly = true },
             new DataGridViewTextBoxColumn { HeaderText = "Source",      DataPropertyName = nameof(SkillRow.Source),     Width = 70,  ReadOnly = true },
             new DataGridViewTextBoxColumn { HeaderText = "Version",     DataPropertyName = nameof(SkillRow.Version),    Width = 70,  ReadOnly = true },
+            new DataGridViewTextBoxColumn { HeaderText = "Publisher",   DataPropertyName = nameof(SkillRow.Publisher),  Width = 120, ReadOnly = true },
+            new DataGridViewTextBoxColumn { HeaderText = "Signed by",   DataPropertyName = nameof(SkillRow.KeyId),      Width = 90,  ReadOnly = true, ToolTipText = "Trusted-key id from config/trusted-keys/" },
             new DataGridViewCheckBoxColumn { HeaderText = "Enabled",    DataPropertyName = nameof(SkillRow.Enabled),    Width = 60 },
             new DataGridViewTextBoxColumn { HeaderText = "Tool mode",   DataPropertyName = nameof(SkillRow.ToolsMode),  Width = 80,  ReadOnly = true },
             new DataGridViewTextBoxColumn { HeaderText = "Min ctx",     DataPropertyName = nameof(SkillRow.MinContextK), Width = 60,  ReadOnly = true },
@@ -99,6 +103,21 @@ internal sealed class SkillsTab : UserControl
         Controls.Add(_status);
 
         _refreshBtn.Click += async (_, _) => await ReloadAsync();
+        _reloadBtn.Click += async (_, _) =>
+        {
+            SetBusy(true, "Reloading plug-ins…");
+            try
+            {
+                var n = await _client.ReloadPluginsAsync();
+                await ReloadAsync();
+                _statusLabel.Text = $"Reloaded: {n} plug-in(s) registered.";
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, ex.Message, "Reload failed", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+            finally { SetBusy(false); }
+        };
         Load += async (_, _) => await ReloadAsync();
     }
 
@@ -233,6 +252,8 @@ internal sealed class SkillsTab : UserControl
         public string Name { get; set; } = "";
         public string Source { get; set; } = "";
         public string? Version { get; set; }
+        public string? Publisher { get; set; }
+        public string? KeyId { get; set; }
         public bool Enabled { get; set; }
         public string ToolsMode { get; set; } = "";
         public int MinContextK { get; set; }
@@ -246,6 +267,8 @@ internal sealed class SkillsTab : UserControl
             Name = s.Name,
             Source = s.Source,
             Version = s.Version,
+            Publisher = s.Publisher,
+            KeyId = s.KeyId,
             Enabled = s.Enabled,
             ToolsMode = s.Requires.Tools,
             MinContextK = s.Requires.MinContextK,

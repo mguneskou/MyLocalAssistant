@@ -8,10 +8,11 @@ public sealed record UserPrincipals(
     Guid UserId,
     string? Username,
     bool IsAdmin,
+    bool IsGlobalAdmin,
     IReadOnlySet<Guid> DepartmentIds,
     IReadOnlySet<Guid> RoleIds)
 {
-    public static readonly UserPrincipals Anonymous = new(Guid.Empty, null, false,
+    public static readonly UserPrincipals Anonymous = new(Guid.Empty, null, false, false,
         new HashSet<Guid>(), new HashSet<Guid>());
 }
 
@@ -21,10 +22,18 @@ public sealed record UserPrincipals(
 /// </summary>
 public sealed class RagAuthorizationService(AppDbContext db, ILogger<RagAuthorizationService> log)
 {
-    /// <summary>Loads roles + departments fresh from the DB. Use once per request.</summary>
-    public async Task<UserPrincipals> ResolveAsync(Guid userId, string? username, bool isAdmin, CancellationToken ct)
+    /// <summary>Loads roles + departments + admin flags fresh from the DB. Use once per request.
+    /// IsAdmin/IsGlobalAdmin are read from the DB rather than trusted from the JWT so revocations
+    /// take effect on the next request.</summary>
+    public async Task<UserPrincipals> ResolveAsync(Guid userId, string? username, bool isAdminHint, CancellationToken ct)
     {
         if (userId == Guid.Empty) return UserPrincipals.Anonymous;
+        var flags = await db.Users
+            .Where(u => u.Id == userId)
+            .Select(u => new { u.IsAdmin, u.IsGlobalAdmin })
+            .FirstOrDefaultAsync(ct);
+        var isAdmin = flags?.IsAdmin == true || flags?.IsGlobalAdmin == true || isAdminHint;
+        var isGlobal = flags?.IsGlobalAdmin == true;
         var deptIds = await db.UserDepartments
             .Where(ud => ud.UserId == userId)
             .Select(ud => ud.DepartmentId)
@@ -33,7 +42,7 @@ public sealed class RagAuthorizationService(AppDbContext db, ILogger<RagAuthoriz
             .Where(ur => ur.UserId == userId)
             .Select(ur => ur.RoleId)
             .ToListAsync(ct);
-        return new UserPrincipals(userId, username, isAdmin, deptIds.ToHashSet(), roleIds.ToHashSet());
+        return new UserPrincipals(userId, username, isAdmin, isGlobal, deptIds.ToHashSet(), roleIds.ToHashSet());
     }
 
     /// <summary>True iff the principal may read the collection. Admins always pass.</summary>

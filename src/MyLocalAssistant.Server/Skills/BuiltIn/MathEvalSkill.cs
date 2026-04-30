@@ -17,6 +17,8 @@ internal sealed class MathEvalSkill : ISkill
     public string Category => "Built-in";
     public string Source => SkillSources.BuiltIn;
     public string? Version => null;
+    public string? Publisher => "MyLocalAssistant";
+    public string? KeyId => null;
 
     public IReadOnlyList<SkillToolDto> Tools { get; } = new[]
     {

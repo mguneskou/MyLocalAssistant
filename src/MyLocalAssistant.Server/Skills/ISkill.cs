@@ -66,6 +66,10 @@ public interface ISkill
     string Category { get; }
     string Source { get; }       // "builtin" or "plugin"
     string? Version { get; }     // null for built-ins (versioned with the server)
+    /// <summary>Display-name of who shipped the skill. "MyLocalAssistant" for built-ins; manifest publisher for plug-ins.</summary>
+    string? Publisher { get; }
+    /// <summary>Trusted-key id used to sign the manifest. Null for built-ins.</summary>
+    string? KeyId { get; }
 
     /// <summary>The tools this skill exposes. The LLM sees these as callable functions.</summary>
     IReadOnlyList<SkillToolDto> Tools { get; }

@@ -48,6 +48,10 @@ public sealed record SkillDto(
     /// <summary>See <see cref="SkillSources"/>.</summary>
     string Source,
     string? Version,
+    /// <summary>Publisher name from the manifest (plug-ins) or "MyLocalAssistant" (built-ins).</summary>
+    string? Publisher,
+    /// <summary>Trusted-key id used to sign the manifest (plug-ins only; null for built-ins).</summary>
+    string? KeyId,
     bool Enabled,
     /// <summary>Free-form JSON the global admin can edit; interpretation is per-skill.</summary>
     string? ConfigJson,

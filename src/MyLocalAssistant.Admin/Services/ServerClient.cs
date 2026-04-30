@@ -207,6 +207,15 @@ public sealed class ServerClient : IDisposable
             ?? throw new InvalidOperationException("Empty update-skill response.");
     }
 
+    /// <summary>Hot-reload all plug-in skills (rescans <c>./plugins/</c>). Owner-only.</summary>
+    public async Task<int> ReloadPluginsAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, "api/admin/skills/reload", new { }, ct);
+        await EnsureSuccessAsync(resp, ct);
+        var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(s_json, ct);
+        return doc.TryGetProperty("count", out var c) && c.TryGetInt32(out var n) ? n : 0;
+    }
+
     // ---------- Admin: RAG ----------
 
     public async Task<List<RagCollectionDto>> ListCollectionsAsync(CancellationToken ct = default)
