@@ -13,7 +13,15 @@ downloads.
 
 ---
 
-## v2.1.1.0 highlights (current release)
+## v2.1.2.0 highlights (current release)
+
+Fix release. Persistent state (downloaded models, database, vector store, plug-ins, logs, settings) now survives Velopack updates by living in a sibling `state\` folder instead of being wiped when the `current\` folder is swapped.
+
+- **State directory** — the server now writes models / data / vectors / config / plugins / logs / output to `%LocalAppData%\MyLocalAssistant\state\` on installed machines (and next to the executable for dev runs, so tests are unaffected).
+- **One-shot legacy migration** — first launch after upgrading auto-moves any folders still found inside `current\` to the new state root.
+- **Heads-up for testers upgrading from 2.1.0 / 2.1.1**: those builds stored everything in the per-version `current\` folder, which Velopack replaces atomically on each update; the data installed under those versions cannot be recovered. Re-download your model after upgrading to 2.1.2 — every update from this point on will preserve it.
+
+## v2.1.1.0 highlights
 
 Client chat polish release. Adds a modern bubble-style transcript and several quality-of-life tweaks; no server, contract, or installer changes.
 
@@ -182,16 +190,16 @@ Local end-to-end build of an installer:
 
 ```powershell
 .\scripts\publish-all.ps1                      # publishes 4 exes into dist\stage\
-.\scripts\release.ps1 -Version 2.1.1           # publish + vpk pack -> dist\releases\
-.\scripts\release.ps1 -Version 2.1.1 -Upload `
+.\scripts\release.ps1 -Version 2.1.2           # publish + vpk pack -> dist\releases\
+.\scripts\release.ps1 -Version 2.1.2 -Upload `
     -GitHubToken $env:GH_PAT                   # also upload to GitHub Releases
 ```
 
 In CI, just push a tag — `.github/workflows/release.yml` does the rest:
 
 ```powershell
-git tag v2.1.1.0
-git push origin v2.1.1.0
+git tag v2.1.2.0
+git push origin v2.1.2.0
 ```
 
 The workflow restores, runs tests, builds with `vpk`, and attaches
@@ -211,6 +219,7 @@ uninstall walkthrough aimed at non-developer testers.
 | `v1.0.0.0`  | First v1 desktop release (skeleton + first-run model wizard).      |
 | `v1.0.1`    | v1 patch release.                                                  |
 | `v2.0.0.0`  | First v2 release — server + admin + client + RAG + ACL + owner.    |
+| `v2.1.2.0`  | Persistent state moved to sibling `state\` folder so it survives Velopack updates. |
 | `v2.1.1.0`  | Client chat bubbles, typing indicator, sticky-bottom scroll, per-bubble copy. |
 | `v2.1.0.0`  | ServerHost tray launcher, Velopack auto-update, plug-in skill runtime, stability fixes. |
 

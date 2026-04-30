@@ -1,34 +1,128 @@
 namespace MyLocalAssistant.Server;
 
 /// <summary>
-/// Resolves all server folders relative to the executable so the install stays portable.
+/// Resolves all server folders.
 /// </summary>
+/// <remarks>
+/// <para><see cref="AppDirectory"/> always points at the executable folder
+/// (binaries, embedded assets, sample-config).</para>
+/// <para><see cref="StateDirectory"/> is where every piece of <i>persistent</i>
+/// state lives (models, database, vectors, plug-ins, logs, settings).
+/// For a Velopack install (binaries land in <c>%LocalAppData%\MyLocalAssistant\current\</c>
+/// and the whole <c>current\</c> folder is replaced atomically on every update)
+/// state is stored at the sibling <c>%LocalAppData%\MyLocalAssistant\state\</c>
+/// so it survives upgrades. For local dev runs (binaries live in <c>bin\Debug\…</c>)
+/// state stays next to the executable, matching the long-standing behavior tests rely on.</para>
+/// </remarks>
 public static class ServerPaths
 {
     public static string AppDirectory { get; } = AppContext.BaseDirectory;
-    public static string ModelsDirectory { get; } = Path.Combine(AppDirectory, "models");
-    public static string DataDirectory { get; } = Path.Combine(AppDirectory, "data");
-    public static string VectorsDirectory { get; } = Path.Combine(AppDirectory, "vectors");
-    public static string IngestionDirectory { get; } = Path.Combine(AppDirectory, "ingestion");
-    public static string LogsDirectory { get; } = Path.Combine(AppDirectory, "logs");
-    public static string ConfigDirectory { get; } = Path.Combine(AppDirectory, "config");
-    public static string PluginsDirectory { get; } = Path.Combine(AppDirectory, "plugins");
-    public static string OutputDirectory { get; } = Path.Combine(AppDirectory, "output");
+
+    /// <summary>True when the binaries live under a Velopack-managed <c>current\</c> folder.</summary>
+    public static bool IsVelopackInstall { get; } = DetectVelopackInstall(AppDirectory);
+
+    /// <summary>Root for all persistent state. Survives application updates when running from a Velopack install.</summary>
+    public static string StateDirectory { get; } = ResolveStateDirectory(AppDirectory, IsVelopackInstall);
+
+    public static string ModelsDirectory      { get; } = Path.Combine(StateDirectory, "models");
+    public static string DataDirectory        { get; } = Path.Combine(StateDirectory, "data");
+    public static string VectorsDirectory     { get; } = Path.Combine(StateDirectory, "vectors");
+    public static string IngestionDirectory   { get; } = Path.Combine(StateDirectory, "ingestion");
+    public static string LogsDirectory        { get; } = Path.Combine(StateDirectory, "logs");
+    public static string ConfigDirectory      { get; } = Path.Combine(StateDirectory, "config");
+    public static string PluginsDirectory     { get; } = Path.Combine(StateDirectory, "plugins");
+    public static string OutputDirectory      { get; } = Path.Combine(StateDirectory, "output");
     public static string TrustedKeysDirectory { get; } = Path.Combine(ConfigDirectory, "trusted-keys");
 
-    public static string DatabasePath { get; } = Path.Combine(DataDirectory, "app.db");
+    public static string DatabasePath     { get; } = Path.Combine(DataDirectory, "app.db");
     public static string SettingsFilePath { get; } = Path.Combine(ConfigDirectory, "server.json");
+
+    private static bool _ensured;
+    private static readonly object _ensureLock = new();
 
     public static void EnsureCreated()
     {
-        Directory.CreateDirectory(ModelsDirectory);
-        Directory.CreateDirectory(DataDirectory);
-        Directory.CreateDirectory(VectorsDirectory);
-        Directory.CreateDirectory(IngestionDirectory);
-        Directory.CreateDirectory(LogsDirectory);
-        Directory.CreateDirectory(ConfigDirectory);
-        Directory.CreateDirectory(PluginsDirectory);
-        Directory.CreateDirectory(OutputDirectory);
-        Directory.CreateDirectory(TrustedKeysDirectory);
+        lock (_ensureLock)
+        {
+            Directory.CreateDirectory(StateDirectory);
+            Directory.CreateDirectory(ModelsDirectory);
+            Directory.CreateDirectory(DataDirectory);
+            Directory.CreateDirectory(VectorsDirectory);
+            Directory.CreateDirectory(IngestionDirectory);
+            Directory.CreateDirectory(LogsDirectory);
+            Directory.CreateDirectory(ConfigDirectory);
+            Directory.CreateDirectory(PluginsDirectory);
+            Directory.CreateDirectory(OutputDirectory);
+            Directory.CreateDirectory(TrustedKeysDirectory);
+
+            if (!_ensured)
+            {
+                _ensured = true;
+                if (IsVelopackInstall) TryMigrateLegacyState();
+            }
+        }
+    }
+
+    private static bool DetectVelopackInstall(string appDir)
+    {
+        // Velopack lays out: %LocalAppData%\<PackId>\current\<exe>. Recognize that and only that.
+        var trimmed = appDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return string.Equals(Path.GetFileName(trimmed), "current", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string ResolveStateDirectory(string appDir, bool isVelopack)
+    {
+        if (!isVelopack) return appDir;
+        var trimmed = appDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var parent = Directory.GetParent(trimmed)?.FullName;
+        return parent is null ? appDir : Path.Combine(parent, "state");
+    }
+
+    /// <summary>
+    /// One-shot migration for users upgrading from a build that stored state next to the binaries
+    /// (inside <c>current\</c>). Moves any pre-existing folders to the new state root.
+    /// Best-effort: never throws; this runs before Serilog is initialized.
+    /// </summary>
+    private static void TryMigrateLegacyState()
+    {
+        string[] names = { "models", "data", "vectors", "ingestion", "logs", "config", "plugins", "output" };
+        foreach (var name in names)
+        {
+            try
+            {
+                var legacy = Path.Combine(AppDirectory, name);
+                var modern = Path.Combine(StateDirectory, name);
+                if (!HasAnyContent(legacy)) continue;
+                if (HasAnyContent(modern)) continue;
+                MoveDirectoryContents(legacy, modern);
+            }
+            catch
+            {
+                // Migration is best-effort; the user can copy folders manually if needed.
+            }
+        }
+    }
+
+    private static bool HasAnyContent(string dir)
+    {
+        if (!Directory.Exists(dir)) return false;
+        try { return Directory.EnumerateFileSystemEntries(dir).Any(); }
+        catch { return false; }
+    }
+
+    private static void MoveDirectoryContents(string source, string destination)
+    {
+        Directory.CreateDirectory(destination);
+        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.TopDirectoryOnly))
+        {
+            var dest = Path.Combine(destination, Path.GetFileName(file));
+            if (!File.Exists(dest)) File.Move(file, dest);
+        }
+        foreach (var sub in Directory.EnumerateDirectories(source, "*", SearchOption.TopDirectoryOnly))
+        {
+            var dest = Path.Combine(destination, Path.GetFileName(sub));
+            if (Directory.Exists(dest)) MoveDirectoryContents(sub, dest);
+            else Directory.Move(sub, dest);
+        }
     }
 }
