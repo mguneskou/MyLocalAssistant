@@ -17,6 +17,7 @@ internal sealed class PromptEditorForm : Form
         _maxChars = maxChars;
         Text = title;
         StartPosition = FormStartPosition.CenterParent;
+        MyLocalAssistant.Admin.UI.UiTheme.ApplyDialog(this);
         MinimizeBox = false;
         MaximizeBox = false;
         ShowInTaskbar = false;

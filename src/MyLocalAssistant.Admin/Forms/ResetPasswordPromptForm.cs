@@ -15,6 +15,7 @@ internal sealed class ResetPasswordPromptForm : Form
     {
         Text = $"Reset password — {username}";
         StartPosition = FormStartPosition.CenterParent;
+        MyLocalAssistant.Admin.UI.UiTheme.ApplyDialog(this);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;

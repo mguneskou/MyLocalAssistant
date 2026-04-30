@@ -27,6 +27,7 @@ internal sealed class UserEditForm : Form
 
         Text = _isCreate ? "New user" : $"Edit user — {existing!.Username}";
         StartPosition = FormStartPosition.CenterParent;
+        MyLocalAssistant.Admin.UI.UiTheme.ApplyDialog(this);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;

@@ -43,6 +43,7 @@ internal static class UiTheme
         f.Font = BaseFont;
         f.BackColor = Surface;
         f.ForeColor = TextPrimary;
+        try { f.Icon = AppIcon; } catch { /* sub-forms may already have one */ }
     }
 
     public static void Primary(Button b)
@@ -56,6 +57,7 @@ internal static class UiTheme
         b.FlatAppearance.MouseDownBackColor = AccentDown;
         b.Cursor = Cursors.Hand;
         b.Height = Math.Max(b.Height, 30);
+        ApplyRoundedRegion(b, 6);
     }
 
     public static void Secondary(Button b)
@@ -70,6 +72,123 @@ internal static class UiTheme
         b.FlatAppearance.MouseDownBackColor = Border;
         b.Cursor = Cursors.Hand;
         b.Height = Math.Max(b.Height, 30);
+        ApplyRoundedRegion(b, 6);
+    }
+
+    public static void ApplyRoundedRegion(Control c, int radius)
+    {
+        void Apply()
+        {
+            if (c.Width <= 0 || c.Height <= 0) return;
+            c.Region = new Region(MakeRoundedPath(new Rectangle(0, 0, c.Width, c.Height), radius));
+        }
+        Apply();
+        c.Resize -= OnResizeApplyRounded;
+        c.Resize += OnResizeApplyRounded;
+        void OnResizeApplyRounded(object? s, EventArgs e) => Apply();
+    }
+
+    public static GraphicsPath MakeRoundedPath(Rectangle r, int radius)
+    {
+        int d = radius * 2;
+        var p = new GraphicsPath();
+        if (radius <= 0) { p.AddRectangle(r); return p; }
+        p.AddArc(r.X,             r.Y,             d, d, 180, 90);
+        p.AddArc(r.Right - d - 1, r.Y,             d, d, 270, 90);
+        p.AddArc(r.Right - d - 1, r.Bottom - d - 1, d, d,   0, 90);
+        p.AddArc(r.X,             r.Bottom - d - 1, d, d,  90, 90);
+        p.CloseFigure();
+        return p;
+    }
+
+    private static Icon? _appIcon;
+    /// <summary>Procedural admin app icon: accent gradient ring with white dot.</summary>
+    public static Icon AppIcon => _appIcon ??= BuildAppIcon();
+
+    private static Icon BuildAppIcon()
+    {
+        const int size = 64;
+        using var bmp = new Bitmap(size, size);
+        using (var g = Graphics.FromImage(bmp))
+        {
+            g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.Clear(Color.Transparent);
+            using var bg = new LinearGradientBrush(new Rectangle(0, 0, size, size), Accent, AccentDown, 45f);
+            g.FillEllipse(bg, 2, 2, size - 4, size - 4);
+            // Admin marker: small amber ring around the white dot.
+            using var ring = new Pen(Warning, 3);
+            g.DrawEllipse(ring, 18, 18, 28, 28);
+            using var dot = new SolidBrush(Color.White);
+            g.FillEllipse(dot, 22, 22, 20, 20);
+        }
+        var hicon = bmp.GetHicon();
+        try { return (Icon)Icon.FromHandle(hicon).Clone(); }
+        finally { _ = NativeMethods.DestroyIcon(hicon); }
+    }
+
+    /// <summary>Apply ApplyForm + theme every Button as Primary (AcceptButton) or Secondary (rest).</summary>
+    public static void ApplyDialog(Form f)
+    {
+        ApplyForm(f);
+        f.HandleCreated += (_, _) => ThemeDialogButtons(f);
+        if (f.IsHandleCreated) ThemeDialogButtons(f);
+    }
+
+    private static void ThemeDialogButtons(Control parent)
+    {
+        var accept = (parent.FindForm() ?? parent as Form)?.AcceptButton as Button;
+        foreach (var b in EnumerateButtons(parent))
+        {
+            if (ReferenceEquals(b, accept)) Primary(b); else Secondary(b);
+        }
+    }
+
+    private static IEnumerable<Button> EnumerateButtons(Control parent)
+    {
+        foreach (Control c in parent.Controls)
+        {
+            if (c is Button b) yield return b;
+            else foreach (var inner in EnumerateButtons(c)) yield return inner;
+        }
+    }
+
+    public sealed class ModernRenderer : ToolStripProfessionalRenderer
+    {
+        public ModernRenderer() : base(new ModernColors()) { RoundedEdges = false; }
+        protected override void OnRenderToolStripBorder(ToolStripRenderEventArgs e) { /* no border */ }
+
+        private sealed class ModernColors : ProfessionalColorTable
+        {
+            public override Color MenuItemSelected              => Color.FromArgb(225, 238, 251);
+            public override Color MenuItemSelectedGradientBegin => Color.FromArgb(225, 238, 251);
+            public override Color MenuItemSelectedGradientEnd   => Color.FromArgb(225, 238, 251);
+            public override Color MenuItemPressedGradientBegin  => SurfaceAlt;
+            public override Color MenuItemPressedGradientEnd    => SurfaceAlt;
+            public override Color MenuItemBorder                => Color.Transparent;
+            public override Color MenuBorder                    => Border;
+            public override Color ToolStripBorder               => Color.Transparent;
+            public override Color ToolStripGradientBegin        => SurfaceCard;
+            public override Color ToolStripGradientMiddle       => SurfaceCard;
+            public override Color ToolStripGradientEnd          => SurfaceCard;
+            public override Color ButtonSelectedHighlight       => Color.FromArgb(225, 238, 251);
+            public override Color ButtonSelectedGradientBegin   => Color.FromArgb(225, 238, 251);
+            public override Color ButtonSelectedGradientMiddle  => Color.FromArgb(225, 238, 251);
+            public override Color ButtonSelectedGradientEnd     => Color.FromArgb(225, 238, 251);
+            public override Color ButtonPressedGradientBegin    => SurfaceAlt;
+            public override Color ButtonPressedGradientMiddle   => SurfaceAlt;
+            public override Color ButtonPressedGradientEnd      => SurfaceAlt;
+            public override Color ButtonSelectedBorder          => Color.Transparent;
+            public override Color StatusStripGradientBegin      => SurfaceCard;
+            public override Color StatusStripGradientEnd        => SurfaceCard;
+            public override Color SeparatorDark                 => Border;
+            public override Color SeparatorLight                => Border;
+        }
+    }
+
+    private static class NativeMethods
+    {
+        [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+        public static extern bool DestroyIcon(IntPtr hIcon);
     }
 
     /// <summary>Apply consistent flat styling to any DataGridView in the admin UI.</summary>

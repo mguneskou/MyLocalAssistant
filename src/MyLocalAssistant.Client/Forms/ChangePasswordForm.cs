@@ -1,4 +1,5 @@
 using MyLocalAssistant.Client.Services;
+using MyLocalAssistant.Client.UI;
 
 namespace MyLocalAssistant.Client.Forms;
 
@@ -20,6 +21,7 @@ internal sealed class ChangePasswordForm : Form
 
         Text = forced ? "Change password (required)" : "Change password";
         StartPosition = FormStartPosition.CenterParent;
+        UiTheme.ApplyDialog(this);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;

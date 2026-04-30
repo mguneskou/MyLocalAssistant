@@ -57,7 +57,7 @@ internal sealed class ChatForm : Form
             ImageScalingSize = new Size(16, 16),
             BackColor = UiTheme.SurfaceCard,
             Padding = new Padding(8, 4, 8, 4),
-            Renderer = new ToolStripProfessionalRenderer(),
+            Renderer = new UiTheme.ModernRenderer(),
         };
         _agentCombo = new ToolStripComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260, Font = UiTheme.BaseFont };
         _agentCombo.ComboBox!.DisplayMember = nameof(AgentDto.Name);

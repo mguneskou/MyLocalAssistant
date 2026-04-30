@@ -1,5 +1,6 @@
 using MyLocalAssistant.Admin.Forms;
 using MyLocalAssistant.Admin.Services;
+using MyLocalAssistant.Admin.UI;
 
 namespace MyLocalAssistant.Admin;
 
@@ -9,6 +10,7 @@ internal static class Program
     private static void Main()
     {
         ApplicationConfiguration.Initialize();
+        ToolStripManager.Renderer = new UiTheme.ModernRenderer();
 
         var store = new AdminSettingsStore();
 

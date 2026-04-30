@@ -1,4 +1,5 @@
 using MyLocalAssistant.Admin.Services;
+using MyLocalAssistant.Admin.UI;
 using MyLocalAssistant.Shared.Contracts;
 
 namespace MyLocalAssistant.Admin.Forms;
@@ -39,6 +40,7 @@ internal sealed class CollectionPermissionsForm : Form
         Text = $"Permissions \u2014 {collection.Name}";
         FormBorderStyle = FormBorderStyle.Sizable;
         StartPosition = FormStartPosition.CenterParent;
+        UiTheme.ApplyDialog(this);
         MinimumSize = new Size(640, 460);
         ClientSize = new Size(680, 500);
         Font = new Font("Segoe UI", 9F);

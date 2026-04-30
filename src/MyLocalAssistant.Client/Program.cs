@@ -1,5 +1,6 @@
 using MyLocalAssistant.Client.Forms;
 using MyLocalAssistant.Client.Services;
+using MyLocalAssistant.Client.UI;
 
 namespace MyLocalAssistant.Client;
 
@@ -9,6 +10,7 @@ internal static class Program
     private static void Main()
     {
         ApplicationConfiguration.Initialize();
+        ToolStripManager.Renderer = new UiTheme.ModernRenderer();
 
         var store = new ClientSettingsStore();
 

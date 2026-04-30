@@ -25,7 +25,7 @@ internal sealed class MainForm : Form
         Size = new Size(1180, 760);
         UiTheme.ApplyForm(this);
 
-        var menu = new MenuStrip { BackColor = UiTheme.SurfaceCard, Renderer = new ToolStripProfessionalRenderer() };
+        var menu = new MenuStrip { BackColor = UiTheme.SurfaceCard, Renderer = new UiTheme.ModernRenderer() };
         var fileMenu = new ToolStripMenuItem("&File");
         var changePwd = new ToolStripMenuItem("Change my &password…", null, async (_, _) => await OnChangePasswordAsync());
         var signOut = new ToolStripMenuItem("Sign &out", null, (_, _) => { _client.Logout(); DialogResult = DialogResult.Retry; Close(); });
