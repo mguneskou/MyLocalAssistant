@@ -30,12 +30,18 @@ public sealed record UpdateGlobalSystemPromptRequest(string? SystemPrompt);
 public sealed record CloudKeysStatusDto(
     bool OpenAiConfigured,
     bool AnthropicConfigured,
-    string? OpenAiBaseUrl);
+    string? OpenAiBaseUrl,
+    bool GroqConfigured,
+    bool GeminiConfigured,
+    bool MistralConfigured);
 
-/// <summary>Replace the OpenAI/Anthropic API keys. <c>null</c> field = leave unchanged; empty string = clear.</summary>
+/// <summary>Replace cloud API keys. <c>null</c> field = leave unchanged; empty string = clear.</summary>
 public sealed record UpdateCloudKeysRequest(
     string? OpenAiApiKey,
     string? AnthropicApiKey,
-    string? OpenAiBaseUrl);
+    string? OpenAiBaseUrl,
+    string? GroqApiKey,
+    string? GeminiApiKey,
+    string? MistralApiKey);
 
 public sealed record CloudKeyTestResultDto(bool Ok, string? Detail);

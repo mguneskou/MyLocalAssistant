@@ -21,6 +21,9 @@ public enum ModelSource
     Local = 0,
     OpenAi = 1,
     Anthropic = 2,
+    Groq = 3,
+    Gemini = 4,
+    Mistral = 5,
 }
 
 public sealed class CatalogFile

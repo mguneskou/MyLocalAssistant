@@ -63,8 +63,11 @@ public sealed class ModelManager(
                 dl.Stage, dl.Bytes, dl.TotalBytes, dl.BytesPerSecond, dl.EtaSeconds, dl.Error);
             var cloudConfigured = e.Source switch
             {
-                ModelSource.OpenAi => settings.IsOpenAiConfigured,
+                ModelSource.OpenAi    => settings.IsOpenAiConfigured,
                 ModelSource.Anthropic => settings.IsAnthropicConfigured,
+                ModelSource.Groq      => settings.IsGroqConfigured,
+                ModelSource.Gemini    => settings.IsGeminiConfigured,
+                ModelSource.Mistral   => settings.IsMistralConfigured,
                 _ => false,
             };
             result.Add(new ModelDto(

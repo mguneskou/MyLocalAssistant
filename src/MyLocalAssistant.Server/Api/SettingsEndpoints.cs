@@ -30,7 +30,8 @@ public static class SettingsEndpoints
         // Cloud LLM provider keys are also owner-only. The actual key strings never leave
         // the server: GET returns booleans only; PUT writes new values (DPAPI-encrypted).
         owner.MapGet("/cloud-keys", (ServerSettings s) => Results.Ok(new CloudKeysStatusDto(
-            s.IsOpenAiConfigured, s.IsAnthropicConfigured, s.OpenAiBaseUrl)));
+            s.IsOpenAiConfigured, s.IsAnthropicConfigured, s.OpenAiBaseUrl,
+            s.IsGroqConfigured, s.IsGeminiConfigured, s.IsMistralConfigured)));
         owner.MapPut("/cloud-keys", (UpdateCloudKeysRequest req, ServerSettings s, ServerSettingsStore store) =>
         {
             // null = leave alone; empty = clear; any other value = replace (and re-encrypt).
@@ -44,9 +45,22 @@ public static class SettingsEndpoints
                     : SecretProtector.Protect(req.AnthropicApiKey.Trim());
             if (req.OpenAiBaseUrl is not null)
                 s.OpenAiBaseUrl = req.OpenAiBaseUrl.Length == 0 ? null : req.OpenAiBaseUrl.Trim();
+            if (req.GroqApiKey is not null)
+                s.GroqApiKeyProtected = req.GroqApiKey.Length == 0
+                    ? null
+                    : SecretProtector.Protect(req.GroqApiKey.Trim());
+            if (req.GeminiApiKey is not null)
+                s.GeminiApiKeyProtected = req.GeminiApiKey.Length == 0
+                    ? null
+                    : SecretProtector.Protect(req.GeminiApiKey.Trim());
+            if (req.MistralApiKey is not null)
+                s.MistralApiKeyProtected = req.MistralApiKey.Length == 0
+                    ? null
+                    : SecretProtector.Protect(req.MistralApiKey.Trim());
             store.Save(s);
             return Results.Ok(new CloudKeysStatusDto(
-                s.IsOpenAiConfigured, s.IsAnthropicConfigured, s.OpenAiBaseUrl));
+                s.IsOpenAiConfigured, s.IsAnthropicConfigured, s.OpenAiBaseUrl,
+                s.IsGroqConfigured, s.IsGeminiConfigured, s.IsMistralConfigured));
         });
         owner.MapPost("/cloud-keys/test/openai", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
         {
@@ -67,8 +81,63 @@ public static class SettingsEndpoints
                 return Results.Ok(new CloudKeyTestResultDto(false, $"{(int)resp.StatusCode}: {Truncate(body, 300)}"));
             }
             catch (Exception ex) { return Results.Ok(new CloudKeyTestResultDto(false, ex.Message)); }
+        });        owner.MapPost("/cloud-keys/test/groq", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
+        {
+            var key = s.GetGroqApiKey();
+            if (string.IsNullOrEmpty(key))
+                return Results.Ok(new CloudKeyTestResultDto(false, "Groq API key is not configured."));
+            try
+            {
+                using var http = hf.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(15);
+                using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.groq.com/openai/v1/models");
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
+                using var resp = await http.SendAsync(req, ct);
+                if (resp.IsSuccessStatusCode)
+                    return Results.Ok(new CloudKeyTestResultDto(true, $"OK ({(int)resp.StatusCode})"));
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                return Results.Ok(new CloudKeyTestResultDto(false, $"{(int)resp.StatusCode}: {Truncate(body, 300)}"));
+            }
+            catch (Exception ex) { return Results.Ok(new CloudKeyTestResultDto(false, ex.Message)); }
         });
-        owner.MapPost("/cloud-keys/test/anthropic", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
+        owner.MapPost("/cloud-keys/test/gemini", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
+        {
+            var key = s.GetGeminiApiKey();
+            if (string.IsNullOrEmpty(key))
+                return Results.Ok(new CloudKeyTestResultDto(false, "Gemini API key is not configured."));
+            try
+            {
+                using var http = hf.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(15);
+                using var req = new HttpRequestMessage(HttpMethod.Get, "https://generativelanguage.googleapis.com/v1beta/openai/models");
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
+                using var resp = await http.SendAsync(req, ct);
+                if (resp.IsSuccessStatusCode)
+                    return Results.Ok(new CloudKeyTestResultDto(true, $"OK ({(int)resp.StatusCode})"));
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                return Results.Ok(new CloudKeyTestResultDto(false, $"{(int)resp.StatusCode}: {Truncate(body, 300)}"));
+            }
+            catch (Exception ex) { return Results.Ok(new CloudKeyTestResultDto(false, ex.Message)); }
+        });
+        owner.MapPost("/cloud-keys/test/mistral", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
+        {
+            var key = s.GetMistralApiKey();
+            if (string.IsNullOrEmpty(key))
+                return Results.Ok(new CloudKeyTestResultDto(false, "Mistral API key is not configured."));
+            try
+            {
+                using var http = hf.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(15);
+                using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.mistral.ai/v1/models");
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
+                using var resp = await http.SendAsync(req, ct);
+                if (resp.IsSuccessStatusCode)
+                    return Results.Ok(new CloudKeyTestResultDto(true, $"OK ({(int)resp.StatusCode})"));
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                return Results.Ok(new CloudKeyTestResultDto(false, $"{(int)resp.StatusCode}: {Truncate(body, 300)}"));
+            }
+            catch (Exception ex) { return Results.Ok(new CloudKeyTestResultDto(false, ex.Message)); }
+        });        owner.MapPost("/cloud-keys/test/anthropic", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
         {
             var key = s.GetAnthropicApiKey();
             if (string.IsNullOrEmpty(key))

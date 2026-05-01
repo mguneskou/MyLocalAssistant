@@ -433,5 +433,101 @@
     "recommendedContextSize": 200000,
     "minRamGb": 0,
     "description": "Anthropic Claude 3.5 Sonnet, served via the Anthropic API. Strongest Anthropic model in this catalog, 200k context. Requires the Anthropic key configured in Server Settings."
+  },
+  {
+    "id": "groq-llama-3.3-70b",
+    "displayName": "Llama 3.3 70B Versatile — Groq (free cloud)",
+    "tier": "workstation",
+    "source": "groq",
+    "remoteModel": "llama-3.3-70b-versatile",
+    "license": "Llama 3.3 Community",
+    "licenseUrl": "https://www.llama.com/llama3_3/license/",
+    "recommendedContextSize": 128000,
+    "minRamGb": 0,
+    "description": "Meta Llama 3.3 70B served on Groq's LPU hardware. Near GPT-4 quality at blazing speed. Free tier: 30 req/min, 6 000 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
+  },
+  {
+    "id": "groq-llama3-8b",
+    "displayName": "Llama 3.1 8B — Groq (free cloud)",
+    "tier": "lightweight",
+    "source": "groq",
+    "remoteModel": "llama3-8b-8192",
+    "license": "Llama 3 Community",
+    "licenseUrl": "https://llama.meta.com/llama3/license/",
+    "recommendedContextSize": 8192,
+    "minRamGb": 0,
+    "description": "Meta Llama 3.1 8B on Groq LPUs. Extremely fast, 8k context. Free tier: 30 req/min, 14 400 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
+  },
+  {
+    "id": "groq-gemma2-9b",
+    "displayName": "Gemma 2 9B — Groq (free cloud)",
+    "tier": "lightweight",
+    "source": "groq",
+    "remoteModel": "gemma2-9b-it",
+    "license": "Gemma Terms",
+    "licenseUrl": "https://ai.google.dev/gemma/terms",
+    "recommendedContextSize": 8192,
+    "minRamGb": 0,
+    "description": "Google Gemma 2 9B Instruct on Groq LPUs. Strong multilingual model, free tier. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
+  },
+  {
+    "id": "gemini-2.0-flash",
+    "displayName": "Gemini 2.0 Flash — Google (free cloud)",
+    "tier": "mid",
+    "source": "gemini",
+    "remoteModel": "gemini-2.0-flash",
+    "license": "Google Terms of Service",
+    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
+    "recommendedContextSize": 1000000,
+    "minRamGb": 0,
+    "description": "Google Gemini 2.0 Flash. High quality, 1M token context, multimodal (text only via this API). Free tier: 15 req/min, 1 500 req/day. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
+  },
+  {
+    "id": "gemini-2.0-flash-lite",
+    "displayName": "Gemini 2.0 Flash-Lite — Google (free cloud)",
+    "tier": "lightweight",
+    "source": "gemini",
+    "remoteModel": "gemini-2.0-flash-lite",
+    "license": "Google Terms of Service",
+    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
+    "recommendedContextSize": 1000000,
+    "minRamGb": 0,
+    "description": "Google Gemini 2.0 Flash-Lite. Fastest and cheapest Gemini model, 1M context. Free tier: 30 req/min, 1 500 req/day. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
+  },
+  {
+    "id": "gemini-1.5-flash-8b",
+    "displayName": "Gemini 1.5 Flash-8B — Google (free cloud)",
+    "tier": "lightweight",
+    "source": "gemini",
+    "remoteModel": "gemini-1.5-flash-8b",
+    "license": "Google Terms of Service",
+    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
+    "recommendedContextSize": 1000000,
+    "minRamGb": 0,
+    "description": "Google Gemini 1.5 Flash-8B. Lightweight variant optimised for speed, 1M context. Free tier: 15 req/min, 4 000 req/day. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
+  },
+  {
+    "id": "mistral-nemo",
+    "displayName": "Mistral NeMo — Mistral AI (free cloud)",
+    "tier": "mid",
+    "source": "mistral",
+    "remoteModel": "open-mistral-nemo",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407",
+    "recommendedContextSize": 128000,
+    "minRamGb": 0,
+    "description": "Mistral NeMo 12B (open-weight). Strong multilingual model with 128k context; free tier on Mistral API. Requires a Mistral API key (free at console.mistral.ai). Conversations leave your network."
+  },
+  {
+    "id": "mistral-small",
+    "displayName": "Mistral Small — Mistral AI (free cloud)",
+    "tier": "mid",
+    "source": "mistral",
+    "remoteModel": "mistral-small-latest",
+    "license": "Mistral AI Terms",
+    "licenseUrl": "https://mistral.ai/terms/",
+    "recommendedContextSize": 32000,
+    "minRamGb": 0,
+    "description": "Mistral Small Latest. Compact frontier model; capable coding and reasoning, free tier available. Requires a Mistral API key (free at console.mistral.ai). Conversations leave your network."
   }
 ]
