@@ -42,3 +42,6 @@ dist/
 
 plugins/*/.keys/
 
+# Plugin signing private key — public key (.pub) is committed; private (.key) goes in GitHub secrets
+tools/keys/*.key
+
