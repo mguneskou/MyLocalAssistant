@@ -6,6 +6,10 @@ namespace MyLocalAssistant.Admin;
 
 internal static class Program
 {
+    internal static string AppVersion { get; } =
+        "v" + (System.Reflection.Assembly.GetExecutingAssembly().GetName().Version
+               is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "?");
+
     [STAThread]
     private static void Main()
     {

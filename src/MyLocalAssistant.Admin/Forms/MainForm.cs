@@ -19,7 +19,7 @@ internal sealed class MainForm : Form
             ? "Global admin"
             : client.CurrentUser?.IsAdmin == true ? "Administrator" : "User";
 
-        Text = $"MyLocalAssistant Admin — {client.CurrentUser?.DisplayName ?? "?"} @ {client.BaseUrl}";
+        Text = $"MyLocalAssistant Admin {Program.AppVersion} — {client.CurrentUser?.DisplayName ?? "?"} @ {client.BaseUrl}";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(960, 640);
         Size = new Size(1180, 760);

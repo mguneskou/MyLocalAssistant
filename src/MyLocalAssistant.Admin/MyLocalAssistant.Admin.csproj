@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
     <ProjectReference Include="..\MyLocalAssistant.Shared\MyLocalAssistant.Shared.csproj" />
@@ -13,10 +13,10 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>MyLocalAssistant.Admin</AssemblyName>
     <RootNamespace>MyLocalAssistant.Admin</RootNamespace>
-    <Version>2.0.0.0</Version>
-    <AssemblyVersion>2.0.0.0</AssemblyVersion>
-    <FileVersion>2.0.0.0</FileVersion>
-    <InformationalVersion>2.0.0.0</InformationalVersion>
+    <Version>2.4.2.0</Version>
+    <AssemblyVersion>2.4.2.0</AssemblyVersion>
+    <FileVersion>2.4.2.0</FileVersion>
+    <InformationalVersion>2.4.2.0</InformationalVersion>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
 
