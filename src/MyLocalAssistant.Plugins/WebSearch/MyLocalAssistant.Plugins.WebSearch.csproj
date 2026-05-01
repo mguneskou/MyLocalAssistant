@@ -13,4 +13,11 @@
     <ProjectReference Include="..\..\MyLocalAssistant.Plugin.Shared\MyLocalAssistant.Plugin.Shared.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Content Include="manifest.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+      <CopyToPublishDirectory>Always</CopyToPublishDirectory>
+    </Content>
+  </ItemGroup>
+
 </Project>
