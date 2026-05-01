@@ -124,6 +124,8 @@ try
         // change - do an in-place ALTER instead of resetting the DB so existing user accounts,
         // password hashes, agents and conversations all survive the upgrade.
         await EnsureUserWorkRootColumnAsync(db);
+        // Skills→Tools rename (v2.4.0): Agent.SkillIds renamed to Agent.ToolIds.
+        await EnsureAgentToolIdsColumnAsync(db);
         var userSvc = scope.ServiceProvider.GetRequiredService<UserService>();
         await userSvc.EnsureAdminBootstrapAsync();
         await userSvc.EnsureGlobalAdminAsync();
@@ -250,6 +252,8 @@ static async Task<bool> IsLegacySchemaAsync(AppDbContext db)
             cmd.CommandText = "SELECT 1 FROM pragma_table_info('Users') WHERE name = 'IsGlobalAdmin' LIMIT 1";
             if (await cmd.ExecuteScalarAsync() is null) return true;
         }
+        // v2.4.0: SkillIds renamed to ToolIds — handled by EnsureAgentToolIdsColumnAsync,
+        // NOT a full reset, so explicitly exclude it from the legacy-schema check.
         return false;
     }
     catch
@@ -277,5 +281,30 @@ static async Task EnsureUserWorkRootColumnAsync(AppDbContext db)
     catch (Exception ex)
     {
         Log.Warning(ex, "Could not add WorkRoot column to Users; per-user work directories will be unavailable until restart.");
+    }
+}
+
+static async Task EnsureAgentToolIdsColumnAsync(AppDbContext db)
+{
+    // v2.4.0: Agent.SkillIds was renamed to Agent.ToolIds. SQLite supports
+    // RENAME COLUMN since 3.25.0 (bundled Microsoft.Data.Sqlite is always recent enough).
+    try
+    {
+        await using var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync();
+        // Check whether the old column name still exists.
+        await using (var probe = conn.CreateCommand())
+        {
+            probe.CommandText = "SELECT 1 FROM pragma_table_info('Agents') WHERE name = 'SkillIds' LIMIT 1";
+            if (await probe.ExecuteScalarAsync() is null) return; // already up to date
+        }
+        await using var alter = conn.CreateCommand();
+        alter.CommandText = "ALTER TABLE Agents RENAME COLUMN SkillIds TO ToolIds";
+        await alter.ExecuteNonQueryAsync();
+        Log.Information("Renamed Agents.SkillIds -> ToolIds in existing database.");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Could not rename SkillIds to ToolIds in Agents table.");
     }
 }
