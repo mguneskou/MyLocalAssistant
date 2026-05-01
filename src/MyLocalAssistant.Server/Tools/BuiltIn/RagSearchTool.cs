@@ -5,7 +5,7 @@ using MyLocalAssistant.Server.Persistence;
 using MyLocalAssistant.Server.Rag;
 using MyLocalAssistant.Shared.Contracts;
 
-namespace MyLocalAssistant.Server.Skills.BuiltIn;
+namespace MyLocalAssistant.Server.Tools.BuiltIn;
 
 /// <summary>
 /// Lets the LLM explicitly query a RAG collection it (and the calling user) is
@@ -15,20 +15,20 @@ namespace MyLocalAssistant.Server.Skills.BuiltIn;
 /// <see cref="RagAuthorizationService"/> pipeline as auto-RAG — a tool call cannot
 /// bypass per-collection grants.
 /// </summary>
-internal sealed class RagSearchSkill(IServiceScopeFactory scopeFactory) : ISkill
+internal sealed class RagSearchTool(IServiceScopeFactory scopeFactory) : ITool
 {
     public string Id => "rag.search_collection";
     public string Name => "RAG search";
     public string Description => "Searches a named RAG collection for the most relevant chunks. Honours per-user access control.";
     public string Category => "Built-in";
-    public string Source => SkillSources.BuiltIn;
+    public string Source => ToolSources.BuiltIn;
     public string? Version => null;
     public string? Publisher => "MyLocalAssistant";
     public string? KeyId => null;
 
-    public IReadOnlyList<SkillToolDto> Tools { get; } = new[]
+    public IReadOnlyList<ToolFunctionDto> Tools { get; } = new[]
     {
-        new SkillToolDto(
+        new ToolFunctionDto(
             Name: "rag.search_collection",
             Description: "Search a RAG collection by name and return the top matching chunks. " +
                          "Use when the user asks something that probably needs documents from a known collection.",
@@ -46,14 +46,14 @@ internal sealed class RagSearchSkill(IServiceScopeFactory scopeFactory) : ISkill
             """),
     };
 
-    public SkillRequirementsDto Requirements { get; } = new(ToolCallProtocols.Tags, MinContextK: 4);
+    public ToolRequirementsDto Requirements { get; } = new(ToolCallProtocols.Tags, MinContextK: 4);
 
     public void Configure(string? configJson) { /* no per-instance config */ }
 
-    public async Task<SkillResult> InvokeAsync(SkillInvocation call, SkillContext ctx)
+    public async Task<ToolResult> InvokeAsync(ToolInvocation call, ToolContext ctx)
     {
         if (!string.Equals(call.ToolName, "rag.search_collection", StringComparison.Ordinal))
-            return SkillResult.Error($"Unknown tool '{call.ToolName}'.");
+            return ToolResult.Error($"Unknown tool '{call.ToolName}'.");
 
         string collectionName;
         string query;
@@ -68,11 +68,11 @@ internal sealed class RagSearchSkill(IServiceScopeFactory scopeFactory) : ISkill
         }
         catch (Exception ex) when (ex is JsonException or KeyNotFoundException or InvalidOperationException)
         {
-            return SkillResult.Error("Arguments must include 'collection' (string) and 'query' (string).");
+            return ToolResult.Error("Arguments must include 'collection' (string) and 'query' (string).");
         }
 
-        if (string.IsNullOrWhiteSpace(collectionName)) return SkillResult.Error("Collection name is required.");
-        if (string.IsNullOrWhiteSpace(query))           return SkillResult.Error("Query is required.");
+        if (string.IsNullOrWhiteSpace(collectionName)) return ToolResult.Error("Collection name is required.");
+        if (string.IsNullOrWhiteSpace(query))           return ToolResult.Error("Query is required.");
 
         // Skills are singletons; RagService + AppDbContext are scoped. Open a per-call scope.
         await using var scope = scopeFactory.CreateAsyncScope();
@@ -83,7 +83,7 @@ internal sealed class RagSearchSkill(IServiceScopeFactory scopeFactory) : ISkill
         var collection = await db.RagCollections
             .FirstOrDefaultAsync(c => c.Name.ToLower() == collectionName.ToLower(), ctx.CancellationToken);
         if (collection is null)
-            return SkillResult.Error($"Collection '{collectionName}' does not exist.");
+            return ToolResult.Error($"Collection '{collectionName}' does not exist.");
 
         // Resolve principals fresh from DB so revocations apply immediately, then run the
         // exact same auth + retrieval path used by auto-RAG via a synthetic per-call agent.
@@ -97,9 +97,9 @@ internal sealed class RagSearchSkill(IServiceScopeFactory scopeFactory) : ISkill
         var result = await rag.RetrieveAsync(syntheticAgent, principal, query, topK, ctx.CancellationToken);
 
         if (result.Allowed.Count == 0)
-            return SkillResult.Error($"You do not have access to collection '{collectionName}'.");
+            return ToolResult.Error($"You do not have access to collection '{collectionName}'.");
         if (result.Chunks.Count == 0)
-            return SkillResult.Ok($"No matching chunks found in '{collectionName}'.");
+            return ToolResult.Ok($"No matching chunks found in '{collectionName}'.");
 
         var sb = new StringBuilder();
         sb.AppendLine($"Top {result.Chunks.Count} chunk(s) from collection '{collectionName}':");
@@ -110,6 +110,6 @@ internal sealed class RagSearchSkill(IServiceScopeFactory scopeFactory) : ISkill
             sb.AppendLine($"[{i + 1}] {c.Source} (page {c.Page}, distance {c.Distance:F3})");
             sb.AppendLine(c.Text);
         }
-        return SkillResult.Ok(sb.ToString());
+        return ToolResult.Ok(sb.ToString());
     }
 }

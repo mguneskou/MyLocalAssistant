@@ -1,7 +1,7 @@
 using System.Text;
 using System.Text.Json;
-using MyLocalAssistant.Server.Skills;
-using MyLocalAssistant.Server.Skills.Plugin;
+using MyLocalAssistant.Server.Tools;
+using MyLocalAssistant.Server.Tools.Plugin;
 using MyLocalAssistant.Shared.Plugins;
 using Microsoft.Extensions.Logging.Abstractions;
 using Org.BouncyCastle.Crypto.Generators;
@@ -140,7 +140,7 @@ public class ToolCallStatsTests
 
         var snap = s.Snapshot();
         var row = Assert.Single(snap.Rows);
-        Assert.Equal("math.eval", row.SkillId);
+        Assert.Equal("math.eval", row.ToolId);
         Assert.Equal("evaluate", row.ToolName);
         Assert.Equal(2, row.Successes);
         Assert.Equal(1, row.Errors);

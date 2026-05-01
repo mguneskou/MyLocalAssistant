@@ -3,7 +3,7 @@ using System.Text;
 using Org.BouncyCastle.Crypto.Parameters;
 using Org.BouncyCastle.Crypto.Signers;
 
-namespace MyLocalAssistant.Server.Skills.Plugin;
+namespace MyLocalAssistant.Server.Tools.Plugin;
 
 /// <summary>
 /// Loads ed25519 public keys (32 raw bytes, base64-encoded) from

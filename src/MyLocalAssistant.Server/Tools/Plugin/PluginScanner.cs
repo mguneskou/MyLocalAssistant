@@ -1,13 +1,13 @@
 using System.Text.Json;
 using MyLocalAssistant.Shared.Plugins;
 
-namespace MyLocalAssistant.Server.Skills.Plugin;
+namespace MyLocalAssistant.Server.Tools.Plugin;
 
 /// <summary>
 /// Walks <c>&lt;install&gt;/plugins/&lt;id&gt;/</c> at startup. Each subfolder must contain:
-///   manifest.json     — signed payload (see <see cref="SkillManifest"/>);
+///   manifest.json     — signed payload (see <see cref="ToolManifest"/>);
 ///   manifest.json.sig — base64-encoded ed25519 signature over manifest.json bytes;
-///   the executable + every file listed in <see cref="SkillManifest.Files"/>.
+///   the executable + every file listed in <see cref="ToolManifest.Files"/>.
 /// Verification order: signature -> per-file SHA-256 -> manifest sanity. Any failure
 /// rejects the plug-in with a logged warning; the rest still load.
 /// </summary>
@@ -20,7 +20,7 @@ public sealed class PluginScanner
     private readonly string _outputRoot;
     private readonly object _lock = new();
     /// <summary>Plug-ins this scanner has loaded into the registry. Used by <see cref="ReloadAsync"/> to dispose old instances on rescan.</summary>
-    private readonly Dictionary<string, PluginSkill> _loaded = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, PluginTool> _loaded = new(StringComparer.OrdinalIgnoreCase);
 
     public PluginScanner(PluginSignatureVerifier verifier, ILoggerFactory lf, ILogger<PluginScanner> log)
     {
@@ -32,9 +32,9 @@ public sealed class PluginScanner
     }
 
     /// <summary>Scan <c>./plugins/</c> and return every plug-in that passed verification.</summary>
-    public IReadOnlyList<PluginSkill> ScanAndLoad()
+    public IReadOnlyList<PluginTool> ScanAndLoad()
     {
-        var loaded = new List<PluginSkill>();
+        var loaded = new List<PluginTool>();
         if (!Directory.Exists(_pluginsRoot))
         {
             _log.LogInformation("Plug-ins directory {Path} does not exist; skipping plug-in load.", _pluginsRoot);
@@ -49,8 +49,8 @@ public sealed class PluginScanner
         {
             try
             {
-                var skill = TryLoad(dir);
-                if (skill is not null) loaded.Add(skill);
+                var tool = TryLoad(dir);
+                if (tool is not null) loaded.Add(tool);
             }
             catch (Exception ex)
             {
@@ -67,11 +67,11 @@ public sealed class PluginScanner
 
     /// <summary>Hot-reload: dispose every plug-in this scanner has registered, re-scan, and
     /// register the fresh set on <paramref name="registry"/>. Built-in skills are untouched.
-    /// In-flight tool calls hitting an old PluginSkill instance will fault and surface as a
+    /// In-flight tool calls hitting an old PluginTool instance will fault and surface as a
     /// tool error; the next call gets the new instance.</summary>
-    public async Task<IReadOnlyList<PluginSkill>> ReloadAsync(SkillRegistry registry)
+    public async Task<IReadOnlyList<PluginTool>> ReloadAsync(ToolRegistry registry)
     {
-        PluginSkill[] previous;
+        PluginTool[] previous;
         lock (_lock)
         {
             previous = _loaded.Values.ToArray();
@@ -93,7 +93,7 @@ public sealed class PluginScanner
         return fresh;
     }
 
-    private PluginSkill? TryLoad(string folder)
+    private PluginTool? TryLoad(string folder)
     {
         var manifestPath = Path.Combine(folder, "manifest.json");
         var sigPath = manifestPath + ".sig";
@@ -104,8 +104,8 @@ public sealed class PluginScanner
         var sigBytes = SafeBase64(File.ReadAllText(sigPath).Trim());
         if (sigBytes is null) { _log.LogWarning("Plug-in {Folder} signature is not valid base64.", folder); return null; }
 
-        SkillManifest? manifest;
-        try { manifest = JsonSerializer.Deserialize<SkillManifest>(manifestBytes, JsonRpcFraming.Json); }
+        ToolManifest? manifest;
+        try { manifest = JsonSerializer.Deserialize<ToolManifest>(manifestBytes, JsonRpcFraming.Json); }
         catch (Exception ex) { _log.LogWarning(ex, "Plug-in {Folder} manifest is not valid JSON.", folder); return null; }
         if (manifest is null || string.IsNullOrWhiteSpace(manifest.Id) || string.IsNullOrWhiteSpace(manifest.KeyId))
         {
@@ -149,8 +149,8 @@ public sealed class PluginScanner
             return null;
         }
 
-        var skillLog = _loggerFactory.CreateLogger($"PluginSkill[{manifest.Id}]");
-        return new PluginSkill(manifest, folder, _outputRoot, skillLog);
+        var skillLog = _loggerFactory.CreateLogger($"PluginTool[{manifest.Id}]");
+        return new PluginTool(manifest, folder, _outputRoot, skillLog);
     }
 
     private static byte[]? SafeBase64(string s)

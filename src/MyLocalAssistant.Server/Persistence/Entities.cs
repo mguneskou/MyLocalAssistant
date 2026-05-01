@@ -91,8 +91,8 @@ public sealed class Agent
     public bool RagEnabled { get; set; }
     /// <summary>Semicolon-separated list of RagCollection.Id (Guid) strings the agent retrieves from.</summary>
     public string? RagCollectionIds { get; set; }
-    /// <summary>Semicolon-separated list of SkillState.Id strings the agent is allowed to invoke as tools.</summary>
-    public string? SkillIds { get; set; }
+    /// <summary>Semicolon-separated list of ToolState.Id strings the agent is allowed to invoke as tools.</summary>
+    public string? ToolIds { get; set; }
 }
 
 public sealed class Conversation
@@ -199,15 +199,15 @@ public sealed class RagDocument
 /// <summary>
 /// Per-deployment row tracking which skills (built-in and plug-in) are installed and
 /// whether the global admin has enabled them. The full skill metadata (tools, schema,
-/// requirements) lives with the registered <c>ISkill</c> in process — the DB only
+/// requirements) lives with the registered <c>ITool</c> in process — the DB only
 /// stores the bits that survive across restarts: enabled flag and the admin's
 /// editable <c>ConfigJson</c>. <see cref="Source"/> is "builtin" or "plugin".
 /// </summary>
-public sealed class SkillState
+public sealed class ToolState
 {
     /// <summary>Stable string id, e.g. "math.eval", "excel-handler".</summary>
     public string Id { get; set; } = "";
-    public string Source { get; set; } = "builtin"; // see SkillSources
+    public string Source { get; set; } = "builtin"; // see ToolSources
     public bool Enabled { get; set; }
     public string? ConfigJson { get; set; }
     /// <summary>For plugins: last installed manifest version. Null for built-ins.</summary>

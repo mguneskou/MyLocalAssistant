@@ -3,20 +3,20 @@ using System.Text;
 using System.Text.Json;
 using MyLocalAssistant.Shared.Plugins;
 
-namespace MyLocalAssistant.Server.Skills.Plugin;
+namespace MyLocalAssistant.Server.Tools.Plugin;
 
 /// <summary>
 /// Half-duplex JSON-RPC client over the plug-in's stdio. One pending request at a time per
 /// channel, identified by a monotonically increasing id. Reads happen on a background task;
 /// writes are serialized through a <see cref="SemaphoreSlim"/>.
 /// </summary>
-public sealed class SkillRpcChannel : IAsyncDisposable
+public sealed class ToolRpcChannel : IAsyncDisposable
 {
     private readonly Stream _stdin;
     private readonly Stream _stdout;
     private readonly StreamReader _stderr;
     private readonly ILogger _log;
-    private readonly string _skillId;
+    private readonly string _toolId;
     private readonly CancellationTokenSource _readerCts = new();
     private readonly Task _readerTask;
     private readonly SemaphoreSlim _writeLock = new(1, 1);
@@ -24,9 +24,9 @@ public sealed class SkillRpcChannel : IAsyncDisposable
     private long _nextId;
     private volatile bool _faulted;
 
-    public SkillRpcChannel(string skillId, Stream stdin, Stream stdout, StreamReader stderr, ILogger log)
+    public ToolRpcChannel(string toolId, Stream stdin, Stream stdout, StreamReader stderr, ILogger log)
     {
-        _skillId = skillId;
+        _toolId = toolId;
         _stdin = stdin;
         _stdout = stdout;
         _stderr = stderr;
@@ -39,7 +39,7 @@ public sealed class SkillRpcChannel : IAsyncDisposable
 
     public async Task<JsonElement?> CallAsync(string method, object? parameters, TimeSpan timeout, CancellationToken ct)
     {
-        if (_faulted) throw new InvalidOperationException($"Plug-in '{_skillId}' channel is faulted.");
+        if (_faulted) throw new InvalidOperationException($"Plug-in '{_toolId}' channel is faulted.");
         var id = Interlocked.Increment(ref _nextId);
         var tcs = new TaskCompletionSource<RpcResponse>(TaskCreationOptions.RunContinuationsAsynchronously);
         _pending[id] = tcs;
@@ -63,7 +63,7 @@ public sealed class SkillRpcChannel : IAsyncDisposable
             {
                 var resp = await tcs.Task.ConfigureAwait(false);
                 if (resp.Error is not null)
-                    throw new SkillRpcException(_skillId, method, resp.Error.Code, resp.Error.Message);
+                    throw new ToolRpcException(_toolId, method, resp.Error.Code, resp.Error.Message);
                 return resp.Result;
             }
         }
@@ -85,7 +85,7 @@ public sealed class SkillRpcChannel : IAsyncDisposable
                 try { resp = JsonSerializer.Deserialize<RpcResponse>(bytes, JsonRpcFraming.Json); }
                 catch (Exception ex)
                 {
-                    _log.LogWarning(ex, "Plug-in {Skill} sent malformed JSON-RPC frame.", _skillId);
+                    _log.LogWarning(ex, "Plug-in {Tool} sent malformed JSON-RPC frame.", _toolId);
                     continue;
                 }
                 if (resp?.Id is long id && _pending.TryGetValue(id, out var tcs))
@@ -95,12 +95,12 @@ public sealed class SkillRpcChannel : IAsyncDisposable
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "Plug-in {Skill} read loop crashed; channel faulted.", _skillId);
+            _log.LogWarning(ex, "Plug-in {Tool} read loop crashed; channel faulted.", _toolId);
         }
         finally
         {
             _faulted = true;
-            foreach (var (_, tcs) in _pending) tcs.TrySetException(new IOException($"Plug-in '{_skillId}' channel closed."));
+            foreach (var (_, tcs) in _pending) tcs.TrySetException(new IOException($"Plug-in '{_toolId}' channel closed."));
             _pending.Clear();
         }
     }
@@ -111,10 +111,10 @@ public sealed class SkillRpcChannel : IAsyncDisposable
         {
             string? line;
             while ((line = await _stderr.ReadLineAsync(_readerCts.Token).ConfigureAwait(false)) is not null)
-                _log.LogInformation("[plugin {Skill} stderr] {Line}", _skillId, line);
+                _log.LogInformation("[plugin {Skill} stderr] {Line}", _toolId, line);
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { _log.LogDebug(ex, "Plug-in {Skill} stderr drain ended.", _skillId); }
+        catch (Exception ex) { _log.LogDebug(ex, "Plug-in {Tool} stderr drain ended.", _toolId); }
     }
 
     public async ValueTask DisposeAsync()
@@ -126,10 +126,10 @@ public sealed class SkillRpcChannel : IAsyncDisposable
     }
 }
 
-public sealed class SkillRpcException(string skillId, string method, int code, string message)
-    : Exception($"Plug-in '{skillId}'.{method} failed (code={code}): {message}")
+public sealed class ToolRpcException(string toolId, string method, int code, string message)
+    : Exception($"Plug-in '{toolId}'.{method} failed (code={code}): {message}")
 {
-    public string SkillId { get; } = skillId;
+    public string ToolId { get; } = toolId;
     public string Method { get; } = method;
     public int Code { get; } = code;
 }

@@ -18,7 +18,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
     public DbSet<RagCollection> RagCollections => Set<RagCollection>();
     public DbSet<RagDocument> RagDocuments => Set<RagDocument>();
     public DbSet<RagCollectionGrant> RagCollectionGrants => Set<RagCollectionGrant>();
-    public DbSet<SkillState> Skills => Set<SkillState>();
+    public DbSet<ToolState> Tools => Set<ToolState>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -137,7 +137,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             e.HasIndex(x => new { x.PrincipalKind, x.PrincipalId });
         });
 
-        b.Entity<SkillState>(e =>
+        b.Entity<ToolState>(e =>
         {
             e.HasKey(x => x.Id);
             e.Property(x => x.Id).HasMaxLength(64);

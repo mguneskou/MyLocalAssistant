@@ -2,7 +2,7 @@ using System.Text.Json;
 using MyLocalAssistant.Server.ClientBridge;
 using MyLocalAssistant.Shared.Contracts;
 
-namespace MyLocalAssistant.Server.Skills.BuiltIn;
+namespace MyLocalAssistant.Server.Tools.BuiltIn;
 
 /// <summary>
 /// Exposes the v2.2 reverse-RPC <c>fs.*</c> family to the LLM as ordinary tools.
@@ -10,31 +10,31 @@ namespace MyLocalAssistant.Server.Skills.BuiltIn;
 /// which enforces its own root-folder policy. If no Client is online for the user
 /// the call returns a clear error so the LLM can pick a different strategy.
 /// </summary>
-internal sealed class ClientFsSkill : ISkill
+internal sealed class ClientFsTool : ITool
 {
     private readonly ClientBridgeHub _hub;
 
-    public ClientFsSkill(ClientBridgeHub hub) { _hub = hub; }
+    public ClientFsTool(ClientBridgeHub hub) { _hub = hub; }
 
     public string Id => "client.fs";
     public string Name => "Client filesystem";
     public string Description => "Read and write files inside the folder the user shared from their PC.";
     public string Category => "Built-in";
-    public string Source => SkillSources.BuiltIn;
+    public string Source => ToolSources.BuiltIn;
     public string? Version => null;
     public string? Publisher => "MyLocalAssistant";
     public string? KeyId => null;
 
-    public IReadOnlyList<SkillToolDto> Tools { get; } = new[]
+    public IReadOnlyList<ToolFunctionDto> Tools { get; } = new[]
     {
-        new SkillToolDto("client.fs.stat",
+        new ToolFunctionDto("client.fs.stat",
             "Check whether a file or directory exists in the user's shared folder. Returns size and last-modified time when present.",
             """
             { "type": "object", "properties": {
                 "path": { "type": "string", "description": "Path relative to the user's shared root, or absolute path inside it." }
               }, "required": ["path"], "additionalProperties": false }
             """),
-        new SkillToolDto("client.fs.list",
+        new ToolFunctionDto("client.fs.list",
             "List files and subfolders in a directory inside the user's shared folder.",
             """
             { "type": "object", "properties": {
@@ -43,7 +43,7 @@ internal sealed class ClientFsSkill : ISkill
                 "recursive": { "type": "boolean", "default": false }
               }, "required": ["path"], "additionalProperties": false }
             """),
-        new SkillToolDto("client.fs.read",
+        new ToolFunctionDto("client.fs.read",
             "Read up to 256 KiB of a file inside the user's shared folder. Returns base64 bytes and an eof flag for chunked reads.",
             """
             { "type": "object", "properties": {
@@ -52,7 +52,7 @@ internal sealed class ClientFsSkill : ISkill
                 "length": { "type": "integer", "minimum": 1, "maximum": 4194304, "default": 262144 }
               }, "required": ["path"], "additionalProperties": false }
             """),
-        new SkillToolDto("client.fs.write",
+        new ToolFunctionDto("client.fs.write",
             "Write bytes (base64) to a file inside the user's shared folder. Creates parent directories. Refuses executable extensions like .exe/.dll/.bat.",
             """
             { "type": "object", "properties": {
@@ -61,12 +61,12 @@ internal sealed class ClientFsSkill : ISkill
                 "append": { "type": "boolean", "default": false }
               }, "required": ["path", "bytesB64"], "additionalProperties": false }
             """),
-        new SkillToolDto("client.fs.mkdir",
+        new ToolFunctionDto("client.fs.mkdir",
             "Create a directory inside the user's shared folder. Idempotent.",
             """
             { "type": "object", "properties": { "path": { "type": "string" } }, "required": ["path"], "additionalProperties": false }
             """),
-        new SkillToolDto("client.fs.move",
+        new ToolFunctionDto("client.fs.move",
             "Move or rename a file/directory inside the user's shared folder.",
             """
             { "type": "object", "properties": {
@@ -75,7 +75,7 @@ internal sealed class ClientFsSkill : ISkill
                 "overwrite": { "type": "boolean", "default": false }
               }, "required": ["from", "to"], "additionalProperties": false }
             """),
-        new SkillToolDto("client.fs.delete",
+        new ToolFunctionDto("client.fs.delete",
             "Delete a file or directory inside the user's shared folder. Use recursive=true for non-empty folders.",
             """
             { "type": "object", "properties": {
@@ -83,22 +83,22 @@ internal sealed class ClientFsSkill : ISkill
                 "recursive": { "type": "boolean", "default": false }
               }, "required": ["path"], "additionalProperties": false }
             """),
-        new SkillToolDto("client.fs.tempPath",
+        new ToolFunctionDto("client.fs.tempPath",
             "Get a per-conversation scratch directory inside the user's shared folder. Use this when you need a place to put intermediate files.",
             """
             { "type": "object", "properties": {}, "additionalProperties": false }
             """),
     };
 
-    public SkillRequirementsDto Requirements { get; } = new(ToolCallProtocols.Tags, MinContextK: 4);
+    public ToolRequirementsDto Requirements { get; } = new(ToolCallProtocols.Tags, MinContextK: 4);
 
     public void Configure(string? configJson) { /* no per-instance config */ }
 
-    public async Task<SkillResult> InvokeAsync(SkillInvocation call, SkillContext ctx)
+    public async Task<ToolResult> InvokeAsync(ToolInvocation call, ToolContext ctx)
     {
         var bridge = _hub.TryGet(ctx.UserId);
         if (bridge is null)
-            return SkillResult.Error("No Client app is currently connected for this user. Ask the user to open the MyLocalAssistant Client and pick a shared folder.");
+            return ToolResult.Error("No Client app is currently connected for this user. Ask the user to open the MyLocalAssistant Client and pick a shared folder.");
 
         // Re-shape arguments where needed (e.g. inject conversationId for tempPath).
         object? @params;
@@ -114,7 +114,7 @@ internal sealed class ClientFsSkill : ISkill
         }
         catch (JsonException ex)
         {
-            return SkillResult.Error("Arguments must be a JSON object: " + ex.Message);
+            return ToolResult.Error("Arguments must be a JSON object: " + ex.Message);
         }
 
         // Map LLM-facing tool name to wire method ("client.fs.read" -> "fs.read").
@@ -126,15 +126,15 @@ internal sealed class ClientFsSkill : ISkill
         {
             var result = await bridge.InvokeAsync(method, @params, timeout: TimeSpan.FromSeconds(60), ctx.CancellationToken);
             var json = result is null ? "{}" : result.Value.GetRawText();
-            return SkillResult.Ok(json, json);
+            return ToolResult.Ok(json, json);
         }
         catch (ClientBridgeException ex)
         {
-            return SkillResult.Error($"{ex.Code}: {ex.Message}");
+            return ToolResult.Error($"{ex.Code}: {ex.Message}");
         }
         catch (TimeoutException)
         {
-            return SkillResult.Error("Client did not respond in time. The Client app may be unresponsive or disconnected.");
+            return ToolResult.Error("Client did not respond in time. The Client app may be unresponsive or disconnected.");
         }
     }
 }

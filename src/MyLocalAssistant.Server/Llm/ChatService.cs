@@ -8,7 +8,7 @@ using MyLocalAssistant.Core.Inference;
 using MyLocalAssistant.Server.Configuration;
 using MyLocalAssistant.Server.Persistence;
 using MyLocalAssistant.Server.Rag;
-using MyLocalAssistant.Server.Skills;
+using MyLocalAssistant.Server.Tools;
 using MyLocalAssistant.Shared.Contracts;
 
 namespace MyLocalAssistant.Server.Llm;
@@ -20,7 +20,7 @@ public sealed class ChatService(
     ModelCatalogService catalog,
     ModelManager models,
     RagService rag,
-    SkillRegistry skills,
+    ToolRegistry skills,
     ModelCapabilityRegistry capabilities,
     ToolCallStats toolStats,
     ServerSettings settings,
@@ -57,9 +57,9 @@ public sealed class ChatService(
         public Action<string, string>? OnToolUnavailable { get; init; }
         /// <summary>Fired immediately after a tool call is parsed but before invocation.</summary>
         public Action<string, string>? OnToolCall { get; init; }
-        /// <summary>Fired with the result (or error message) returned by the skill.</summary>
+        /// <summary>Fired with the result (or error message) returned by the tool.</summary>
         public Action<string, string, bool>? OnToolResult { get; init; }
-        /// <summary>Conversation id for the current turn (passed into <see cref="SkillContext"/>).</summary>
+        /// <summary>Conversation id for the current turn (passed into <see cref="ToolContext"/>).</summary>
         public Guid ConversationId { get; init; }
     }
 
@@ -110,7 +110,7 @@ public sealed class ChatService(
         log.LogDebug("Chat: agent={AgentId}, user={User}, ragChunks={Chunks}, history={Hist}, promptChars={Chars}, model={Model}, tools={Tools}/{Bound}",
             agent.Id, principal.Username ?? principal.UserId.ToString(),
             retrieval.Chunks.Count, history.Count, basePrompt.Length, activeModelId,
-            resolvedSkills.Count, SkillRegistry.ParseSkillIds(agent.SkillIds).Count);
+            resolvedSkills.Count, ToolRegistry.ParseToolIds(agent.ToolIds).Count);
 
         using var lease = await queue.AcquireAsync(ct);
 
@@ -118,7 +118,7 @@ public sealed class ChatService(
         var stops = toolMode ? new[] { ToolCallClose } : Array.Empty<string>();
         var workDir = await ResolveWorkDirectoryAsync(principal.UserId, callbacks.ConversationId, ct);
         Directory.CreateDirectory(workDir);
-        var skillCtx = new SkillContext(
+        var skillCtx = new ToolContext(
             principal.UserId,
             principal.Username ?? string.Empty,
             principal.IsAdmin,
@@ -224,7 +224,7 @@ public sealed class ChatService(
                     var sw = System.Diagnostics.Stopwatch.StartNew();
                     try
                     {
-                        var inv = new SkillInvocation(toolName!, argsJson ?? "{}");
+                        var inv = new ToolInvocation(toolName!, argsJson ?? "{}");
                         var result = await skill!.InvokeAsync(inv, skillCtx).ConfigureAwait(false);
                         sw.Stop();
                         resultJson = result.StructuredJson
@@ -278,28 +278,28 @@ public sealed class ChatService(
     }
 
     /// <summary>
-    /// Resolve the agent's bound skill ids into actual <see cref="ISkill"/>s, reporting every
+    /// Resolve the agent's bound skill ids into actual <see cref="ITool"/>s, reporting every
     /// id that was filtered (disabled, missing, or model can't tool-call) via the callback.
     /// </summary>
-    private List<ISkill> ResolveSkills(Agent agent, ModelCapability capability, Action<string, string>? onUnavailable)
+    private List<ITool> ResolveSkills(Agent agent, ModelCapability capability, Action<string, string>? onUnavailable)
     {
-        var bound = SkillRegistry.ParseSkillIds(agent.SkillIds);
-        if (bound.Count == 0) return new List<ISkill>(0);
+        var bound = ToolRegistry.ParseToolIds(agent.ToolIds);
+        if (bound.Count == 0) return new List<ITool>(0);
 
         if (capability.Tools == ToolCallProtocols.None)
         {
             foreach (var id in bound)
                 onUnavailable?.Invoke(id, "Active model does not support tool calling.");
-            return new List<ISkill>(0);
+            return new List<ITool>(0);
         }
         if (capability.Tools != ToolCallProtocols.Tags)
         {
             foreach (var id in bound)
                 onUnavailable?.Invoke(id, $"Tool protocol '{capability.Tools}' is not yet implemented.");
-            return new List<ISkill>(0);
+            return new List<ITool>(0);
         }
 
-        var resolved = new List<ISkill>(bound.Count);
+        var resolved = new List<ITool>(bound.Count);
         foreach (var id in bound)
         {
             if (!skills.TryGet(id, out var skill))
@@ -323,7 +323,7 @@ public sealed class ChatService(
         return resolved;
     }
 
-    private static (bool ok, string? error, ISkill? skill) LookupAllowedSkill(string toolName, IReadOnlyList<ISkill> allowed)
+    private static (bool ok, string? error, ITool? skill) LookupAllowedSkill(string toolName, IReadOnlyList<ITool> allowed)
     {
         foreach (var s in allowed)
         {
@@ -394,7 +394,7 @@ public sealed class ChatService(
         string userMessage,
         IReadOnlyList<RagContextChunk> chunks,
         IReadOnlyList<HistoryTurn> history,
-        IReadOnlyList<ISkill> tools)
+        IReadOnlyList<ITool> tools)
     {
         var sb = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(globalSystemPrompt))

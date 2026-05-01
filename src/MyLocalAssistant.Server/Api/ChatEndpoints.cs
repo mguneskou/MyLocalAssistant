@@ -135,12 +135,12 @@ public static class ChatEndpoints
             {
                 OnRetrieval = r => lastRetrieval = r,
                 ConversationId = conversationIdLocal,
-                OnToolUnavailable = (skillId, reason) =>
+                OnToolUnavailable = (toolId, reason) =>
                 {
                     try
                     {
                         WriteFrameAsync(http.Response,
-                            new TokenStreamFrame(TokenStreamFrameKind.ToolUnavailable, ToolName: skillId, ToolReason: reason),
+                            new TokenStreamFrame(TokenStreamFrameKind.ToolUnavailable, ToolName: toolId, ToolReason: reason),
                             ct).GetAwaiter().GetResult();
                     }
                     catch { /* response broken */ }

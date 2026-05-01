@@ -7,11 +7,11 @@ using MyLocalAssistant.Shared.Contracts;
 namespace MyLocalAssistant.Admin.Forms;
 
 /// <summary>
-/// Global-admin-only console for the skill catalog. Phase 1: enable/disable each skill,
-/// edit per-skill <c>ConfigJson</c>, inspect tools and capability requirements. Plug-in
+/// Global-admin-only console for the tool catalog. Phase 1: enable/disable each tool,
+/// edit per-tool <c>ConfigJson</c>, inspect tools and capability requirements. Plug-in
 /// install/uninstall lands in Phase 3.
 /// </summary>
-internal sealed class SkillsTab : UserControl
+internal sealed class ToolsTab : UserControl
 {
     private readonly ServerClient _client;
     private readonly ToolStrip _toolbar;
@@ -25,9 +25,9 @@ internal sealed class SkillsTab : UserControl
     private DataGridViewButtonColumn _toolsCol = null!;
     private DataGridViewButtonColumn _configCol = null!;
     private bool _suppressEvents;
-    private List<SkillDto> _last = new();
+    private List<ToolDto> _last = new();
 
-    public SkillsTab(ServerClient client)
+    public ToolsTab(ServerClient client)
     {
         _client = client;
         Dock = DockStyle.Fill;
@@ -127,12 +127,12 @@ internal sealed class SkillsTab : UserControl
         SetBusy(true, "Loading skills\u2026");
         try
         {
-            _last = await _client.ListSkillsAsync();
+            _last = await _client.ListToolsAsync();
             _suppressEvents = true;
             _rows.Clear();
             foreach (var s in _last) _rows.Add(SkillRow.From(s));
             _suppressEvents = false;
-            _statusLabel.Text = $"{_last.Count} skill(s); {_last.Count(s => s.Enabled)} enabled.";
+            _statusLabel.Text = $"{_last.Count} tool(s); {_last.Count(s => s.Enabled)} enabled.";
         }
         catch (Exception ex) { ShowError("Load failed", ex); }
         finally { SetBusy(false); }
@@ -153,7 +153,7 @@ internal sealed class SkillsTab : UserControl
         if (e.ColumnIndex == _configCol.Index)
         {
             using var dlg = new PromptEditorForm($"Config JSON \u2014 {dto.Name}",
-                "Free-form JSON the skill validates on save. Empty = no config. Max 32 KB.",
+                "Free-form JSON the tool validates on save. Empty = no config. Max 32 KB.",
                 row.ConfigJson ?? "", 32 * 1024);
             if (dlg.ShowDialog(this) != DialogResult.OK) return;
             var newConfig = string.IsNullOrWhiteSpace(dlg.PromptText) ? null : dlg.PromptText;
@@ -178,7 +178,7 @@ internal sealed class SkillsTab : UserControl
     {
         try
         {
-            var updated = await _client.UpdateSkillAsync(row.Id, new SkillUpdateRequest(row.Enabled, row.ConfigJson));
+            var updated = await _client.UpdateToolAsync(row.Id, new ToolUpdateRequest(row.Enabled, row.ConfigJson));
             _statusLabel.Text = $"Saved {updated.Name} (enabled={updated.Enabled}, configChars={updated.ConfigJson?.Length ?? 0}).";
             // Refresh cached DTO so subsequent dialogs see the persisted value.
             var idx = _last.FindIndex(s => s.Id == row.Id);
@@ -187,7 +187,7 @@ internal sealed class SkillsTab : UserControl
         catch (Exception ex) { ShowError("Save failed", ex); await ReloadAsync(); }
     }
 
-    private void ShowToolsDialog(SkillDto dto)
+    private void ShowToolsDialog(ToolDto dto)
     {
         var sb = new System.Text.StringBuilder();
         sb.AppendLine($"Skill: {dto.Name} ({dto.Id})");
@@ -262,7 +262,7 @@ internal sealed class SkillsTab : UserControl
         public string? ConfigJson { get; set; }
         public string Description { get; set; } = "";
 
-        public static SkillRow From(SkillDto s) => new()
+        public static SkillRow From(ToolDto s) => new()
         {
             Id = s.Id,
             Name = s.Name,

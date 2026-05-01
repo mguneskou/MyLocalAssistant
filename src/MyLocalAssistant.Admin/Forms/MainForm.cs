@@ -65,9 +65,9 @@ internal sealed class MainForm : Form
         // agent in the system is capable of, so a regular admin shouldn't see or change it.
         if (_client.CurrentUser?.IsGlobalAdmin == true)
         {
-            var skillsPage = new TabPage("Skills") { UseVisualStyleBackColor = true };
-            skillsPage.Controls.Add(new SkillsTab(_client));
-            _tabs.TabPages.Add(skillsPage);
+            var toolsPage = new TabPage("Tools") { UseVisualStyleBackColor = true };
+            toolsPage.Controls.Add(new ToolsTab(_client));
+            _tabs.TabPages.Add(toolsPage);
         }
 
         var modelsPage = new TabPage("Models") { UseVisualStyleBackColor = true };

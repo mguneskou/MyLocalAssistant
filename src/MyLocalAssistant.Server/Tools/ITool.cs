@@ -3,14 +3,14 @@ using MyLocalAssistant.Server.Persistence;
 using MyLocalAssistant.Server.Rag;
 using MyLocalAssistant.Shared.Contracts;
 
-namespace MyLocalAssistant.Server.Skills;
+namespace MyLocalAssistant.Server.Tools;
 
 /// <summary>
-/// Per-invocation context handed to a skill. Contains only what the skill needs to
+/// Per-invocation context handed to a tool. Contains only what the tool needs to
 /// operate on this turn — never the raw HttpContext, never the AppDbContext, never
 /// secrets. For plugin skills this is serialised over JSON-RPC; keep it small.
 /// </summary>
-public sealed record SkillContext(
+public sealed record ToolContext(
     Guid UserId,
     string Username,
     bool IsAdmin,
@@ -22,7 +22,7 @@ public sealed record SkillContext(
     /// <summary>Cancellation token bounded by the chat turn's wall-clock budget.</summary>
     CancellationToken CancellationToken)
 {
-    public static SkillContext FromPrincipal(
+    public static ToolContext FromPrincipal(
         UserPrincipals principal,
         string username,
         bool isAdmin,
@@ -36,28 +36,28 @@ public sealed record SkillContext(
 }
 
 /// <summary>Result of a single tool invocation. Returned to the LLM as text.</summary>
-public sealed record SkillResult(
+public sealed record ToolResult(
     bool IsError,
     string Content,
     /// <summary>Optional structured payload retained for audit/UI; not shown to the LLM.</summary>
     string? StructuredJson = null)
 {
-    public static SkillResult Ok(string content, string? structured = null) => new(false, content, structured);
-    public static SkillResult Error(string message) => new(true, message);
+    public static ToolResult Ok(string content, string? structured = null) => new(false, content, structured);
+    public static ToolResult Error(string message) => new(true, message);
 }
 
 /// <summary>One tool invocation request resolved from the LLM's tool call.</summary>
-public sealed record SkillInvocation(
+public sealed record ToolInvocation(
     string ToolName,
     /// <summary>Raw JSON arguments object as emitted by the LLM (already validated against the tool's schema).</summary>
     string ArgumentsJson);
 
 /// <summary>
 /// Contract every skill implements. Built-in skills implement this directly;
-/// plug-in skills are wrapped by <c>PluginSkill</c> which proxies over JSON-RPC
+/// plug-in tools are wrapped by <c>PluginTool</c> which proxies over JSON-RPC
 /// to a separate Windows process.
 /// </summary>
-public interface ISkill
+public interface ITool
 {
     /// <summary>Stable string id (e.g. "math.eval", "excel-handler"). Lower-case, dot-separated by convention.</summary>
     string Id { get; }
@@ -66,16 +66,16 @@ public interface ISkill
     string Category { get; }
     string Source { get; }       // "builtin" or "plugin"
     string? Version { get; }     // null for built-ins (versioned with the server)
-    /// <summary>Display-name of who shipped the skill. "MyLocalAssistant" for built-ins; manifest publisher for plug-ins.</summary>
+    /// <summary>Display-name of who shipped the tool. "MyLocalAssistant" for built-ins; manifest publisher for plug-ins.</summary>
     string? Publisher { get; }
     /// <summary>Trusted-key id used to sign the manifest. Null for built-ins.</summary>
     string? KeyId { get; }
 
     /// <summary>The tools this skill exposes. The LLM sees these as callable functions.</summary>
-    IReadOnlyList<SkillToolDto> Tools { get; }
+    IReadOnlyList<ToolFunctionDto> Tools { get; }
 
     /// <summary>Capability requirements the host checks against the active model.</summary>
-    SkillRequirementsDto Requirements { get; }
+    ToolRequirementsDto Requirements { get; }
 
     /// <summary>
     /// Apply (and validate) the admin's <c>ConfigJson</c>. Called at startup and again
@@ -86,5 +86,5 @@ public interface ISkill
     void Configure(string? configJson);
 
     /// <summary>Invoke a single tool. Implementations must respect <paramref name="ctx"/>.CancellationToken.</summary>
-    Task<SkillResult> InvokeAsync(SkillInvocation call, SkillContext ctx);
+    Task<ToolResult> InvokeAsync(ToolInvocation call, ToolContext ctx);
 }

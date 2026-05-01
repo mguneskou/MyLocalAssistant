@@ -1,28 +1,28 @@
-using MyLocalAssistant.Server.Skills;
-using MyLocalAssistant.Server.Skills.Plugin;
+using MyLocalAssistant.Server.Tools;
+using MyLocalAssistant.Server.Tools.Plugin;
 using MyLocalAssistant.Shared.Contracts;
 
 namespace MyLocalAssistant.Server.Api;
 
-public static class SkillEndpoints
+public static class ToolEndpoints
 {
-    public static IEndpointRouteBuilder MapSkillEndpoints(this IEndpointRouteBuilder app)
+    public static IEndpointRouteBuilder MapToolEndpoints(this IEndpointRouteBuilder app)
     {
-        var admin = app.MapGroup("/api/admin/skills")
-            .WithTags("Admin/Skills")
+        var admin = app.MapGroup("/api/admin/tools")
+            .WithTags("Admin/Tools")
             .RequireAuthorization("Admin");
 
         // Listing skills is fine for any admin (it shows what's installed); editing is owner-only.
-        admin.MapGet("/", (SkillRegistry registry) => Results.Ok(registry.List()));
+        admin.MapGet("/", (ToolRegistry registry) => Results.Ok(registry.List()));
 
-        admin.MapGet("/{id}", (string id, SkillRegistry registry) =>
+        admin.MapGet("/{id}", (string id, ToolRegistry registry) =>
         {
             var dto = registry.List().FirstOrDefault(s =>
                 string.Equals(s.Id, id, StringComparison.OrdinalIgnoreCase));
             return dto is null ? Results.NotFound() : Results.Ok(dto);
         });
 
-        admin.MapPatch("/{id}", async (string id, SkillUpdateRequest req, SkillRegistry registry, CancellationToken ct) =>
+        admin.MapPatch("/{id}", async (string id, ToolUpdateRequest req, ToolRegistry registry, CancellationToken ct) =>
         {
             try
             {
@@ -39,9 +39,9 @@ public static class SkillEndpoints
             }
         }).RequireAuthorization("GlobalAdmin");
 
-        // Hot-reload: rescan ./plugins/, dispose old PluginSkill instances, register fresh ones.
+        // Hot-reload: rescan ./plugins/, dispose old PluginTool instances, register fresh ones.
         // Built-in skills are untouched. Owner-only.
-        admin.MapPost("/reload", async (PluginScanner scanner, SkillRegistry registry) =>
+        admin.MapPost("/reload", async (PluginScanner scanner, ToolRegistry registry) =>
         {
             var fresh = await scanner.ReloadAsync(registry);
             return Results.Ok(new { count = fresh.Count, ids = fresh.Select(p => p.Id).ToArray() });

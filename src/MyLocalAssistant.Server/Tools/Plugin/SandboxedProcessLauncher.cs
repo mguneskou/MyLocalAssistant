@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
-namespace MyLocalAssistant.Server.Skills.Plugin;
+namespace MyLocalAssistant.Server.Tools.Plugin;
 
 /// <summary>
 /// Spawns a plug-in process attached to a Windows Job Object so it dies when the server

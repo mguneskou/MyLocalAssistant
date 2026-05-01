@@ -2,7 +2,7 @@ using System.Runtime.Versioning;
 using System.Security.AccessControl;
 using System.Security.Principal;
 
-namespace MyLocalAssistant.Server.Skills.Plugin;
+namespace MyLocalAssistant.Server.Tools.Plugin;
 
 /// <summary>
 /// Filesystem helpers for plug-in directories. The goal is "the plug-in process can only

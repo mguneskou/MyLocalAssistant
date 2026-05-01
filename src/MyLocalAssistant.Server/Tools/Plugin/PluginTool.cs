@@ -2,33 +2,33 @@ using System.Text.Json;
 using MyLocalAssistant.Shared.Contracts;
 using MyLocalAssistant.Shared.Plugins;
 
-namespace MyLocalAssistant.Server.Skills.Plugin;
+namespace MyLocalAssistant.Server.Tools.Plugin;
 
 /// <summary>
-/// Wraps a verified plug-in folder as an <see cref="ISkill"/>. Spawns the plug-in process
+/// Wraps a verified plug-in folder as an <see cref="ITool"/>. Spawns the plug-in process
 /// lazily on first invocation, recycles it across calls, and respawns after a crash.
-/// One process per skill (per server). Per-conversation work-dir is passed in
-/// <see cref="SkillContext.ConversationId"/> via the <c>invoke</c> RPC.
+/// One process per tool (per server). Per-conversation work-dir is passed in
+/// <see cref="ToolContext.ConversationId"/> via the <c>invoke</c> RPC.
 /// </summary>
-public sealed class PluginSkill : ISkill, IAsyncDisposable
+public sealed class PluginTool : ITool, IAsyncDisposable
 {
-    private readonly SkillManifest _manifest;
+    private readonly ToolManifest _manifest;
     private readonly string _pluginFolder;
     private readonly string _outputRoot;
     private readonly ILogger _log;
     private readonly SemaphoreSlim _spawnLock = new(1, 1);
     private SandboxedProcess? _proc;
-    private SkillRpcChannel? _channel;
+    private ToolRpcChannel? _channel;
     private static readonly TimeSpan s_callTimeout = TimeSpan.FromSeconds(30);
 
-    public PluginSkill(SkillManifest manifest, string pluginFolder, string outputRoot, ILogger log)
+    public PluginTool(ToolManifest manifest, string pluginFolder, string outputRoot, ILogger log)
     {
         _manifest = manifest;
         _pluginFolder = pluginFolder;
         _outputRoot = outputRoot;
         _log = log;
-        Tools = manifest.Tools.Select(t => new SkillToolDto(t.Name, t.Description, t.ArgumentsSchemaJson)).ToArray();
-        Requirements = new SkillRequirementsDto(
+        Tools = manifest.Tools.Select(t => new ToolFunctionDto(t.Name, t.Description, t.ArgumentsSchemaJson)).ToArray();
+        Requirements = new ToolRequirementsDto(
             string.IsNullOrWhiteSpace(manifest.ToolMode) ? ToolCallProtocols.Tags : manifest.ToolMode,
             manifest.MinContextK <= 0 ? 4 : manifest.MinContextK);
     }
@@ -37,18 +37,18 @@ public sealed class PluginSkill : ISkill, IAsyncDisposable
     public string Name => string.IsNullOrWhiteSpace(_manifest.Name) ? _manifest.Id : _manifest.Name;
     public string Description => _manifest.Description;
     public string Category => string.IsNullOrWhiteSpace(_manifest.Category) ? "Plugin" : _manifest.Category;
-    public string Source => SkillSources.Plugin;
+    public string Source => ToolSources.Plugin;
     public string Version => _manifest.Version;
     public string? Publisher => string.IsNullOrWhiteSpace(_manifest.Publisher) ? null : _manifest.Publisher;
     public string? KeyId => string.IsNullOrWhiteSpace(_manifest.KeyId) ? null : _manifest.KeyId;
-    public IReadOnlyList<SkillToolDto> Tools { get; }
-    public SkillRequirementsDto Requirements { get; }
+    public IReadOnlyList<ToolFunctionDto> Tools { get; }
+    public ToolRequirementsDto Requirements { get; }
 
     /// <summary>Plug-ins receive their config via the <c>configure</c> RPC on first launch.</summary>
     private string? _configJson;
     public void Configure(string? configJson) => _configJson = configJson;
 
-    public async Task<SkillResult> InvokeAsync(SkillInvocation invocation, SkillContext ctx)
+    public async Task<ToolResult> InvokeAsync(ToolInvocation invocation, ToolContext ctx)
     {
         // ctx.WorkDirectory is resolved by ChatService and already honors the user's
         // WorkRoot (v2.1.7+). Fall back to the default output root only if the host
@@ -75,11 +75,11 @@ public sealed class PluginSkill : ISkill, IAsyncDisposable
                 },
             };
             var resultElement = await channel.CallAsync("invoke", paramsObj, s_callTimeout, ctx.CancellationToken).ConfigureAwait(false);
-            return ParseSkillResult(resultElement);
+            return ParseToolResult(resultElement);
         }
-        catch (SkillRpcException rex)
+        catch (ToolRpcException rex)
         {
-            return SkillResult.Error(rex.Message);
+            return ToolResult.Error(rex.Message);
         }
         catch (OperationCanceledException) when (ctx.CancellationToken.IsCancellationRequested)
         {
@@ -87,9 +87,9 @@ public sealed class PluginSkill : ISkill, IAsyncDisposable
         }
         catch (Exception ex)
         {
-            _log.LogWarning(ex, "Plug-in {Skill} invocation failed; recycling channel.", Id);
+            _log.LogWarning(ex, "Plug-in {Tool} invocation failed; recycling channel.", Id);
             await RecycleAsync().ConfigureAwait(false);
-            return SkillResult.Error("Plug-in invocation failed: " + ex.Message);
+            return ToolResult.Error("Plug-in invocation failed: " + ex.Message);
         }
     }
 
@@ -104,20 +104,20 @@ public sealed class PluginSkill : ISkill, IAsyncDisposable
         catch { return new { }; }
     }
 
-    private static SkillResult ParseSkillResult(JsonElement? result)
+    private static ToolResult ParseToolResult(JsonElement? result)
     {
-        if (result is null) return SkillResult.Error("Plug-in returned null result.");
+        if (result is null) return ToolResult.Error("Plug-in returned null result.");
         var root = result.Value;
-        if (root.ValueKind != JsonValueKind.Object) return SkillResult.Error("Plug-in result must be a JSON object.");
+        if (root.ValueKind != JsonValueKind.Object) return ToolResult.Error("Plug-in result must be a JSON object.");
         var isError = root.TryGetProperty("isError", out var ie) && ie.ValueKind == JsonValueKind.True;
         var content = root.TryGetProperty("content", out var c) && c.ValueKind == JsonValueKind.String ? (c.GetString() ?? "") : "";
         string? structured = null;
         if (root.TryGetProperty("structured", out var s) && s.ValueKind != JsonValueKind.Null && s.ValueKind != JsonValueKind.Undefined)
             structured = s.GetRawText();
-        return new SkillResult(isError, content, structured);
+        return new ToolResult(isError, content, structured);
     }
 
-    private async Task<SkillRpcChannel> EnsureChannelAsync(CancellationToken ct)
+    private async Task<ToolRpcChannel> EnsureChannelAsync(CancellationToken ct)
     {
         if (_channel is { IsFaulted: false }) return _channel;
         await _spawnLock.WaitAsync(ct).ConfigureAwait(false);
@@ -130,20 +130,20 @@ public sealed class PluginSkill : ISkill, IAsyncDisposable
             if (!File.Exists(exe))
                 throw new FileNotFoundException($"Plug-in '{Id}' entry executable not found: {exe}");
 
-            // Spawn with a per-skill scratch dir; per-call working dir is passed via RPC.
-            var workDir = Path.Combine(_outputRoot, "__skill", Id);
+            // Spawn with a per-tool scratch dir; per-call working dir is passed via RPC.
+            var workDir = Path.Combine(_outputRoot, "__tool", Id);
             _proc = SandboxedProcessLauncher.Launch(exe, _manifest.Entry.Args, workDir, log: _log);
-            _channel = new SkillRpcChannel(Id, _proc.StandardInput, _proc.StandardOutput, _proc.StandardError, _log);
+            _channel = new ToolRpcChannel(Id, _proc.StandardInput, _proc.StandardOutput, _proc.StandardError, _log);
 
             // Initialize handshake.
             await _channel.CallAsync("initialize", new
             {
-                skillId = Id,
+                toolId = Id,
                 version = Version,
                 configJson = _configJson,
             }, s_callTimeout, ct).ConfigureAwait(false);
 
-            _log.LogInformation("Plug-in {Skill} v{Ver} launched (pid={Pid}).", Id, Version, _proc.Process.Id);
+            _log.LogInformation("Plug-in {Tool} v{Ver} launched (pid={Pid}).", Id, Version, _proc.Process.Id);
             return _channel;
         }
         finally { _spawnLock.Release(); }

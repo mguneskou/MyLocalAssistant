@@ -77,15 +77,15 @@ try
     builder.Services.AddScoped<ChatService>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.ClientBridge.ClientBridgeHub>();
 
-    // Skills (Phase 1): in-process built-ins. Plug-in discovery comes in Phase 3.
-    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.MathEvalSkill>();
-    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.TimeNowSkill>();
-    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.RagSearchSkill>();
-    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.BuiltIn.ClientFsSkill>();
-    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.SkillRegistry>();
-    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ToolCallStats>();
-    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.Plugin.PluginSignatureVerifier>();
-    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.Plugin.PluginScanner>();
+    // Tools (Phase 1): in-process built-ins. Plug-in discovery comes in Phase 3.
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.MathEvalTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.TimeNowTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.RagSearchTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.ClientFsTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ToolRegistry>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ToolCallStats>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.Plugin.PluginSignatureVerifier>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.Plugin.PluginScanner>();
     builder.Services.AddHostedService<ModelBootstrapService>();
     builder.Services.AddHostedService<EmbeddingBootstrapService>();
     builder.Services.AddHostedService<MyLocalAssistant.Server.Hosting.RetentionService>();
@@ -129,14 +129,14 @@ try
         await deptSvc.SeedAsync();
         var agentSvc = scope.ServiceProvider.GetRequiredService<AgentService>();
         await agentSvc.SeedAsync();
-        var skillRegistry = app.Services.GetRequiredService<MyLocalAssistant.Server.Skills.SkillRegistry>();
-        var pluginScanner = app.Services.GetRequiredService<MyLocalAssistant.Server.Skills.Plugin.PluginScanner>();
+        var toolRegistry = app.Services.GetRequiredService<MyLocalAssistant.Server.Tools.ToolRegistry>();
+        var pluginScanner = app.Services.GetRequiredService<MyLocalAssistant.Server.Tools.Plugin.PluginScanner>();
         foreach (var plugin in pluginScanner.ScanAndLoad())
         {
-            try { skillRegistry.Register(plugin); }
+            try { toolRegistry.Register(plugin); }
             catch (Exception ex) { Log.Warning(ex, "Plug-in '{Id}' could not be registered.", plugin.Id); }
         }
-        await skillRegistry.SeedAsync();
+        await toolRegistry.SeedAsync();
     }
 
     app.UseSerilogRequestLogging();
@@ -157,7 +157,7 @@ try
     app.MapAuditEndpoints();
     app.MapSettingsEndpoints();
     app.MapAttachmentEndpoints();
-    app.MapSkillEndpoints();
+    app.MapToolEndpoints();
     app.MapClientBridgeEndpoints();
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
         settings.ListenUrl, ServerPaths.AppDirectory);

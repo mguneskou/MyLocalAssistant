@@ -190,27 +190,27 @@ public sealed class ServerClient : IDisposable
             ?? throw new InvalidOperationException("Empty update-agent response.");
     }
 
-    // ---------- Admin: skills ----------
+    // ---------- Admin: tools ----------
 
-    public async Task<List<SkillDto>> ListSkillsAsync(CancellationToken ct = default)
+    public async Task<List<ToolDto>> ListToolsAsync(CancellationToken ct = default)
     {
-        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/skills/", null, ct);
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/tools/", null, ct);
         await EnsureSuccessAsync(resp, ct);
-        return await resp.Content.ReadFromJsonAsync<List<SkillDto>>(s_json, ct) ?? new();
+        return await resp.Content.ReadFromJsonAsync<List<ToolDto>>(s_json, ct) ?? new();
     }
 
-    public async Task<SkillDto> UpdateSkillAsync(string id, SkillUpdateRequest req, CancellationToken ct = default)
+    public async Task<ToolDto> UpdateToolAsync(string id, ToolUpdateRequest req, CancellationToken ct = default)
     {
-        var resp = await SendAuthorizedAsync(HttpMethod.Patch, $"api/admin/skills/{id}", req, ct);
+        var resp = await SendAuthorizedAsync(HttpMethod.Patch, $"api/admin/tools/{id}", req, ct);
         await EnsureSuccessAsync(resp, ct);
-        return await resp.Content.ReadFromJsonAsync<SkillDto>(s_json, ct)
-            ?? throw new InvalidOperationException("Empty update-skill response.");
+        return await resp.Content.ReadFromJsonAsync<ToolDto>(s_json, ct)
+            ?? throw new InvalidOperationException("Empty update-tool response.");
     }
 
-    /// <summary>Hot-reload all plug-in skills (rescans <c>./plugins/</c>). Owner-only.</summary>
+    /// <summary>Hot-reload all plug-in tools (rescans <c>./plugins/</c>). Owner-only.</summary>
     public async Task<int> ReloadPluginsAsync(CancellationToken ct = default)
     {
-        var resp = await SendAuthorizedAsync(HttpMethod.Post, "api/admin/skills/reload", new { }, ct);
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, "api/admin/tools/reload", new { }, ct);
         await EnsureSuccessAsync(resp, ct);
         var doc = await resp.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>(s_json, ct);
         return doc.TryGetProperty("count", out var c) && c.TryGetInt32(out var n) ? n : 0;

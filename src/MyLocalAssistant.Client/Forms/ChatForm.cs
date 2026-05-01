@@ -72,7 +72,7 @@ internal sealed class ChatForm : Form
         _changePwdBtn.Click += (_, _) => { using var d = new ChangePasswordForm(_client, forced: false); d.ShowDialog(this); };
         _signOutBtn = new ToolStripButton("Sign out") { Font = UiTheme.BaseFont };
         _signOutBtn.Click += (_, _) => { DialogResult = DialogResult.Retry; Close(); };
-        _bridgeFolderBtn = new ToolStripButton("\uD83D\uDCC1  Folder\u2026") { Font = UiTheme.BaseFont, ToolTipText = "Pick the folder skills may read/write on this PC." };
+        _bridgeFolderBtn = new ToolStripButton("\uD83D\uDCC1  Folder\u2026") { Font = UiTheme.BaseFont, ToolTipText = "Pick the folder tools may read/write on this PC." };
         _bridgeFolderBtn.Click += (_, _) => PickBridgeFolder();
         _themeBtn = new ToolStripButton("\uD83C\uDF19") { Font = UiTheme.BaseFont, ToolTipText = "Toggle light / dark theme" };
         _themeBtn.Click += (_, _) => ToggleTheme();

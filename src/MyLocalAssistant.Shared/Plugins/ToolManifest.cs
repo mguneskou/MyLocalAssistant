@@ -7,9 +7,9 @@ namespace MyLocalAssistant.Shared.Plugins;
 /// manifest is the only file that is signed (with ed25519); each binary it lists carries
 /// its own SHA-256 hash so tampering with a DLL after signing is detected on load.
 /// </summary>
-public sealed class SkillManifest
+public sealed class ToolManifest
 {
-    /// <summary>Stable, lower-case skill id (matches the catalog/SkillState row).</summary>
+    /// <summary>Stable, lower-case skill id (matches the catalog/ToolState row).</summary>
     [JsonPropertyName("id")] public string Id { get; set; } = "";
     [JsonPropertyName("name")] public string Name { get; set; } = "";
     [JsonPropertyName("description")] public string Description { get; set; } = "";
@@ -19,7 +19,7 @@ public sealed class SkillManifest
     [JsonPropertyName("publisher")] public string Publisher { get; set; } = "";
     /// <summary>Filename of the trusted public key (without extension) used to sign this manifest.</summary>
     [JsonPropertyName("keyId")] public string KeyId { get; set; } = "";
-    /// <summary>Tool-call protocol the skill expects (see <c>ToolCallProtocols</c>).</summary>
+    /// <summary>Tool-call protocol the tool expects (see <c>ToolCallProtocols</c>).</summary>
     [JsonPropertyName("toolMode")] public string ToolMode { get; set; } = "tags";
     [JsonPropertyName("minContextK")] public int MinContextK { get; set; } = 4;
 
@@ -30,7 +30,7 @@ public sealed class SkillManifest
     /// part of the signed payload. Loader recomputes and rejects on mismatch.</summary>
     [JsonPropertyName("files")] public List<ManifestFile> Files { get; set; } = new();
 
-    /// <summary>The tools this plug-in exposes. Mirrors the in-process <c>SkillToolDto</c>.</summary>
+    /// <summary>The tools this plug-in exposes. Mirrors the in-process <c>ToolFunctionDto</c>.</summary>
     [JsonPropertyName("tools")] public List<ManifestTool> Tools { get; set; } = new();
 }
 

@@ -2,8 +2,8 @@ using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.Extensions.Logging.Abstractions;
 using MyLocalAssistant.Server.ClientBridge;
-using MyLocalAssistant.Server.Skills;
-using MyLocalAssistant.Server.Skills.BuiltIn;
+using MyLocalAssistant.Server.Tools;
+using MyLocalAssistant.Server.Tools.BuiltIn;
 
 namespace MyLocalAssistant.Core.Tests;
 
@@ -11,16 +11,16 @@ namespace MyLocalAssistant.Core.Tests;
 /// Tests the LLM-facing client.fs skill, including the no-client-connected error path
 /// and the happy-path round-trip via a fake client transport.
 /// </summary>
-public class ClientFsSkillTests
+public class ClientFsToolTests
 {
     [Fact]
     public async Task Returns_error_when_no_client_connected()
     {
         var hub = new ClientBridgeHub(NullLogger<ClientBridgeHub>.Instance);
-        var skill = MakeSkill(hub);
+        var tool = MakeTool(hub);
         var ctx = MakeContext();
 
-        var r = await skill.InvokeAsync(new SkillInvocation("client.fs.stat", "{\"path\":\"x\"}"), ctx);
+        var r = await tool.InvokeAsync(new ToolInvocation("client.fs.stat", "{\"path\":\"x\"}"), ctx);
 
         Assert.True(r.IsError);
         Assert.Contains("Client app", r.Content);
@@ -54,9 +54,9 @@ public class ClientFsSkillTests
             await client.SendAsync(reply, default);
         });
 
-        var skill = MakeSkill(hub);
+        var tool = MakeTool(hub);
         var ctx = MakeContext(userId);
-        var r = await skill.InvokeAsync(new SkillInvocation("client.fs.stat", "{\"path\":\"report.xlsx\"}"), ctx);
+        var r = await tool.InvokeAsync(new ToolInvocation("client.fs.stat", "{\"path\":\"report.xlsx\"}"), ctx);
 
         Assert.False(r.IsError);
         using var doc = JsonDocument.Parse(r.Content);
@@ -82,7 +82,7 @@ public class ClientFsSkillTests
             var frame = await client.ReceiveAsync(default);
             using var doc = JsonDocument.Parse(frame!);
             Assert.Equal("fs.tempPath", doc.RootElement.GetProperty("method").GetString());
-            // The LLM passed no args; the skill must inject conversationId from context.
+            // The LLM passed no args; the tool must inject conversationId from context.
             Assert.Equal(convId.ToString("N"),
                 doc.RootElement.GetProperty("params").GetProperty("conversationId").GetString());
             var id = doc.RootElement.GetProperty("id").GetString()!;
@@ -90,9 +90,9 @@ public class ClientFsSkillTests
             await client.SendAsync(reply, default);
         });
 
-        var skill = MakeSkill(hub);
+        var tool = MakeTool(hub);
         var ctx = MakeContext(userId, convId);
-        var r = await skill.InvokeAsync(new SkillInvocation("client.fs.tempPath", "{}"), ctx);
+        var r = await tool.InvokeAsync(new ToolInvocation("client.fs.tempPath", "{}"), ctx);
         Assert.False(r.IsError);
         await fake;
     }
@@ -120,8 +120,8 @@ public class ClientFsSkillTests
             await client.SendAsync(reply, default);
         });
 
-        var skill = MakeSkill(hub);
-        var r = await skill.InvokeAsync(new SkillInvocation("client.fs.stat", "{\"path\":\"C:\\\\Windows\"}"), MakeContext(userId));
+        var tool = MakeTool(hub);
+        var r = await tool.InvokeAsync(new ToolInvocation("client.fs.stat", "{\"path\":\"C:\\\\Windows\"}"), MakeContext(userId));
         Assert.True(r.IsError);
         Assert.Contains("fs.outsideRoot", r.Content);
         await fake;
@@ -129,9 +129,9 @@ public class ClientFsSkillTests
 
     // -------- helpers --------
 
-    private static ClientFsSkill MakeSkill(ClientBridgeHub hub) => new(hub);
+    private static ClientFsTool MakeTool(ClientBridgeHub hub) => new(hub);
 
-    private static SkillContext MakeContext(Guid? userId = null, Guid? convId = null) => new(
+    private static ToolContext MakeContext(Guid? userId = null, Guid? convId = null) => new(
         UserId: userId ?? Guid.NewGuid(),
         Username: "tester",
         IsAdmin: false,

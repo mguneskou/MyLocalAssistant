@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-namespace MyLocalAssistant.Server.Skills;
+namespace MyLocalAssistant.Server.Tools;
 
 /// <summary>
 /// In-memory counters of tool invocations. Cleared on server restart; sufficient for
@@ -12,17 +12,17 @@ public sealed class ToolCallStats
     private readonly ConcurrentDictionary<string, Counters> _byKey = new(StringComparer.OrdinalIgnoreCase);
     private DateTimeOffset _since = DateTimeOffset.UtcNow;
 
-    private static string Key(string skillId, string toolName) => $"{skillId}::{toolName}";
+    private static string Key(string toolId, string toolName) => $"{toolId}::{toolName}";
 
-    public void RecordSuccess(string skillId, string toolName, double elapsedMs)
+    public void RecordSuccess(string toolId, string toolName, double elapsedMs)
     {
-        var c = _byKey.GetOrAdd(Key(skillId, toolName), _ => new Counters());
+        var c = _byKey.GetOrAdd(Key(toolId, toolName), _ => new Counters());
         c.AddSuccess(elapsedMs);
     }
 
-    public void RecordError(string skillId, string toolName, double elapsedMs)
+    public void RecordError(string toolId, string toolName, double elapsedMs)
     {
-        var c = _byKey.GetOrAdd(Key(skillId, toolName), _ => new Counters());
+        var c = _byKey.GetOrAdd(Key(toolId, toolName), _ => new Counters());
         c.AddError(elapsedMs);
     }
 
@@ -41,7 +41,7 @@ public sealed class ToolCallStats
                 var parts = kv.Key.Split("::", 2);
                 var c = kv.Value.Read();
                 return new ToolCallStatRow(
-                    SkillId: parts[0],
+                    ToolId: parts[0],
                     ToolName: parts.Length > 1 ? parts[1] : "",
                     Successes: c.successes,
                     Errors: c.errors,
@@ -76,7 +76,7 @@ public sealed class ToolCallStats
 }
 
 public sealed record ToolCallStatRow(
-    string SkillId,
+    string ToolId,
     string ToolName,
     long Successes,
     long Errors,

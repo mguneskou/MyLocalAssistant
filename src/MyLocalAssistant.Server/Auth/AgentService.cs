@@ -155,8 +155,8 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
         a.DefaultModelId = string.IsNullOrWhiteSpace(req.DefaultModelId) ? null : req.DefaultModelId;
         a.RagEnabled = req.RagEnabled;
         a.RagCollectionIds = RagService.FormatCollectionIds(req.RagCollectionIds);
-        if (req.SkillIds is not null)
-            a.SkillIds = MyLocalAssistant.Server.Skills.SkillRegistry.FormatSkillIds(req.SkillIds);
+        if (req.ToolIds is not null)
+            a.ToolIds = MyLocalAssistant.Server.Tools.ToolRegistry.FormatToolIds(req.ToolIds);
         if (req.SystemPrompt is not null)
         {
             var sp = req.SystemPrompt;
@@ -179,5 +179,5 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
     private static AgentDto ToDto(Agent a) => new(
         a.Id, a.Name, a.Description, a.Category, a.IsGeneric, a.Enabled, a.DefaultModelId,
         a.RagEnabled, RagService.ParseCollectionIds(a.RagCollectionIds), a.SystemPrompt,
-        MyLocalAssistant.Server.Skills.SkillRegistry.ParseSkillIds(a.SkillIds));
+        MyLocalAssistant.Server.Tools.ToolRegistry.ParseToolIds(a.ToolIds));
 }
