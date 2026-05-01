@@ -184,11 +184,27 @@ public sealed class ChatService(
                 if (!hideMode && holdBack.Length > 0) yield return holdBack.ToString();
                 if (hideMode)
                 {
-                    var unfinished = toolBuffer.ToString().Trim();
-                    callbacks.OnToolUnavailable?.Invoke("(parser)",
-                        $"Model emitted an unterminated <tool_call> ({unfinished.Length} chars). Ignored.");
+                    var candidate = toolBuffer.ToString().Trim();
+                    // Cloud providers (OpenAI-compatible APIs) suppress the stop token from
+                    // the stream — </tool_call> is never emitted.  LLamaSharp anti-prompts
+                    // DO include the matched text, so local models work without this path.
+                    // If the buffer is a complete JSON object, treat the stop sequence as an
+                    // implicit close and fall through to normal tool dispatch.
+                    if (candidate.Length > 0 && IsCompleteJsonObject(candidate))
+                    {
+                        completedToolJson = candidate;
+                    }
+                    else
+                    {
+                        callbacks.OnToolUnavailable?.Invoke("(parser)",
+                            $"Model emitted an unterminated <tool_call> ({candidate.Length} chars). Ignored.");
+                        yield break;
+                    }
                 }
-                yield break;
+                else
+                {
+                    yield break;
+                }
             }
 
             if (iteration == MaxToolCallsPerTurn)
@@ -332,6 +348,16 @@ public sealed class ChatService(
                 if (string.Equals(t.Name, toolName, StringComparison.OrdinalIgnoreCase)) return (true, null, s);
         }
         return (false, $"Tool '{toolName}' is not bound to this agent or not enabled.", null);
+    }
+
+    private static bool IsCompleteJsonObject(string s)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(s);
+            return doc.RootElement.ValueKind == JsonValueKind.Object;
+        }
+        catch (JsonException) { return false; }
     }
 
     private static (string? toolName, string? argsJson, string? error) ParseToolCall(string raw)
