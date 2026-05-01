@@ -5,24 +5,46 @@ using System.Text.Json.Serialization;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
-using MyLocalAssistant.Plugin.Shared;
+using MyLocalAssistant.Shared.Contracts;
 
-namespace MyLocalAssistant.Plugins.CodeInterpreter;
+namespace MyLocalAssistant.Server.Tools.BuiltIn;
 
 /// <summary>
-/// Executes C# code snippets using Roslyn scripting within this (already sandboxed) plugin process.
-/// The plugin process runs inside the server's Windows Job Object — no Docker dependency needed.
-/// Network-capable assemblies are excluded when blockInternet is true.
+/// Executes C# code snippets using Roslyn scripting.
 /// Config JSON: {"timeoutSeconds":30,"memoryLimitMb":128,"blockInternet":true,"workDirAccess":true}
 /// </summary>
-internal sealed class CodeInterpreterHandler : IPluginTool
+internal sealed class CodeInterpreterTool : ITool
 {
+    // ── ITool metadata ────────────────────────────────────────────────────────
+
+    public string  Id          => "code.csharp";
+    public string  Name        => "C# Code Interpreter";
+    public string  Description => "Executes C# code snippets using Roslyn scripting. Shares the conversation work directory for file I/O.";
+    public string  Category    => "Development";
+    public string  Source      => ToolSources.BuiltIn;
+    public string? Version     => null;
+    public string? Publisher   => "MyLocalAssistant";
+    public string? KeyId       => null;
+
+    public IReadOnlyList<ToolFunctionDto> Tools { get; } = new[]
+    {
+        new ToolFunctionDto(
+            Name: "code.run",
+            Description: "Execute C# code and return the output. The global variable `WorkDirectory` (string) gives the path to the conversation's writable folder. Use Console.WriteLine to output results. The final expression value is also returned.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"code":{"type":"string","description":"C# code to execute"},"timeout_seconds":{"type":"integer","description":"Execution timeout in seconds (max 120, default 30)","minimum":1,"maximum":120}},"required":["code"]}"""),
+    };
+
+    public ToolRequirementsDto Requirements { get; } = new(ToolCallProtocols.Json, MinContextK: 4);
+
+    // ── Config ────────────────────────────────────────────────────────────────
+
     private int  _timeoutSeconds  = 30;
     private int  _memoryLimitMb   = 128;
     private bool _blockInternet   = true;
     private bool _workDirAccess   = true;
 
-    // Assemblies always available to scripts.
+    private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web);
+
     private static readonly string[] s_baseAssemblies =
     [
         "System.Private.CoreLib",
@@ -34,7 +56,6 @@ internal sealed class CodeInterpreterHandler : IPluginTool
         "System.Console",
     ];
 
-    // Additional assemblies allowed when blockInternet is false.
     private static readonly string[] s_netAssemblies =
     [
         "System.Net.Http",
@@ -53,18 +74,23 @@ internal sealed class CodeInterpreterHandler : IPluginTool
         if (cfg.WorkDirAccess.HasValue)            _workDirAccess  = cfg.WorkDirAccess.Value;
     }
 
-    public async Task<PluginToolResult> InvokeAsync(
-        string toolName, JsonElement arguments, PluginContext context, CancellationToken ct)
+    // ── ITool.InvokeAsync ─────────────────────────────────────────────────────
+
+    public async Task<ToolResult> InvokeAsync(ToolInvocation call, ToolContext ctx)
     {
-        var code    = arguments.TryGetProperty("code",            out var c)  ? c.GetString() ?? ""  : "";
-        var timeout = arguments.TryGetProperty("timeout_seconds", out var ts) && ts.TryGetInt32(out var n)
+        using var doc = JsonDocument.Parse(
+            string.IsNullOrWhiteSpace(call.ArgumentsJson) ? "{}" : call.ArgumentsJson);
+        var args    = doc.RootElement;
+        var ct      = ctx.CancellationToken;
+
+        var code    = args.TryGetProperty("code",            out var c)  ? c.GetString() ?? ""  : "";
+        var timeout = args.TryGetProperty("timeout_seconds", out var ts) && ts.TryGetInt32(out var n)
             ? Math.Clamp(n, 1, _timeoutSeconds)
             : _timeoutSeconds;
 
         if (string.IsNullOrWhiteSpace(code))
-            return PluginToolResult.Error("code is required");
+            return ToolResult.Error("code is required");
 
-        // Capture Console output from the script.
         var outputSb  = new StringBuilder();
         var errorSb   = new StringBuilder();
         var oldOut    = Console.Out;
@@ -77,7 +103,6 @@ internal sealed class CodeInterpreterHandler : IPluginTool
             using var cts = CancellationTokenSource.CreateLinkedTokenSource(ct);
             cts.CancelAfter(TimeSpan.FromSeconds(timeout));
 
-            // Build import list.
             var imports = new List<string>
             {
                 "System",
@@ -92,11 +117,9 @@ internal sealed class CodeInterpreterHandler : IPluginTool
             };
             if (!_blockInternet) imports.AddRange(["System.Net.Http", "System.Net"]);
 
-            var refs = LoadReferenceAssemblies(_blockInternet);
-
-            // Inject WorkDirectory as a global so scripts can read/write files there.
-            var workDir = _workDirAccess ? context.WorkDirectory : "";
-            var globals  = new ScriptGlobals { WorkDirectory = workDir };
+            var refs    = LoadReferenceAssemblies(_blockInternet);
+            var workDir = _workDirAccess ? ctx.WorkDirectory : "";
+            var globals = new CodeScriptGlobals { WorkDirectory = workDir };
 
             var options = ScriptOptions.Default
                 .WithImports(imports)
@@ -105,7 +128,7 @@ internal sealed class CodeInterpreterHandler : IPluginTool
                 .WithAllowUnsafe(false)
                 .WithEmitDebugInformation(false);
 
-            var script = CSharpScript.Create(code, options, typeof(ScriptGlobals));
+            var script = CSharpScript.Create(code, options, typeof(CodeScriptGlobals));
 
             object? returnValue = null;
             Exception? scriptEx = null;
@@ -119,11 +142,11 @@ internal sealed class CodeInterpreterHandler : IPluginTool
             catch (CompilationErrorException cee)
             {
                 var diag = string.Join("\n", cee.Diagnostics.Select(d => d.ToString()));
-                return PluginToolResult.Error($"Compilation error:\n{diag}");
+                return ToolResult.Error($"Compilation error:\n{diag}");
             }
             catch (OperationCanceledException)
             {
-                return PluginToolResult.Error($"Execution timed out after {timeout}s.");
+                return ToolResult.Error($"Execution timed out after {timeout}s.");
             }
 
             var sb = new StringBuilder();
@@ -140,14 +163,14 @@ internal sealed class CodeInterpreterHandler : IPluginTool
             if (scriptEx is not null)
             {
                 sb.AppendLine($"Exception: {scriptEx.GetType().Name}: {scriptEx.Message}");
-                return PluginToolResult.Error(sb.Length > 0 ? sb.ToString().TrimEnd() : scriptEx.Message);
+                return ToolResult.Error(sb.Length > 0 ? sb.ToString().TrimEnd() : scriptEx.Message);
             }
             if (returnValue is not null)
                 sb.AppendLine($"Return value: {returnValue}");
 
             return sb.Length == 0
-                ? PluginToolResult.Ok("(no output)")
-                : PluginToolResult.Ok(sb.ToString().TrimEnd());
+                ? ToolResult.Ok("(no output)")
+                : ToolResult.Ok(sb.ToString().TrimEnd());
         }
         finally
         {
@@ -166,15 +189,12 @@ internal sealed class CodeInterpreterHandler : IPluginTool
             try { result.Add(Assembly.Load(n)); }
             catch { /* skip unavailable */ }
         }
-        // Always include core runtime references for Roslyn.
         result.Add(typeof(object).Assembly);
         result.Add(typeof(Enumerable).Assembly);
         result.Add(typeof(System.Text.StringBuilder).Assembly);
         result.Add(typeof(System.IO.Path).Assembly);
         return result.Distinct();
     }
-
-    private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web);
 
     private sealed class Config
     {
@@ -186,7 +206,7 @@ internal sealed class CodeInterpreterHandler : IPluginTool
 }
 
 /// <summary>Globals object injected into every script. Provides WorkDirectory access.</summary>
-public sealed class ScriptGlobals
+public sealed class CodeScriptGlobals
 {
     /// <summary>Per-conversation working directory. Scripts may read/write files here.</summary>
     public string WorkDirectory { get; set; } = "";

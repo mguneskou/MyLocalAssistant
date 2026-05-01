@@ -82,10 +82,15 @@ try
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.TimeNowTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.RagSearchTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.ClientFsTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.WebSearchTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.CodeInterpreterTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.ImageGenTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.MemoryTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.ReportGenTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.EmailTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.SchedulerTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ToolRegistry>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ToolCallStats>();
-    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.Plugin.PluginSignatureVerifier>();
-    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.Plugin.PluginScanner>();
     builder.Services.AddHostedService<ModelBootstrapService>();
     builder.Services.AddHostedService<EmbeddingBootstrapService>();
     builder.Services.AddHostedService<MyLocalAssistant.Server.Hosting.RetentionService>();
@@ -134,12 +139,6 @@ try
         var agentSvc = scope.ServiceProvider.GetRequiredService<AgentService>();
         await agentSvc.SeedAsync();
         var toolRegistry = app.Services.GetRequiredService<MyLocalAssistant.Server.Tools.ToolRegistry>();
-        var pluginScanner = app.Services.GetRequiredService<MyLocalAssistant.Server.Tools.Plugin.PluginScanner>();
-        foreach (var plugin in pluginScanner.ScanAndLoad())
-        {
-            try { toolRegistry.Register(plugin); }
-            catch (Exception ex) { Log.Warning(ex, "Plug-in '{Id}' could not be registered.", plugin.Id); }
-        }
         await toolRegistry.SeedAsync();
     }
 

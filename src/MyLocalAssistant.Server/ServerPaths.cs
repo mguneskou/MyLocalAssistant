@@ -24,15 +24,13 @@ public static class ServerPaths
     /// <summary>Root for all persistent state. Survives application updates when running from a Velopack install.</summary>
     public static string StateDirectory { get; } = ResolveStateDirectory(AppDirectory, IsVelopackInstall);
 
-    public static string ModelsDirectory      { get; } = Path.Combine(StateDirectory, "models");
-    public static string DataDirectory        { get; } = Path.Combine(StateDirectory, "data");
-    public static string VectorsDirectory     { get; } = Path.Combine(StateDirectory, "vectors");
-    public static string IngestionDirectory   { get; } = Path.Combine(StateDirectory, "ingestion");
-    public static string LogsDirectory        { get; } = Path.Combine(StateDirectory, "logs");
-    public static string ConfigDirectory      { get; } = Path.Combine(StateDirectory, "config");
-    public static string PluginsDirectory     { get; } = Path.Combine(StateDirectory, "plugins");
-    public static string OutputDirectory      { get; } = Path.Combine(StateDirectory, "output");
-    public static string TrustedKeysDirectory { get; } = Path.Combine(ConfigDirectory, "trusted-keys");
+    public static string ModelsDirectory    { get; } = Path.Combine(StateDirectory, "models");
+    public static string DataDirectory      { get; } = Path.Combine(StateDirectory, "data");
+    public static string VectorsDirectory   { get; } = Path.Combine(StateDirectory, "vectors");
+    public static string IngestionDirectory { get; } = Path.Combine(StateDirectory, "ingestion");
+    public static string LogsDirectory      { get; } = Path.Combine(StateDirectory, "logs");
+    public static string ConfigDirectory    { get; } = Path.Combine(StateDirectory, "config");
+    public static string OutputDirectory    { get; } = Path.Combine(StateDirectory, "output");
 
     public static string DatabasePath     { get; } = Path.Combine(DataDirectory, "app.db");
     public static string SettingsFilePath { get; } = Path.Combine(ConfigDirectory, "server.json");
@@ -51,15 +49,12 @@ public static class ServerPaths
             Directory.CreateDirectory(IngestionDirectory);
             Directory.CreateDirectory(LogsDirectory);
             Directory.CreateDirectory(ConfigDirectory);
-            Directory.CreateDirectory(PluginsDirectory);
             Directory.CreateDirectory(OutputDirectory);
-            Directory.CreateDirectory(TrustedKeysDirectory);
 
             if (!_ensured)
             {
                 _ensured = true;
                 if (IsVelopackInstall) TryMigrateLegacyState();
-                TrySeedBundledAssets();
             }
         }
     }
@@ -86,7 +81,7 @@ public static class ServerPaths
     /// </summary>
     private static void TryMigrateLegacyState()
     {
-        string[] names = { "models", "data", "vectors", "ingestion", "logs", "config", "plugins", "output" };
+        string[] names = { "models", "data", "vectors", "ingestion", "logs", "config", "output" };
 
         // Source 1: legacy folders still living inside the freshly-installed `current\` (only happens on
         // the very first upgrade after an unclean swap, but covered for safety).
@@ -158,74 +153,4 @@ public static class ServerPaths
         }
     }
 
-    /// <summary>
-    /// Copies plug-ins and trusted public keys that the installer ships in
-    /// <c>&lt;install&gt;\bundled\plugins\</c> and <c>&lt;install&gt;\bundled\config\trusted-keys\</c>
-    /// into <see cref="PluginsDirectory"/> / <see cref="TrustedKeysDirectory"/>. Idempotent: if the
-    /// destination already exists it is left alone, so an admin who deletes a bundled plug-in
-    /// (or replaces it via the Skills tab) will not have it auto-reinstalled on next launch.
-    /// </summary>
-    private static void TrySeedBundledAssets()
-    {
-        try
-        {
-            var bundledRoot = Path.Combine(AppDirectory, "bundled");
-            if (!Directory.Exists(bundledRoot)) return;
-            SeedBundledPluginFolders(Path.Combine(bundledRoot, "plugins"));
-            SeedBundledTrustedKeys(Path.Combine(bundledRoot, "config", "trusted-keys"));
-        }
-        catch
-        {
-            // best-effort
-        }
-    }
-
-    private static void SeedBundledPluginFolders(string sourceRoot)
-    {
-        if (!Directory.Exists(sourceRoot)) return;
-        foreach (var src in Directory.EnumerateDirectories(sourceRoot, "*", SearchOption.TopDirectoryOnly))
-        {
-            try
-            {
-                var dest = Path.Combine(PluginsDirectory, Path.GetFileName(src));
-                // Always overwrite bundled plugin files so that signatures stay in sync with
-                // the bundled trusted key. Each CI release may re-sign with a new ephemeral key;
-                // leaving stale signatures in state/ would break verification after an update.
-                CopyDirectoryRecursive(src, dest, overwrite: true);
-            }
-            catch
-            {
-                // best-effort per plug-in
-            }
-        }
-    }
-
-    private static void SeedBundledTrustedKeys(string sourceRoot)
-    {
-        if (!Directory.Exists(sourceRoot)) return;
-        foreach (var src in Directory.EnumerateFiles(sourceRoot, "*.pub", SearchOption.TopDirectoryOnly))
-        {
-            try
-            {
-                var dest = Path.Combine(TrustedKeysDirectory, Path.GetFileName(src));
-                // Always overwrite bundled keys: CI may rotate the signing keypair each release,
-                // and the new .pub must replace the old one so plug-in verification still works.
-                // Admin-added keys live outside the bundled tree and are never touched here.
-                File.Copy(src, dest, overwrite: true);
-            }
-            catch
-            {
-                // best-effort per key
-            }
-        }
-    }
-
-    private static void CopyDirectoryRecursive(string source, string destination, bool overwrite = false)
-    {
-        Directory.CreateDirectory(destination);
-        foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.TopDirectoryOnly))
-            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), overwrite);
-        foreach (var sub in Directory.EnumerateDirectories(source, "*", SearchOption.TopDirectoryOnly))
-            CopyDirectoryRecursive(sub, Path.Combine(destination, Path.GetFileName(sub)), overwrite);
-    }
 }

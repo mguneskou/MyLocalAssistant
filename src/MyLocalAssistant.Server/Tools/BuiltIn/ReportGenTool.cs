@@ -5,23 +5,65 @@ using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using OxmlDocument = DocumentFormat.OpenXml.Wordprocessing.Document;
 using DocumentFormat.OpenXml.Wordprocessing;
-using MyLocalAssistant.Plugin.Shared;
+using MyLocalAssistant.Shared.Contracts;
+using PdfDocument = QuestPDF.Fluent.Document;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
-using QDocument = QuestPDF.Fluent.Document;
 
-namespace MyLocalAssistant.Plugins.ReportGen;
+namespace MyLocalAssistant.Server.Tools.BuiltIn;
 
 /// <summary>
 /// Generates PDF, Word (.docx), and Excel (.xlsx) reports from structured data.
 /// Reports are saved to the conversation WorkDirectory.
 /// Config JSON: {"defaultAuthor":"MyLocalAssistant","defaultCompany":""}
 /// </summary>
-internal sealed class ReportGenHandler : IPluginTool
+internal sealed class ReportGenTool : ITool
 {
+    // ── ITool metadata ────────────────────────────────────────────────────────
+
+    public string  Id          => "report.gen";
+    public string  Name        => "Report Generator";
+    public string  Description => "Generates PDF, Word (.docx), and Excel (.xlsx) reports from structured data. Reports are saved to the conversation work directory.";
+    public string  Category    => "Productivity";
+    public string  Source      => ToolSources.BuiltIn;
+    public string? Version     => null;
+    public string? Publisher   => "MyLocalAssistant";
+    public string? KeyId       => null;
+
+    public IReadOnlyList<ToolFunctionDto> Tools { get; } = new[]
+    {
+        new ToolFunctionDto(
+            Name: "report.pdf",
+            Description: "Generate a PDF report with a title and sections. Sections are rendered as headings and paragraphs. Returns the filename and path.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"title":{"type":"string","description":"Report title"},"sections":{"type":"array","description":"Array of {heading, content} objects","items":{"type":"object","properties":{"heading":{"type":"string"},"content":{"type":"string"}}}},"filename":{"type":"string","description":"Optional output filename"}},"required":["title","sections"]}"""),
+        new ToolFunctionDto(
+            Name: "report.word",
+            Description: "Generate a Word (.docx) document with a title and sections. Returns the filename and path.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"title":{"type":"string","description":"Document title"},"sections":{"type":"array","description":"Array of {heading, content} objects","items":{"type":"object","properties":{"heading":{"type":"string"},"content":{"type":"string"}}}},"filename":{"type":"string","description":"Optional output filename"}},"required":["title","sections"]}"""),
+        new ToolFunctionDto(
+            Name: "report.excel",
+            Description: "Generate an Excel (.xlsx) workbook with one or more sheets of tabular data. Returns the filename and path.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"title":{"type":"string","description":"Workbook title"},"sheets":{"type":"array","description":"Array of {name, headers, rows} sheet objects","items":{"type":"object","properties":{"name":{"type":"string"},"headers":{"type":"array","items":{"type":"string"}},"rows":{"type":"array","items":{"type":"array","items":{"type":"string"}}}}}},"filename":{"type":"string","description":"Optional output filename"}},"required":["title","sheets"]}"""),
+    };
+
+    public ToolRequirementsDto Requirements { get; } = new(ToolCallProtocols.Json, MinContextK: 4);
+
+    // ── Config ────────────────────────────────────────────────────────────────
+
     private string _author  = "MyLocalAssistant";
     private string _company = "";
+
+    private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    static ReportGenTool()
+    {
+        // QuestPDF Community License for non-commercial / open-source use.
+        QuestPDF.Settings.License = LicenseType.Community;
+    }
 
     public void Configure(string? configJson)
     {
@@ -31,26 +73,32 @@ internal sealed class ReportGenHandler : IPluginTool
         if (!string.IsNullOrWhiteSpace(cfg?.DefaultCompany)) _company = cfg.DefaultCompany;
     }
 
-    public async Task<PluginToolResult> InvokeAsync(
-        string toolName, JsonElement arguments, PluginContext context, CancellationToken ct)
+    // ── ITool.InvokeAsync ─────────────────────────────────────────────────────
+
+    public async Task<ToolResult> InvokeAsync(ToolInvocation call, ToolContext ctx)
     {
-        var workDir = context.WorkDirectory;
+        using var doc = JsonDocument.Parse(
+            string.IsNullOrWhiteSpace(call.ArgumentsJson) ? "{}" : call.ArgumentsJson);
+        var args    = doc.RootElement.Clone();
+        var workDir = ctx.WorkDirectory;
+        var ct      = ctx.CancellationToken;
+
         if (string.IsNullOrWhiteSpace(workDir))
-            return PluginToolResult.Error("WorkDirectory not set — cannot save report");
+            return ToolResult.Error("WorkDirectory not set — cannot save report");
         Directory.CreateDirectory(workDir);
 
-        return toolName switch
+        return call.ToolName switch
         {
-            "report.pdf"   => await Task.Run(() => GeneratePdf(arguments, workDir),  ct),
-            "report.word"  => await Task.Run(() => GenerateWord(arguments, workDir), ct),
-            "report.excel" => await Task.Run(() => GenerateExcel(arguments, workDir), ct),
-            _              => PluginToolResult.Error($"Unknown tool '{toolName}'"),
+            "report.pdf"   => await Task.Run(() => GeneratePdf(args, workDir),   ct),
+            "report.word"  => await Task.Run(() => GenerateWord(args, workDir),  ct),
+            "report.excel" => await Task.Run(() => GenerateExcel(args, workDir), ct),
+            _              => ToolResult.Error($"Unknown tool '{call.ToolName}'"),
         };
     }
 
     // ── PDF ───────────────────────────────────────────────────────────────────
 
-    private PluginToolResult GeneratePdf(JsonElement args, string workDir)
+    private ToolResult GeneratePdf(JsonElement args, string workDir)
     {
         var title    = args.TryGetProperty("title",    out var t) ? t.GetString() ?? "Report" : "Report";
         var filename = GetFilename(args, title, ".pdf");
@@ -59,7 +107,9 @@ internal sealed class ReportGenHandler : IPluginTool
 
         try
         {
-            QDocument.Create(container =>
+            var author  = _author;
+            var company = _company;
+            PdfDocument.Create(container =>
             {
                 container.Page(page =>
                 {
@@ -73,8 +123,8 @@ internal sealed class ReportGenHandler : IPluginTool
                     page.Content().Column(col =>
                     {
                         col.Spacing(10);
-                        if (!string.IsNullOrWhiteSpace(_company))
-                            col.Item().Text(_company).FontSize(9).FontColor(Colors.Grey.Medium);
+                        if (!string.IsNullOrWhiteSpace(company))
+                            col.Item().Text(company).FontSize(9).FontColor(Colors.Grey.Medium);
 
                         foreach (var (heading, content) in sections)
                         {
@@ -97,12 +147,12 @@ internal sealed class ReportGenHandler : IPluginTool
 
             return OkWithStructured(filename, path, "pdf");
         }
-        catch (Exception ex) { return PluginToolResult.Error($"PDF generation failed: {ex.Message}"); }
+        catch (Exception ex) { return ToolResult.Error($"PDF generation failed: {ex.Message}"); }
     }
 
     // ── Word ──────────────────────────────────────────────────────────────────
 
-    private PluginToolResult GenerateWord(JsonElement args, string workDir)
+    private ToolResult GenerateWord(JsonElement args, string workDir)
     {
         var title    = args.TryGetProperty("title", out var t) ? t.GetString() ?? "Report" : "Report";
         var filename = GetFilename(args, title, ".docx");
@@ -116,7 +166,6 @@ internal sealed class ReportGenHandler : IPluginTool
             mainPart.Document = new OxmlDocument();
             var body = mainPart.Document.AppendChild(new Body());
 
-            // Title paragraph.
             body.AppendChild(new Paragraph(
                 new ParagraphProperties(new ParagraphStyleId { Val = "Heading1" }),
                 new Run(new Text(title))));
@@ -128,12 +177,10 @@ internal sealed class ReportGenHandler : IPluginTool
                         new ParagraphProperties(new ParagraphStyleId { Val = "Heading2" }),
                         new Run(new Text(heading))));
 
-                // Split content on newlines → separate paragraphs.
                 foreach (var line in content.Split('\n'))
                     body.AppendChild(new Paragraph(new Run(new Text(line))));
             }
 
-            // Document properties (author/date).
             var coreProps = doc.AddCoreFilePropertiesPart();
             using var sw  = new System.IO.StreamWriter(coreProps.GetStream(System.IO.FileMode.Create));
             sw.Write($@"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
@@ -147,12 +194,12 @@ internal sealed class ReportGenHandler : IPluginTool
             mainPart.Document.Save();
             return OkWithStructured(filename, path, "docx");
         }
-        catch (Exception ex) { return PluginToolResult.Error($"Word generation failed: {ex.Message}"); }
+        catch (Exception ex) { return ToolResult.Error($"Word generation failed: {ex.Message}"); }
     }
 
     // ── Excel ─────────────────────────────────────────────────────────────────
 
-    private PluginToolResult GenerateExcel(JsonElement args, string workDir)
+    private ToolResult GenerateExcel(JsonElement args, string workDir)
     {
         var title    = args.TryGetProperty("title", out var t) ? t.GetString() ?? "Report" : "Report";
         var filename = GetFilename(args, title, ".xlsx");
@@ -161,20 +208,19 @@ internal sealed class ReportGenHandler : IPluginTool
         try
         {
             using var wb = new XLWorkbook();
-            wb.Properties.Author  = _author;
-            wb.Properties.Title   = title;
+            wb.Properties.Author = _author;
+            wb.Properties.Title  = title;
 
             if (!args.TryGetProperty("sheets", out var sheetsEl) ||
                 sheetsEl.ValueKind != JsonValueKind.Array)
-                return PluginToolResult.Error("sheets array is required for report.excel");
+                return ToolResult.Error("sheets array is required for report.excel");
 
             foreach (var sheetEl in sheetsEl.EnumerateArray())
             {
-                var sheetName = sheetEl.TryGetProperty("name",    out var sn) ? sn.GetString() ?? "Sheet1" : "Sheet1";
-                var ws        = wb.Worksheets.Add(sheetName);
-                var row       = 1;
+                var sheetName = sheetEl.TryGetProperty("name", out var sn) ? sn.GetString() ?? "Sheet1" : "Sheet1";
+                var ws  = wb.Worksheets.Add(sheetName);
+                var row = 1;
 
-                // Headers.
                 if (sheetEl.TryGetProperty("headers", out var headersEl) &&
                     headersEl.ValueKind == JsonValueKind.Array)
                 {
@@ -190,7 +236,6 @@ internal sealed class ReportGenHandler : IPluginTool
                     row++;
                 }
 
-                // Data rows.
                 if (sheetEl.TryGetProperty("rows", out var rowsEl) &&
                     rowsEl.ValueKind == JsonValueKind.Array)
                 {
@@ -210,7 +255,7 @@ internal sealed class ReportGenHandler : IPluginTool
             wb.SaveAs(path);
             return OkWithStructured(filename, path, "xlsx");
         }
-        catch (Exception ex) { return PluginToolResult.Error($"Excel generation failed: {ex.Message}"); }
+        catch (Exception ex) { return ToolResult.Error($"Excel generation failed: {ex.Message}"); }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
@@ -243,17 +288,12 @@ internal sealed class ReportGenHandler : IPluginTool
         return $"{safe}_{DateTime.Now:yyyyMMdd_HHmmss}{ext}";
     }
 
-    private static PluginToolResult OkWithStructured(string filename, string path, string format)
+    private static ToolResult OkWithStructured(string filename, string path, string format)
     {
         var structured = JsonSerializer.Serialize(
             new { type = "file", filename, path, format }, s_json);
-        return PluginToolResult.Ok($"Report saved: {filename}", structured);
+        return ToolResult.Ok($"Report saved: {filename}", structured);
     }
-
-    private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web)
-    {
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
 
     private sealed class Config
     {

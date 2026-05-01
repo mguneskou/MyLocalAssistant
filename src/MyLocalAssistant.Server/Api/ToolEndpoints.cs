@@ -1,5 +1,4 @@
 using MyLocalAssistant.Server.Tools;
-using MyLocalAssistant.Server.Tools.Plugin;
 using MyLocalAssistant.Shared.Contracts;
 
 namespace MyLocalAssistant.Server.Api;
@@ -37,14 +36,6 @@ public static class ToolEndpoints
             {
                 return Results.Problem(title: ex.Message, statusCode: StatusCodes.Status400BadRequest);
             }
-        }).RequireAuthorization("GlobalAdmin");
-
-        // Hot-reload: rescan ./plugins/, dispose old PluginTool instances, register fresh ones.
-        // Built-in skills are untouched. Owner-only.
-        admin.MapPost("/reload", async (PluginScanner scanner, ToolRegistry registry) =>
-        {
-            var fresh = await scanner.ReloadAsync(registry);
-            return Results.Ok(new { count = fresh.Count, ids = fresh.Select(p => p.Id).ToArray() });
         }).RequireAuthorization("GlobalAdmin");
 
         // Lightweight in-memory tool-call counters (since server start or last reset).

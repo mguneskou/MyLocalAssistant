@@ -63,52 +63,6 @@ jobs:
           .\scripts\publish-all.ps1 -Configuration Release -Runtime win-x64 -OutDir "$PWD\dist\stage"
           Get-ChildItem dist\stage -Filter *.exe | Select-Object Name, Length
 
-      - name: Restore plugin packages
-        shell: pwsh
-        run: |
-          # Restore NuGet packages for all plugin projects before publish-plugins.ps1
-          $pluginProjects = @(
-            'src\MyLocalAssistant.Plugins\WebSearch\MyLocalAssistant.Plugins.WebSearch.csproj',
-            'src\MyLocalAssistant.Plugins\CodeInterpreter\MyLocalAssistant.Plugins.CodeInterpreter.csproj',
-            'src\MyLocalAssistant.Plugins\ImageGen\MyLocalAssistant.Plugins.ImageGen.csproj',
-            'src\MyLocalAssistant.Plugins\MemoryTool\MyLocalAssistant.Plugins.MemoryTool.csproj',
-            'src\MyLocalAssistant.Plugins\ReportGen\MyLocalAssistant.Plugins.ReportGen.csproj',
-            'src\MyLocalAssistant.Plugins\EmailTool\MyLocalAssistant.Plugins.EmailTool.csproj',
-            'src\MyLocalAssistant.Plugins\Scheduler\MyLocalAssistant.Plugins.Scheduler.csproj',
-            'tools\PluginSigner\MyLocalAssistant.Tools.PluginSigner.csproj'
-          )
-          foreach ($proj in $pluginProjects) {
-            dotnet restore $proj --nologo -v q
-            if ($LASTEXITCODE -ne 0) { throw "restore failed: $proj" }
-          }
-
-      - name: Bundle all plugins + trusted key
-        shell: pwsh
-        env:
-          PLUGIN_SIGNING_KEY: ${{ secrets.PLUGIN_SIGNING_KEY }}
-        run: |
-          # Write the stable private key from the GitHub secret so publish-plugins.ps1
-          # reuses the same key on every CI run (no ephemeral key rotation).
-          if (-not [string]::IsNullOrWhiteSpace($env:PLUGIN_SIGNING_KEY)) {
-            New-Item -ItemType Directory -Force -Path tools\keys | Out-Null
-            Set-Content -Path tools\keys\bundled-plugins.key -Value $env:PLUGIN_SIGNING_KEY -NoNewline
-            Write-Host "Stable signing key written from secret."
-          } else {
-            Write-Warning "PLUGIN_SIGNING_KEY secret not set — a fresh ephemeral key will be generated."
-          }
-
-          # publish-plugins.ps1: builds PluginSigner, generates a fresh ephemeral
-          # keypair in tools\keys\ if not already present, publishes + signs all 7
-          # bundled plugins, and copies the matching public key into the bundle so
-          # signature verification on the tester's machine succeeds without any
-          # out-of-band key distribution.
-          .\tools\publish-plugins.ps1 `
-            -Configuration Release `
-            -BundledDir "$PWD\dist\stage\bundled"
-
-          Write-Host "Bundled plug-ins:"
-          Get-ChildItem "$PWD\dist\stage\bundled" -Recurse -File | Select-Object FullName, Length
-
       - name: vpk pack
         shell: pwsh
         run: |
