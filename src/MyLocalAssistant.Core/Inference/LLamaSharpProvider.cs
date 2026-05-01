@@ -37,17 +37,27 @@ public sealed class LLamaSharpProvider : ILlmProvider
         try
         {
             _weights = await LLamaWeights.LoadFromFileAsync(_params, ct).ConfigureAwait(false);
+            // On integrated GPUs (e.g. Intel HD 620 with Vulkan) the weights may load
+            // successfully from file but executor creation or the first forward pass will
+            // fail when llama.cpp tries to move KV-cache / compute buffers to the tiny
+            // shared VRAM.  Probe with a zero-token executor now, while we can still
+            // cheaply fall back, rather than failing mid-inference later.
+            if (_params.GpuLayerCount != 0)
+                TryProbeExecutor(_weights, _params);
         }
         catch (Exception ex) when (_params.GpuLayerCount > 0)
         {
-            // GPU-accelerated load failed (e.g. Vulkan on integrated graphics with insufficient
-            // shared VRAM). Retry with CPU-only so the model still works.
-            _logger.LogWarning(ex, "GPU load failed for {Id} — retrying with CPU-only.", modelId);
+            // GPU path failed — either during file load or during the probe above.
+            // Reload with CPU-only so the model still works on low-end hardware.
+            _logger.LogWarning(ex, "GPU load/probe failed for {Id} — retrying with CPU-only.", modelId);
+            _weights?.Dispose();
+            _weights = null;
             _params = new ModelParams(modelPath) { ContextSize = (uint)contextSize, GpuLayerCount = 0 };
             _weights = await LLamaWeights.LoadFromFileAsync(_params, ct).ConfigureAwait(false);
         }
         _modelId = modelId;
-        _logger.LogInformation("Model {Id} loaded.", modelId);
+        _logger.LogInformation("Model {Id} loaded (gpuLayers={Gpu}).", modelId,
+            _params.GpuLayerCount == 0 ? "CPU-only" : _params.GpuLayerCount.ToString());
     }
 
     public IAsyncEnumerable<string> GenerateAsync(
@@ -102,5 +112,19 @@ public sealed class LLamaSharpProvider : ILlmProvider
     public async ValueTask DisposeAsync()
     {
         await UnloadAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Creates a <see cref="StatelessExecutor"/> against the given weights and immediately
+    /// disposes it. This forces llama.cpp to allocate KV-cache and compute buffers, which
+    /// is where integrated-GPU (Vulkan) failures typically surface — before the first real
+    /// inference call. Throws if executor creation fails.
+    /// </summary>
+    private static void TryProbeExecutor(LLamaWeights weights, ModelParams p)
+    {
+        var exec = new StatelessExecutor(weights, p);
+        // StatelessExecutor itself is not IDisposable in LLamaSharp — it shares the
+        // weights reference.  Creating it is enough to trigger the allocation check.
+        _ = exec;
     }
 }

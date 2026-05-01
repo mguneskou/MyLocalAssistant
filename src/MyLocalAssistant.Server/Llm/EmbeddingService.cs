@@ -116,10 +116,17 @@ public sealed class EmbeddingService(
             try
             {
                 weights = await LLamaWeights.LoadFromFileAsync(p).ConfigureAwait(false);
+                // Probe: LLamaEmbedder creation forces GPU buffer allocation; catch here
+                // rather than failing silently during the first EmbedAsync call.
+                if (p.GpuLayerCount != 0)
+                {
+                    var probe = new LLamaEmbedder(weights, p, null);
+                    _ = probe; // not IDisposable — shares weight reference
+                }
             }
             catch (Exception ex) when (p.GpuLayerCount > 0)
             {
-                log.LogWarning(ex, "GPU load failed for embedding model {Id} — retrying with CPU-only.", entry.Id);
+                log.LogWarning(ex, "GPU load/probe failed for embedding model {Id} — retrying with CPU-only.", entry.Id);
                 p = new ModelParams(path) { ContextSize = (uint)ctx, Embeddings = true, PoolingType = LLama.Native.LLamaPoolingType.Mean, GpuLayerCount = 0 };
                 weights = await LLamaWeights.LoadFromFileAsync(p).ConfigureAwait(false);
             }
