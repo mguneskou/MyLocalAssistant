@@ -53,7 +53,7 @@ internal sealed class ChatForm : Form
         _client = client;
         _store = store;
 
-        Text = $"MyLocalAssistant \u2014 {_client.CurrentUser?.DisplayName ?? "?"} @ {_client.BaseUrl}";
+        Text = $"MyLocalAssistant {Program.AppVersion} \u2014 {_client.CurrentUser?.DisplayName ?? "?"} @ {_client.BaseUrl}";
         StartPosition = FormStartPosition.CenterScreen;
         MinimumSize = new Size(900, 600);
         Size = new Size(1180, 760);

@@ -6,6 +6,10 @@ namespace MyLocalAssistant.Client;
 
 internal static class Program
 {
+    internal static string AppVersion { get; } =
+        "v" + (System.Reflection.Assembly.GetExecutingAssembly().GetName().Version
+               is { } v ? $"{v.Major}.{v.Minor}.{v.Build}" : "?");
+
     private static readonly string s_logPath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "MyLocalAssistant", "client.log");

@@ -21,7 +21,7 @@ internal sealed class LoginForm : Form
         _store = store;
         var settings = _store.Load();
 
-        Text = "MyLocalAssistant — Sign in";
+        Text = $"MyLocalAssistant {Program.AppVersion} — Sign in";
         StartPosition = FormStartPosition.CenterScreen;
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;

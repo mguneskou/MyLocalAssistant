@@ -19,7 +19,7 @@ internal sealed class ChangePasswordForm : Form
         _client = client;
         _forced = forced;
 
-        Text = forced ? "Change password (required)" : "Change password";
+        Text = forced ? $"MyLocalAssistant {Program.AppVersion} \u2014 Change password (required)" : $"MyLocalAssistant {Program.AppVersion} \u2014 Change password";
         StartPosition = FormStartPosition.CenterParent;
         UiTheme.ApplyDialog(this);
         FormBorderStyle = FormBorderStyle.FixedDialog;
