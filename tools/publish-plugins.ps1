@@ -67,17 +67,15 @@ $Plugins = @(
 # ── Helpers ──────────────────────────────────────────────────────────────────
 
 function Invoke-Dotnet {
-    param([string[]]$Args)
-    Write-Host "  dotnet $($Args -join ' ')" -ForegroundColor DarkGray
-    & dotnet @Args
-    if ($LASTEXITCODE -ne 0) { throw "dotnet $($Args[0]) failed (exit $LASTEXITCODE)" }
+    Write-Host "  dotnet $($args -join ' ')" -ForegroundColor DarkGray
+    & dotnet @args
+    if ($LASTEXITCODE -ne 0) { throw "dotnet $($args[0]) failed (exit $LASTEXITCODE)" }
 }
 
 function Invoke-Signer {
-    param([string[]]$Args)
-    Write-Host "  signer $($Args -join ' ')" -ForegroundColor DarkGray
-    & dotnet run --project $SignerProj --no-build -- @Args
-    if ($LASTEXITCODE -ne 0) { throw "PluginSigner $($Args[0]) failed (exit $LASTEXITCODE)" }
+    Write-Host "  signer $($args -join ' ')" -ForegroundColor DarkGray
+    & dotnet run --project $SignerProj --no-build -- @args
+    if ($LASTEXITCODE -ne 0) { throw "PluginSigner $($args[0]) failed (exit $LASTEXITCODE)" }
 }
 
 # ── Step 0: Build PluginSigner once ──────────────────────────────────────────
