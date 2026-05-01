@@ -206,8 +206,10 @@ public static class ServerPaths
             try
             {
                 var dest = Path.Combine(TrustedKeysDirectory, Path.GetFileName(src));
-                if (File.Exists(dest)) continue;
-                File.Copy(src, dest);
+                // Always overwrite bundled keys: CI may rotate the signing keypair each release,
+                // and the new .pub must replace the old one so plug-in verification still works.
+                // Admin-added keys live outside the bundled tree and are never touched here.
+                File.Copy(src, dest, overwrite: true);
             }
             catch
             {

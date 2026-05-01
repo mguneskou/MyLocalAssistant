@@ -35,7 +35,7 @@ internal sealed class ToolsTab : UserControl
         _toolbar = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top };
         _refreshBtn = new ToolStripButton("Refresh");
         _reloadBtn = new ToolStripButton("Reload plug-ins") { ToolTipText = "Rescan ./plugins/ on the server. Owner-only." };
-        _hint = new ToolStripLabel("  Toggle Enabled, click Tools to inspect, click Config to edit JSON. Disabled skills are not exposed to any agent.")
+        _hint = new ToolStripLabel("  Toggle Enabled, click Tools to inspect, click Config to edit JSON. Disabled tools are not exposed to any agent.")
         {
             ForeColor = SystemColors.GrayText,
         };
@@ -73,7 +73,7 @@ internal sealed class ToolsTab : UserControl
         };
         _grid.Columns.AddRange(new DataGridViewColumn[]
         {
-            new DataGridViewTextBoxColumn { HeaderText = "Skill",       DataPropertyName = nameof(SkillRow.Name),       Width = 180, ReadOnly = true },
+            new DataGridViewTextBoxColumn { HeaderText = "Tool",        DataPropertyName = nameof(SkillRow.Name),       Width = 180, ReadOnly = true },
             new DataGridViewTextBoxColumn { HeaderText = "Id",          DataPropertyName = nameof(SkillRow.Id),         Width = 140, ReadOnly = true },
             new DataGridViewTextBoxColumn { HeaderText = "Source",      DataPropertyName = nameof(SkillRow.Source),     Width = 70,  ReadOnly = true },
             new DataGridViewTextBoxColumn { HeaderText = "Version",     DataPropertyName = nameof(SkillRow.Version),    Width = 70,  ReadOnly = true },
@@ -124,7 +124,7 @@ internal sealed class ToolsTab : UserControl
 
     private async Task ReloadAsync()
     {
-        SetBusy(true, "Loading skills\u2026");
+        SetBusy(true, "Loading tools\u2026");
         try
         {
             _last = await _client.ListToolsAsync();
@@ -190,7 +190,7 @@ internal sealed class ToolsTab : UserControl
     private void ShowToolsDialog(ToolDto dto)
     {
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine($"Skill: {dto.Name} ({dto.Id})");
+        sb.AppendLine($"Tool: {dto.Name} ({dto.Id})");
         sb.AppendLine($"Source: {dto.Source}{(dto.Version is null ? "" : $" v{dto.Version}")}");
         sb.AppendLine($"Requires: tool-mode={dto.Requires.Tools}, min context={dto.Requires.MinContextK}k");
         sb.AppendLine();
