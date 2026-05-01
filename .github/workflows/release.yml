@@ -111,6 +111,12 @@ jobs:
             --channel     win
           Get-ChildItem dist\releases | Format-Table Name, Length -AutoSize
 
+      - name: Delete existing GitHub Release for this tag (if any)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete 'v${{ steps.ver.outputs.version }}' --repo '${{ github.repository }}' --yes 2>$null || true
+
       - name: vpk upload to GitHub Release
         shell: pwsh
         env:
