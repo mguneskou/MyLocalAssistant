@@ -112,7 +112,18 @@ public sealed class EmbeddingService(
                 PoolingType = LLama.Native.LLamaPoolingType.Mean,
                 GpuLayerCount = int.MaxValue,
             };
-            _weights = await LLamaWeights.LoadFromFileAsync(p).ConfigureAwait(false);
+            LLamaWeights weights;
+            try
+            {
+                weights = await LLamaWeights.LoadFromFileAsync(p).ConfigureAwait(false);
+            }
+            catch (Exception ex) when (p.GpuLayerCount > 0)
+            {
+                log.LogWarning(ex, "GPU load failed for embedding model {Id} — retrying with CPU-only.", entry.Id);
+                p = new ModelParams(path) { ContextSize = (uint)ctx, Embeddings = true, PoolingType = LLama.Native.LLamaPoolingType.Mean, GpuLayerCount = 0 };
+                weights = await LLamaWeights.LoadFromFileAsync(p).ConfigureAwait(false);
+            }
+            _weights = weights;
             _embedder = new LLamaEmbedder(_weights, p, null);
             _dim = _embedder.EmbeddingSize;
             _loadedId = entry.Id;

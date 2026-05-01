@@ -32,9 +32,20 @@ public sealed class LLamaSharpProvider : ILlmProvider
         _params = new ModelParams(modelPath)
         {
             ContextSize = (uint)contextSize,
-            GpuLayerCount = int.MaxValue, // offload as much as possible; falls back automatically
+            GpuLayerCount = int.MaxValue, // offload as much as possible; falls back to CPU below
         };
-        _weights = await LLamaWeights.LoadFromFileAsync(_params, ct).ConfigureAwait(false);
+        try
+        {
+            _weights = await LLamaWeights.LoadFromFileAsync(_params, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex) when (_params.GpuLayerCount > 0)
+        {
+            // GPU-accelerated load failed (e.g. Vulkan on integrated graphics with insufficient
+            // shared VRAM). Retry with CPU-only so the model still works.
+            _logger.LogWarning(ex, "GPU load failed for {Id} — retrying with CPU-only.", modelId);
+            _params = new ModelParams(modelPath) { ContextSize = (uint)contextSize, GpuLayerCount = 0 };
+            _weights = await LLamaWeights.LoadFromFileAsync(_params, ct).ConfigureAwait(false);
+        }
         _modelId = modelId;
         _logger.LogInformation("Model {Id} loaded.", modelId);
     }
