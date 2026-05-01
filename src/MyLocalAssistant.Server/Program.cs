@@ -89,6 +89,8 @@ try
     builder.Services.AddHostedService<ModelBootstrapService>();
     builder.Services.AddHostedService<EmbeddingBootstrapService>();
     builder.Services.AddHostedService<MyLocalAssistant.Server.Hosting.RetentionService>();
+    builder.Services.AddHostedService<MyLocalAssistant.Server.Hosting.SchedulerHostedService>();
+    builder.Services.AddHostedService<MyLocalAssistant.Server.Hosting.MemorySummarizationService>();
 
     builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         .AddJwtBearer(o =>

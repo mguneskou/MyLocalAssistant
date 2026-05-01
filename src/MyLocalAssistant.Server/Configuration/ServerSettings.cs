@@ -50,6 +50,14 @@ public sealed class ServerSettings
     public string? GetAnthropicApiKey() => SecretProtector.Unprotect(AnthropicApiKeyProtected);
     public bool IsOpenAiConfigured => !string.IsNullOrEmpty(GetOpenAiApiKey());
     public bool IsAnthropicConfigured => !string.IsNullOrEmpty(GetAnthropicApiKey());
+
+    // ── Conversation memory summarisation ─────────────────────────────────────
+    /// <summary>When true, the MemorySummarizationService compresses old messages. Default off.</summary>
+    public bool SummarizationEnabled { get; set; } = false;
+    /// <summary>Number of non-system messages in a conversation before auto-summarisation kicks in. Default 40.</summary>
+    public int SummarizationThreshold { get; set; } = 40;
+    /// <summary>How many of the oldest messages to compress in each summarisation pass. Default 20.</summary>
+    public int SummarizationBatchSize { get; set; } = 20;
 }
 
 public sealed class LdapSettings

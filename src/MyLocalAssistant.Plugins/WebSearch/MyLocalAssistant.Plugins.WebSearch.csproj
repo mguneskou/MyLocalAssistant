@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>mla-plugin-websearch</AssemblyName>
+    <RootNamespace>MyLocalAssistant.Plugins.WebSearch</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MyLocalAssistant.Plugin.Shared\MyLocalAssistant.Plugin.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

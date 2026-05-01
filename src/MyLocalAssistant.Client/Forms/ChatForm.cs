@@ -647,8 +647,17 @@ internal sealed class ChatForm : Form
                 else if (frame.Kind == TokenStreamFrameKind.ToolResult)
                 {
                     var isErr = string.Equals(frame.ToolReason, "error", StringComparison.Ordinal);
-                    _history.AppendNote($"\u2190 {(isErr ? "tool error" : "tool result")}: {frame.ToolName ?? "?"} {frame.ToolJson ?? ""}",
-                        isErr ? BubbleKind.Error : BubbleKind.Note);
+                    // If the tool returned an image, render it inline instead of (or after) the note.
+                    if (!isErr && _history.TryAppendImageResult(frame.ToolJson))
+                    {
+                        // Image bubble was added; still show a compact note for audit.
+                        _history.AppendNote($"\u2190 image: {frame.ToolName ?? "?"}");
+                    }
+                    else
+                    {
+                        _history.AppendNote($"\u2190 {(isErr ? "tool error" : "tool result")}: {frame.ToolName ?? "?"} {frame.ToolJson ?? ""}",
+                            isErr ? BubbleKind.Error : BubbleKind.Note);
+                    }
                 }
             }
             _history.EndAssistantStream();

@@ -63,24 +63,35 @@ jobs:
           .\scripts\publish-all.ps1 -Configuration Release -Runtime win-x64 -OutDir "$PWD\dist\stage"
           Get-ChildItem dist\stage -Filter *.exe | Select-Object Name, Length
 
-      - name: Bundle plug-ins (Excel) + trusted dev key
+      - name: Restore plugin packages
         shell: pwsh
         run: |
-          # Build, sign, and stage the Excel plug-in. CI generates a fresh dev keypair
-          # each run; the matching public key is bundled so signature verification on
-          # the tester's machine succeeds without any out-of-band key distribution.
-          .\plugins\excel\build.ps1 -KeyId dev -Configuration Release -Runtime win-x64
+          # Restore NuGet packages for all plugin projects before publish-plugins.ps1
+          $pluginProjects = @(
+            'src\MyLocalAssistant.Plugins\WebSearch\MyLocalAssistant.Plugins.WebSearch.csproj',
+            'src\MyLocalAssistant.Plugins\CodeInterpreter\MyLocalAssistant.Plugins.CodeInterpreter.csproj',
+            'src\MyLocalAssistant.Plugins\ImageGen\MyLocalAssistant.Plugins.ImageGen.csproj',
+            'src\MyLocalAssistant.Plugins\MemoryTool\MyLocalAssistant.Plugins.MemoryTool.csproj',
+            'src\MyLocalAssistant.Plugins\ReportGen\MyLocalAssistant.Plugins.ReportGen.csproj',
+            'src\MyLocalAssistant.Plugins\EmailTool\MyLocalAssistant.Plugins.EmailTool.csproj',
+            'src\MyLocalAssistant.Plugins\Scheduler\MyLocalAssistant.Plugins.Scheduler.csproj',
+            'tools\PluginSigner\MyLocalAssistant.Tools.PluginSigner.csproj'
+          )
+          foreach ($proj in $pluginProjects) {
+            dotnet restore $proj --nologo -v q
+            if ($LASTEXITCODE -ne 0) { throw "restore failed: $proj" }
+          }
 
-          $bundleDir = "$PWD\dist\stage\bundled\plugins\excel"
-          New-Item -ItemType Directory -Force -Path $bundleDir | Out-Null
-          # Copy everything published except the packed .mlaplugin (we ship the unpacked layout).
-          Get-ChildItem "$PWD\plugins\excel\publish" -Force `
-            | Where-Object { $_.Name -ne ".keys" -and $_.Extension -ne ".mlaplugin" } `
-            | Copy-Item -Destination $bundleDir -Recurse -Force
-
-          $keyDir = "$PWD\dist\stage\bundled\config\trusted-keys"
-          New-Item -ItemType Directory -Force -Path $keyDir | Out-Null
-          Copy-Item "$PWD\src\MyLocalAssistant.Server\config\trusted-keys\dev.pub" $keyDir -Force
+      - name: Bundle all plugins + trusted key
+        shell: pwsh
+        run: |
+          # publish-plugins.ps1: builds PluginSigner, generates a fresh ephemeral
+          # keypair in tools\keys\, publishes + signs all 7 bundled plugins, and
+          # copies the matching public key into the bundle so signature verification
+          # on the tester's machine succeeds without any out-of-band key distribution.
+          .\tools\publish-plugins.ps1 `
+            -Configuration Release `
+            -BundledDir "$PWD\dist\stage\bundled"
 
           Write-Host "Bundled plug-ins:"
           Get-ChildItem "$PWD\dist\stage\bundled" -Recurse -File | Select-Object FullName, Length

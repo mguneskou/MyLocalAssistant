@@ -1,0 +1,23 @@
+{
+  "id": "image.gen",
+  "name": "Image Generator",
+  "description": "Generates images using a local Stable Diffusion server (Automatic1111 or ComfyUI). Images are saved to the conversation work directory.",
+  "category": "Creative",
+  "version": "1.0.0",
+  "publisher": "MyLocalAssistant",
+  "keyId": "bundled-plugins",
+  "toolMode": "json",
+  "minContextK": 4,
+  "entry": {
+    "command": "mla-plugin-imagegen.exe",
+    "args": []
+  },
+  "files": [],
+  "tools": [
+    {
+      "name": "image.generate",
+      "description": "Generate an image from a text prompt using the local Stable Diffusion server. Returns the filename and path of the saved PNG.",
+      "argumentsSchemaJson": "{\"type\":\"object\",\"properties\":{\"prompt\":{\"type\":\"string\",\"description\":\"Detailed description of the image to generate\"},\"negative_prompt\":{\"type\":\"string\",\"description\":\"Things to avoid in the image\"},\"width\":{\"type\":\"integer\",\"description\":\"Image width in pixels (default 512)\"},\"height\":{\"type\":\"integer\",\"description\":\"Image height in pixels (default 512)\"},\"steps\":{\"type\":\"integer\",\"description\":\"Inference steps (default 20)\"},\"filename\":{\"type\":\"string\",\"description\":\"Optional output filename (without path)\"}},\"required\":[\"prompt\"]}"
+    }
+  ]
+}
