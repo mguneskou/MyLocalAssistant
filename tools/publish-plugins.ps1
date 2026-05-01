@@ -74,7 +74,7 @@ function Invoke-Dotnet {
 
 function Invoke-Signer {
     Write-Host "  signer $($args -join ' ')" -ForegroundColor DarkGray
-    & dotnet run --project $SignerProj --no-build -- @args
+    & dotnet run --project $SignerProj -c $Configuration --no-build -- @args
     if ($LASTEXITCODE -ne 0) { throw "PluginSigner $($args[0]) failed (exit $LASTEXITCODE)" }
 }
 
