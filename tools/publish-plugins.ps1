@@ -89,6 +89,9 @@ Write-Host "`n[1/5] Signing key..." -ForegroundColor Cyan
 if (-not (Test-Path $KeyFile)) {
     $null = New-Item -ItemType Directory -Force -Path $KeysDir
     Write-Host "  Generating new key pair: $KeyId" -ForegroundColor Yellow
+    # If .pub exists (e.g. committed to repo) but .key is missing, remove it first
+    # so generate-key can write a fresh matching pair.
+    if (Test-Path $PubFile) { Remove-Item $PubFile }
     Push-Location $KeysDir
     try   { Invoke-Signer generate-key $KeyId }
     finally { Pop-Location }
