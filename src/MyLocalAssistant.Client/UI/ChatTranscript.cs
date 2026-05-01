@@ -1,43 +1,97 @@
-using System.Drawing.Drawing2D;
+﻿using System.Drawing.Drawing2D;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace MyLocalAssistant.Client.UI;
 
 internal enum BubbleKind { User, Assistant, Note, Error }
 
 /// <summary>
-/// A modern chat transcript control. Each turn is rendered as a rounded "bubble":
-/// user messages right-aligned with the accent fill, assistant messages left-aligned
-/// on a light card, tool/system notes centered. Text inside each bubble is selectable
-/// (so testers can copy answers) and a context menu gives quick copy actions.
+/// Chat transcript panel. Renders each turn as a rounded bubble, supports streaming,
+/// code-block highlighting, animated "thinking" dots, empty-state overlay,
+/// scroll-to-bottom FAB, and live dark/light theme refresh.
 /// </summary>
 internal sealed class ChatTranscript : Panel
 {
     private readonly FlowLayoutPanel _flow;
+    private readonly Panel _emptyPanel;
+    private readonly Label _emptyTitle;
+    private readonly Label _emptyHint;
+    private readonly Panel _fab;
     private ChatBubble? _streaming;
     private bool _pinnedToBottom = true;
+    private string _agentName = "Assistant";
 
     public ChatTranscript()
     {
-        BackColor = UiTheme.SurfaceCard;
+        BackColor    = UiTheme.SurfaceCard;
         DoubleBuffered = true;
 
         _flow = new FlowLayoutPanel
         {
-            Dock = DockStyle.Fill,
+            Dock          = DockStyle.Fill,
             FlowDirection = FlowDirection.TopDown,
-            WrapContents = false,
-            AutoScroll = true,
-            BackColor = UiTheme.SurfaceCard,
-            Padding = new Padding(20, 16, 20, 16),
+            WrapContents  = false,
+            AutoScroll    = true,
+            BackColor     = UiTheme.SurfaceCard,
+            Padding       = new Padding(20, 16, 20, 16),
         };
         Controls.Add(_flow);
 
-        _flow.Resize += (_, _) => RelayoutAll();
-        _flow.Scroll += (_, _) => _pinnedToBottom = IsScrolledToBottom();
-        _flow.MouseWheel += (_, _) => _pinnedToBottom = IsScrolledToBottom();
+        // â”€â”€ Empty-state overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        _emptyTitle = new Label
+        {
+            AutoSize  = true,
+            Font      = UiTheme.Heading,
+            ForeColor = UiTheme.TextSecondary,
+            Text      = "Start a conversation",
+        };
+        _emptyHint = new Label
+        {
+            AutoSize  = true,
+            Font      = UiTheme.Caption,
+            ForeColor = UiTheme.TextSecondary,
+            Text      = "Type a message below",
+        };
+        _emptyPanel = new Panel { BackColor = Color.Transparent, Size = new Size(320, 80) };
+        _emptyPanel.Controls.Add(_emptyTitle);
+        _emptyPanel.Controls.Add(_emptyHint);
+        _emptyTitle.Location = new Point(0, 0);
+        _emptyHint.Location  = new Point(2, _emptyTitle.PreferredHeight + 8);
 
-        // Right-click on empty area: copy whole transcript / clear.
+        // â”€â”€ Scroll-to-bottom FAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        _fab = new Panel { Size = new Size(38, 38), BackColor = UiTheme.SurfaceCard, Visible = false, Cursor = Cursors.Hand };
+        var fabLbl = new Label
+        {
+            Text      = "\u2193",
+            Dock      = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Font      = new Font("Segoe UI", 14F),
+            ForeColor = UiTheme.TextPrimary,
+            BackColor = Color.Transparent,
+        };
+        _fab.Controls.Add(fabLbl);
+        _fab.Click    += (_, _) => ScrollToEnd();
+        fabLbl.Click  += (_, _) => ScrollToEnd();
+        _fab.Paint    += (_, e) =>
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var p = new Pen(UiTheme.Border, 1.5f);
+            using var path = UiTheme.MakeRoundedPath(new Rectangle(0, 0, _fab.Width - 1, _fab.Height - 1), 19);
+            using var bg = new SolidBrush(_fab.BackColor);
+            e.Graphics.FillPath(bg, path);
+            e.Graphics.DrawPath(p, path);
+        };
+
+        Controls.Add(_emptyPanel);
+        Controls.Add(_fab);
+        _emptyPanel.BringToFront();
+        _fab.BringToFront();
+
+        _flow.Resize     += (_, _) => { RelayoutAll(); PositionOverlays(); };
+        _flow.Scroll     += (_, _) => { _pinnedToBottom = IsScrolledToBottom(); UpdateFab(); };
+        _flow.MouseWheel += (_, _) => { _pinnedToBottom = IsScrolledToBottom(); UpdateFab(); };
+
         var menu = new ContextMenuStrip();
         menu.Items.Add("Copy whole transcript", null, (_, _) =>
         {
@@ -47,16 +101,42 @@ internal sealed class ChatTranscript : Panel
         _flow.ContextMenuStrip = menu;
     }
 
-    /// <summary>Remove every message and reset streaming state.</summary>
+    protected override void OnResize(EventArgs e) { base.OnResize(e); PositionOverlays(); }
+
+    private void PositionOverlays()
+    {
+        _emptyPanel.Location = new Point(
+            Math.Max(0, (Width  - _emptyPanel.Width)  / 2),
+            Math.Max(0, (Height - _emptyPanel.Height) / 2) - 30);
+        _fab.Location = new Point(Width - _fab.Width - 18, Height - _fab.Height - 18);
+    }
+
+    public void SetAgentName(string name)
+    {
+        _agentName       = name;
+        _emptyTitle.Text = name;
+        _emptyHint.Text  = "Start typing to begin";
+        _emptyPanel.Size = new Size(
+            Math.Max(_emptyTitle.PreferredWidth, _emptyHint.PreferredWidth) + 20,
+            _emptyTitle.PreferredHeight + 10 + _emptyHint.PreferredHeight);
+        _emptyHint.Location = new Point(2, _emptyTitle.PreferredHeight + 8);
+        PositionOverlays();
+    }
+
     public void Clear()
     {
         _flow.SuspendLayout();
         foreach (Control c in _flow.Controls) c.Dispose();
         _flow.Controls.Clear();
         _flow.ResumeLayout();
-        _streaming = null;
+        _streaming      = null;
         _pinnedToBottom = true;
+        UpdateEmptyState();
+        UpdateFab();
     }
+
+    private void UpdateEmptyState() => _emptyPanel.Visible = _flow.Controls.Count == 0;
+    private void UpdateFab()        => _fab.Visible = !IsScrolledToBottom() && _flow.Controls.Count > 0;
 
     public void AppendUserMessage(string text)
         => Add(new ChatBubble(BubbleKind.User, text, "You", DateTime.UtcNow));
@@ -67,7 +147,6 @@ internal sealed class ChatTranscript : Panel
     public void AppendNote(string text, BubbleKind kind = BubbleKind.Note)
         => Add(new ChatBubble(kind, text, "", DateTime.UtcNow));
 
-    /// <summary>Begin a new assistant bubble that subsequent <see cref="AppendAssistantText"/> calls flow into.</summary>
     public void BeginAssistantStream(string speaker)
     {
         _streaming = new ChatBubble(BubbleKind.Assistant, "", speaker, DateTime.UtcNow);
@@ -78,7 +157,7 @@ internal sealed class ChatTranscript : Panel
     public void AppendAssistantText(string text)
     {
         if (string.IsNullOrEmpty(text)) return;
-        if (_streaming is null) BeginAssistantStream("Assistant");
+        if (_streaming is null) BeginAssistantStream(_agentName);
         _streaming!.AppendStreamingText(text);
         if (_pinnedToBottom) ScrollToEnd();
     }
@@ -94,6 +173,8 @@ internal sealed class ChatTranscript : Panel
         _pinnedToBottom = IsScrolledToBottom();
         b.SetAvailableWidth(ContentWidth());
         _flow.Controls.Add(b);
+        UpdateEmptyState();
+        UpdateFab();
         if (_pinnedToBottom) ScrollToEnd();
     }
 
@@ -123,9 +204,9 @@ internal sealed class ChatTranscript : Panel
     public void ScrollToEnd()
     {
         if (_flow.Controls.Count == 0) return;
-        var last = _flow.Controls[_flow.Controls.Count - 1];
-        _flow.ScrollControlIntoView(last);
+        _flow.ScrollControlIntoView(_flow.Controls[_flow.Controls.Count - 1]);
         _pinnedToBottom = true;
+        UpdateFab();
     }
 
     public string GetTranscriptText()
@@ -141,112 +222,170 @@ internal sealed class ChatTranscript : Panel
         }
         return sb.ToString();
     }
+
+    public void RefreshTheme()
+    {
+        BackColor       = UiTheme.SurfaceCard;
+        _flow.BackColor = UiTheme.SurfaceCard;
+        _emptyTitle.ForeColor = UiTheme.TextSecondary;
+        _emptyHint.ForeColor  = UiTheme.TextSecondary;
+        _fab.BackColor  = UiTheme.SurfaceCard;
+        foreach (Control c in _flow.Controls)
+            if (c is ChatBubble b) b.RefreshTheme();
+        _fab.Invalidate();
+        Invalidate(true);
+    }
 }
 
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ChatBubble
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
 /// <summary>
-/// One message rendered as a rounded bubble plus a small meta line (speaker + time).
-/// Uses an inner read-only multiline TextBox for selectable text; the rounded
-/// background and alignment are owner-painted by the surrounding panel.
+/// One message rendered as a rounded bubble. Supports streaming animation (pulsing
+/// dots â†’ text), code-block segments with dark background and Copy button, and
+/// an always-visible âŽ˜ glyph for quick message copy.
 /// </summary>
 internal sealed class ChatBubble : Panel
 {
-    private static readonly Font BodyFont   = new("Segoe UI", 10.5F);
-    private static readonly Font NoteFont   = new("Segoe UI", 9.5F, FontStyle.Italic);
+    private static readonly Font BodyFont    = new("Segoe UI", 10.5F);
+    private static readonly Font NoteFont    = new("Segoe UI", 9.5F, FontStyle.Italic);
+    private static readonly Font CodeFont    = new("Consolas", 9.5F);
+    private static readonly Font CodeHdrFont = new("Segoe UI", 8.5F);
 
-    private const int BubbleRadius   = 12;
-    private const int InnerPadX      = 14;
-    private const int InnerPadY      = 9;
+    private const int BubbleRadius    = 12;
+    private const int InnerPadX       = 14;
+    private const int InnerPadY       = 10;
+    private const int SegGap          = 6;
+    private const int CodeTopBar      = 24;
+    private const int CodePadH        = 10;
+    private const int CodePadV        = 6;
     private const int BubbleBottomGap = 4;
-    private const int MetaHeight     = 16;
-    private const double MaxBubbleFraction = 0.78;
+    private const int MetaHeight      = 16;
+    private const double MaxFraction  = 0.82;
 
-    private readonly TextBox _text;
-    private readonly Label   _meta;
-    private Rectangle _bubbleBounds;
-    private int _availableWidth = 600;
-    private int _pendingCharsSinceMeasure;
+    private readonly TextBox             _mainText;
+    private readonly List<Control>       _segControls = new();
+    private readonly Label               _meta;
+    private readonly Label               _copyBtn;
+    private Rectangle                    _bubbleBounds;
+    private int                          _availableWidth = 600;
+    private int                          _pendingChars;
+    private string                       _fullText = "";
+    private bool                         _hasCodeBlocks;
 
-    public BubbleKind Kind { get; }
-    public string SpeakerName { get; private set; }
-    public DateTime CreatedAt { get; }
-    public bool IsStreaming { get; private set; }
-    public string PlainText => _text.Text;
+    // Streaming animation
+    private readonly System.Windows.Forms.Timer _dotsTimer;
+    private int _dotsPhase;
+
+    public BubbleKind Kind        { get; }
+    public string     SpeakerName { get; }
+    public DateTime   CreatedAt   { get; }
+    public bool       IsStreaming { get; private set; }
+    public string     PlainText   => _fullText;
 
     public ChatBubble(BubbleKind kind, string text, string speakerName, DateTime when)
     {
-        Kind = kind;
+        Kind        = kind;
         SpeakerName = speakerName ?? "";
-        CreatedAt = when;
+        CreatedAt   = when;
+        _fullText   = text ?? "";
+
         SetStyle(ControlStyles.AllPaintingInWmPaint
                | ControlStyles.UserPaint
                | ControlStyles.OptimizedDoubleBuffer
                | ControlStyles.ResizeRedraw
                | ControlStyles.SupportsTransparentBackColor, true);
         BackColor = Color.Transparent;
-        Margin = new Padding(0, 0, 0, 8);
+        Margin    = new Padding(0, 0, 0, 8);
 
-        _text = new TextBox
+        // Dots timer (streaming animation)
+        _dotsTimer = new System.Windows.Forms.Timer { Interval = 400 };
+        _dotsTimer.Tick += (_, _) => { _dotsPhase = (_dotsPhase + 1) % 3; Invalidate(); };
+
+        // Main text control (always present; hidden when segments exist)
+        _mainText = new TextBox
         {
-            Multiline = true,
-            ReadOnly = true,
+            Multiline   = true,
+            ReadOnly    = true,
             BorderStyle = BorderStyle.None,
-            ScrollBars = ScrollBars.None,
-            WordWrap = true,
-            Font = kind == BubbleKind.Note ? NoteFont : BodyFont,
-            BackColor = GetFill(kind),
-            ForeColor = GetTextColor(kind),
-            TabStop = false,
-            Cursor = Cursors.IBeam,
-            Text = text ?? "",
+            ScrollBars  = ScrollBars.None,
+            WordWrap    = true,
+            Font        = kind == BubbleKind.Note ? NoteFont : BodyFont,
+            BackColor   = GetFill(kind),
+            ForeColor   = GetTextColor(kind),
+            TabStop     = false,
+            Cursor      = Cursors.IBeam,
+            Text        = _fullText,
         };
-        Controls.Add(_text);
+        Controls.Add(_mainText);
 
+        // Meta line: "Speaker Â· HH:mm"
         _meta = new Label
         {
-            AutoSize = true,
-            Font = UiTheme.Caption,
+            AutoSize  = true,
+            Font      = UiTheme.Caption,
             ForeColor = UiTheme.TextSecondary,
             BackColor = Color.Transparent,
         };
         Controls.Add(_meta);
         UpdateMeta();
 
+        // Inline copy glyph (âŽ˜ = U+2398 copy symbol)
+        _copyBtn = new Label
+        {
+            Text      = "\u29c9",   // â§‰ overlapping squares, universally readable
+            AutoSize  = true,
+            Font      = UiTheme.Caption,
+            ForeColor = UiTheme.TextSecondary,
+            BackColor = Color.Transparent,
+            Cursor    = Cursors.Hand,
+        };
+        _copyBtn.Click += (_, _) => { if (!string.IsNullOrEmpty(_fullText)) Clipboard.SetText(_fullText); };
+        Controls.Add(_copyBtn);
+
+        // Context menu
         var menu = new ContextMenuStrip();
-        menu.Items.Add("Copy message", null, (_, _) =>
-        {
-            if (!string.IsNullOrEmpty(_text.Text)) Clipboard.SetText(_text.Text);
-        });
-        menu.Items.Add("Select all in this message", null, (_, _) =>
-        {
-            _text.Focus();
-            _text.SelectAll();
-        });
+        menu.Items.Add("Copy message", null, (_, _) => { if (!string.IsNullOrEmpty(_fullText)) Clipboard.SetText(_fullText); });
+        menu.Items.Add("Select all",   null, (_, _) => { _mainText.Focus(); _mainText.SelectAll(); });
         ContextMenuStrip = menu;
-        _text.ContextMenuStrip = menu;
+        _mainText.ContextMenuStrip = menu;
+
+        // Build segments immediately for non-streaming assistant messages
+        if (_fullText.Length > 0 && kind == BubbleKind.Assistant)
+            RebuildContent();
     }
 
-    /// <summary>Append more streamed text (called many times during generation, must be cheap).</summary>
+    // â”€â”€ Streaming â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    public void BeginStreaming()
+    {
+        IsStreaming = true;
+        _dotsTimer.Start();
+        Invalidate();
+    }
+
     public void AppendStreamingText(string s)
     {
-        _text.AppendText(s);
-        _pendingCharsSinceMeasure += s.Length;
-        // Re-measure occasionally instead of per-token (prevents O(n^2) behaviour for long replies).
-        if (_pendingCharsSinceMeasure >= 64 || s.IndexOf('\n') >= 0)
+        _fullText    += s;
+        _mainText.AppendText(s);
+        _pendingChars += s.Length;
+        if (_pendingChars >= 64 || s.Contains('\n'))
         {
-            _pendingCharsSinceMeasure = 0;
+            _pendingChars = 0;
             Relayout();
         }
     }
 
     public void FinishStreaming()
     {
-        IsStreaming = false;
-        _pendingCharsSinceMeasure = 0;
+        IsStreaming   = false;
+        _dotsTimer.Stop();
+        _pendingChars = 0;
+        RebuildContent();
         Relayout();
         Invalidate();
     }
-
-    public void BeginStreaming() { IsStreaming = true; Invalidate(); }
 
     public void SetAvailableWidth(int w)
     {
@@ -254,49 +393,228 @@ internal sealed class ChatBubble : Panel
         Relayout();
     }
 
-    private void UpdateMeta()
+    // â”€â”€ Code-block parsing and segment construction â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+
+    private static readonly Regex s_code =
+        new(@"```(\w*)\n(.*?)```", RegexOptions.Singleline | RegexOptions.Compiled);
+
+    private static List<(string text, bool isCode, string lang)> ParseSegments(string text)
     {
-        var ts = CreatedAt.ToLocalTime().ToString("HH:mm");
-        _meta.Text = string.IsNullOrEmpty(SpeakerName) ? ts : $"{SpeakerName}  \u00b7  {ts}";
+        var result = new List<(string, bool, string)>();
+        int pos = 0;
+        foreach (Match m in s_code.Matches(text))
+        {
+            if (m.Index > pos) result.Add((text[pos..m.Index], false, ""));
+            result.Add((m.Groups[2].Value, true, m.Groups[1].Value));
+            pos = m.Index + m.Length;
+        }
+        if (pos < text.Length) result.Add((text[pos..], false, ""));
+        if (result.Count == 0) result.Add((text, false, ""));
+        return result;
     }
+
+    private void RebuildContent()
+    {
+        if (Kind != BubbleKind.Assistant) return;
+        var segs    = ParseSegments(_fullText);
+        var hasCode = segs.Any(s => s.isCode);
+        if (!hasCode && !_hasCodeBlocks) return;
+
+        // Dispose old segment controls
+        foreach (var old in _segControls) { Controls.Remove(old); old.Dispose(); }
+        _segControls.Clear();
+
+        _hasCodeBlocks = hasCode;
+        if (!hasCode) { _mainText.Visible = true; _mainText.Text = _fullText; return; }
+
+        _mainText.Visible = false;
+        foreach (var (text, isCode, lang) in segs)
+        {
+            if (string.IsNullOrEmpty(text) && !isCode) continue;
+            Control seg = isCode ? CreateCodePanel(text, lang) : CreatePlainSegment(text);
+            _segControls.Add(seg);
+            Controls.Add(seg);
+        }
+    }
+
+    private TextBox CreatePlainSegment(string text)
+    {
+        var tb = new TextBox
+        {
+            Multiline   = true,
+            ReadOnly    = true,
+            BorderStyle = BorderStyle.None,
+            ScrollBars  = ScrollBars.None,
+            WordWrap    = true,
+            Font        = BodyFont,
+            BackColor   = GetFill(Kind),
+            ForeColor   = GetTextColor(Kind),
+            TabStop     = false,
+            Cursor      = Cursors.IBeam,
+            Text        = text.Trim('\n'),
+        };
+        tb.ContextMenuStrip = _mainText.ContextMenuStrip;
+        return tb;
+    }
+
+    private Panel CreateCodePanel(string code, string lang)
+    {
+        var codeBg   = UiTheme.CodeBlockBg;
+        var codeFg   = UiTheme.IsDark ? Color.FromArgb(200, 200, 200) : Color.FromArgb(30, 30, 30);
+        var hdrColor = Color.FromArgb(130, 130, 160);
+
+        var panel = new Panel { BackColor = codeBg };
+
+        var langLbl = new Label
+        {
+            Text      = string.IsNullOrEmpty(lang) ? "code" : lang,
+            AutoSize  = true,
+            Font      = CodeHdrFont,
+            ForeColor = hdrColor,
+            BackColor = Color.Transparent,
+            Location  = new Point(CodePadH, 5),
+        };
+
+        var copyLbl = new Label
+        {
+            Text      = "Copy code",
+            AutoSize  = true,
+            Font      = CodeHdrFont,
+            ForeColor = hdrColor,
+            BackColor = Color.Transparent,
+            Cursor    = Cursors.Hand,
+        };
+        copyLbl.Click += (_, _) => Clipboard.SetText(code);
+
+        var codeBox = new TextBox
+        {
+            Multiline   = true,
+            ReadOnly    = true,
+            BorderStyle = BorderStyle.None,
+            ScrollBars  = ScrollBars.Horizontal,
+            WordWrap    = false,
+            Font        = CodeFont,
+            BackColor   = codeBg,
+            ForeColor   = codeFg,
+            Text        = code.TrimEnd('\n'),
+            TabStop     = false,
+        };
+
+        panel.Controls.Add(langLbl);
+        panel.Controls.Add(copyLbl);
+        panel.Controls.Add(codeBox);
+        panel.Tag = new CodePanelRefs(langLbl, copyLbl, codeBox);
+        return panel;
+    }
+
+    private record CodePanelRefs(Label LangLbl, Label CopyLbl, TextBox CodeBox);
+
+    // â”€â”€ Layout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     private void Relayout()
     {
-        var maxBubble = (int)(_availableWidth * MaxBubbleFraction);
-        if (maxBubble < 240) maxBubble = Math.Min(_availableWidth, 240);
-        var maxTextWidth = Math.Max(80, maxBubble - InnerPadX * 2);
-
-        var content = string.IsNullOrEmpty(_text.Text) ? " " : _text.Text;
-        // TextRenderer with WordBreak gives wrapped size that matches the TextBox layout closely enough.
-        var measured = TextRenderer.MeasureText(content, _text.Font, new Size(maxTextWidth, int.MaxValue),
-            TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.TextBoxControl);
-
-        var textWidth  = Math.Min(maxTextWidth, Math.Max(40, measured.Width + 4));
-        var textHeight = Math.Max(_text.Font.Height, measured.Height);
-        var bubbleW    = textWidth + InnerPadX * 2;
-        var bubbleH    = textHeight + InnerPadY * 2;
-
-        var alignRight = Kind == BubbleKind.User;
-        var center     = Kind == BubbleKind.Note || Kind == BubbleKind.Error;
-        int bubbleX = alignRight ? _availableWidth - bubbleW
-                    : center     ? Math.Max(0, (_availableWidth - bubbleW) / 2)
-                                 : 0;
-
-        _bubbleBounds = new Rectangle(bubbleX, 0, bubbleW, bubbleH);
-        _text.SetBounds(bubbleX + InnerPadX, InnerPadY, textWidth, textHeight);
-
-        UpdateMeta();
-        var metaSize = TextRenderer.MeasureText(_meta.Text, _meta.Font);
-        _meta.Location = new Point(
-            alignRight ? bubbleX + bubbleW - metaSize.Width
-                       : center ? bubbleX + (bubbleW - metaSize.Width) / 2
-                                : bubbleX + 4,
-            bubbleH + BubbleBottomGap);
-
-        Width  = _availableWidth;
-        Height = bubbleH + BubbleBottomGap + Math.Max(MetaHeight, metaSize.Height);
+        if (_hasCodeBlocks && _segControls.Count > 0) RelayoutSegments();
+        else                                           RelayoutSingle();
         Invalidate();
     }
+
+    private void RelayoutSingle()
+    {
+        var maxBubble   = (int)(_availableWidth * MaxFraction);
+        if (maxBubble < 240) maxBubble = Math.Min(_availableWidth, 240);
+        var maxTextW    = Math.Max(80, maxBubble - InnerPadX * 2);
+
+        var content = string.IsNullOrEmpty(_mainText.Text) ? " " : _mainText.Text;
+        var measured = TextRenderer.MeasureText(content, _mainText.Font,
+            new Size(maxTextW, int.MaxValue),
+            TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.TextBoxControl);
+
+        var textW = Math.Min(maxTextW, Math.Max(40, measured.Width + 4));
+        var textH = Math.Max(_mainText.Font.Height, measured.Height);
+        var bW    = textW + InnerPadX * 2;
+        var bH    = textH + InnerPadY * 2;
+
+        bool right  = Kind == BubbleKind.User;
+        bool center = Kind == BubbleKind.Note || Kind == BubbleKind.Error;
+        int  bX     = right  ? _availableWidth - bW
+                    : center ? Math.Max(0, (_availableWidth - bW) / 2)
+                             : 0;
+
+        _bubbleBounds = new Rectangle(bX, 0, bW, bH);
+        _mainText.SetBounds(bX + InnerPadX, InnerPadY, textW, textH);
+        PositionMetaAndCopy(bX, bW, bH, right, center);
+
+        Width  = _availableWidth;
+        Height = bH + BubbleBottomGap + Math.Max(MetaHeight, _meta.Height);
+    }
+
+    private void RelayoutSegments()
+    {
+        var maxBubble = (int)(_availableWidth * MaxFraction);
+        if (maxBubble < 240) maxBubble = Math.Min(_availableWidth, 240);
+        int innerW = maxBubble - InnerPadX * 2;
+        int y      = InnerPadY;
+
+        foreach (var seg in _segControls)
+        {
+            if (seg is Panel cp && cp.Tag is CodePanelRefs refs)
+            {
+                // Measure code lines
+                int lineCount = Math.Max(1, refs.CodeBox.Text.Split('\n').Length);
+                int codeH     = lineCount * (refs.CodeBox.Font.Height + 2) + 6;
+                int panelH    = CodeTopBar + codeH + CodePadV * 2;
+
+                cp.SetBounds(0, y, maxBubble, panelH);
+                refs.CopyLbl.Location = new Point(maxBubble - refs.CopyLbl.PreferredWidth - CodePadH, 5);
+                refs.CodeBox.SetBounds(CodePadH, CodeTopBar + CodePadV,
+                    maxBubble - CodePadH * 2, codeH);
+                y += panelH + SegGap;
+            }
+            else if (seg is TextBox tb)
+            {
+                var content  = string.IsNullOrEmpty(tb.Text) ? " " : tb.Text;
+                var measured = TextRenderer.MeasureText(content, tb.Font,
+                    new Size(innerW, int.MaxValue),
+                    TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.TextBoxControl);
+                int tw = Math.Min(innerW, Math.Max(40, measured.Width + 4));
+                int th = Math.Max(tb.Font.Height, measured.Height);
+                tb.SetBounds(InnerPadX, y, tw, th);
+                y += th + SegGap;
+            }
+        }
+
+        int bH = y - SegGap + InnerPadY;
+        _bubbleBounds = new Rectangle(0, 0, maxBubble, bH);
+        PositionMetaAndCopy(0, maxBubble, bH, false, false);
+
+        Width  = _availableWidth;
+        Height = bH + BubbleBottomGap + Math.Max(MetaHeight, _meta.Height);
+    }
+
+    private void PositionMetaAndCopy(int bX, int bW, int bH, bool right, bool center)
+    {
+        UpdateMeta();
+        var ms = TextRenderer.MeasureText(_meta.Text, _meta.Font);
+        int my = bH + BubbleBottomGap;
+        _meta.Location = new Point(
+            right  ? bX + bW - ms.Width
+                   : center ? bX + (bW - ms.Width) / 2
+                            : bX + 4,
+            my);
+        _copyBtn.Visible  = Kind == BubbleKind.User || Kind == BubbleKind.Assistant;
+        _copyBtn.Location = new Point(
+            right  ? _meta.Left - _copyBtn.PreferredWidth - 6
+                   : _meta.Right + 6,
+            my);
+    }
+
+    private void UpdateMeta()
+    {
+        var ts   = CreatedAt.ToLocalTime().ToString("HH:mm");
+        _meta.Text = string.IsNullOrEmpty(SpeakerName) ? ts : $"{SpeakerName}  \u00b7  {ts}";
+    }
+
+    // â”€â”€ Painting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     protected override void OnPaint(PaintEventArgs e)
     {
@@ -308,27 +626,59 @@ internal sealed class ChatBubble : Panel
         using (var b = new SolidBrush(fill)) e.Graphics.FillPath(b, path);
         if (border != Color.Empty)
         {
-            using var p = new Pen(border);
+            using var p = new Pen(border, 1f);
             e.Graphics.DrawPath(p, path);
         }
 
-        // Pulsing ellipsis while we wait for the very first token.
-        if (IsStreaming && string.IsNullOrEmpty(_text.Text))
+        // Animated dots while waiting for the first token
+        if (IsStreaming && string.IsNullOrEmpty(_fullText))
         {
-            using var dotBrush = new SolidBrush(GetTextColor(Kind));
-            int cy = _bubbleBounds.Y + _bubbleBounds.Height / 2 - 2;
+            var baseClr = GetTextColor(Kind);
+            int cy = _bubbleBounds.Y + _bubbleBounds.Height / 2 - 4;
             int cx = _bubbleBounds.X + InnerPadX;
             for (int i = 0; i < 3; i++)
-                e.Graphics.FillEllipse(dotBrush, cx + i * 10, cy, 5, 5);
+            {
+                int alpha = i == _dotsPhase ? 230 : 70;
+                using var db = new SolidBrush(Color.FromArgb(alpha, baseClr.R, baseClr.G, baseClr.B));
+                e.Graphics.FillEllipse(db, cx + i * 14, cy, 8, 8);
+            }
         }
+    }
+
+    // Theme refresh
+
+    public void RefreshTheme()
+    {
+        _mainText.BackColor = GetFill(Kind);
+        _mainText.ForeColor = GetTextColor(Kind);
+        _meta.ForeColor     = UiTheme.TextSecondary;
+        _copyBtn.ForeColor  = UiTheme.TextSecondary;
+
+        foreach (var seg in _segControls)
+        {
+            if (seg is TextBox tb)
+            {
+                tb.BackColor = GetFill(Kind);
+                tb.ForeColor = GetTextColor(Kind);
+            }
+            else if (seg is Panel cp && cp.Tag is CodePanelRefs refs)
+            {
+                var codeBg = UiTheme.CodeBlockBg;
+                var codeFg = UiTheme.IsDark ? Color.FromArgb(200, 200, 200) : Color.FromArgb(30, 30, 30);
+                cp.BackColor           = codeBg;
+                refs.CodeBox.BackColor = codeBg;
+                refs.CodeBox.ForeColor = codeFg;
+            }
+        }
+        Invalidate();
     }
 
     private static Color GetFill(BubbleKind k) => k switch
     {
-        BubbleKind.User      => UiTheme.Accent,
-        BubbleKind.Assistant => Color.FromArgb(243, 244, 248),
-        BubbleKind.Note      => Color.FromArgb(255, 247, 225),
-        BubbleKind.Error     => Color.FromArgb(253, 232, 230),
+        BubbleKind.User      => UiTheme.UserBubbleFill,
+        BubbleKind.Assistant => UiTheme.AssistantBubbleFill,
+        BubbleKind.Note      => UiTheme.NoteBg,
+        BubbleKind.Error     => UiTheme.ErrorBg,
         _                    => UiTheme.SurfaceCard,
     };
 
@@ -336,7 +686,7 @@ internal sealed class ChatBubble : Panel
     {
         BubbleKind.User      => Color.White,
         BubbleKind.Assistant => UiTheme.TextPrimary,
-        BubbleKind.Note      => Color.FromArgb(116, 86, 12),
+        BubbleKind.Note      => UiTheme.IsDark ? Color.FromArgb(230, 190, 100) : Color.FromArgb(116, 86, 12),
         BubbleKind.Error     => UiTheme.Danger,
         _                    => UiTheme.TextPrimary,
     };
@@ -344,8 +694,14 @@ internal sealed class ChatBubble : Panel
     private static Color GetBorder(BubbleKind k) => k switch
     {
         BubbleKind.Assistant => UiTheme.Border,
-        BubbleKind.Note      => Color.FromArgb(245, 220, 160),
-        BubbleKind.Error     => Color.FromArgb(240, 180, 175),
+        BubbleKind.Note      => UiTheme.IsDark ? Color.FromArgb(100, 80, 30) : Color.FromArgb(245, 220, 160),
+        BubbleKind.Error     => UiTheme.IsDark ? Color.FromArgb(150, 50, 50) : Color.FromArgb(240, 180, 175),
         _                    => Color.Empty,
     };
+
+    protected override void Dispose(bool disposing)
+    {
+        if (disposing) _dotsTimer.Dispose();
+        base.Dispose(disposing);
+    }
 }

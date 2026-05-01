@@ -11,22 +11,31 @@ internal sealed class ChatForm : Form
     private readonly ChatApiClient _client;
     private readonly ClientSettingsStore _store;
     private readonly ToolStrip _toolbar;
-    private readonly ToolStripComboBox _agentCombo;
-    private readonly ToolStripLabel _agentDescription;
+    private readonly ToolStripButton _themeBtn;
     private readonly ToolStripButton _changePwdBtn;
     private readonly ToolStripButton _signOutBtn;
+    private readonly ToolStripButton _bridgeFolderBtn;
     private readonly SplitContainer _split;
     private readonly ListBox _conversationList;
+    private readonly TextBox _searchBox;
     private readonly Button _newChatBtn;
     private readonly Button _deleteChatBtn;
+    private readonly ComboBox _agentCombo;
+    private readonly Label _agentDescription;
+    private readonly Panel _agentRow;
     private readonly ChatTranscript _history;
+    private readonly Panel _inputPanel;
     private readonly TextBox _input;
     private readonly Button _send;
     private readonly StatusStrip _status;
     private readonly ToolStripStatusLabel _statusLabel;
     private readonly ToolStripStatusLabel _statsLabel;
     private readonly ToolStripStatusLabel _bridgeLabel;
-    private readonly ToolStripButton _bridgeFolderBtn;
+    private readonly Panel _attachChip;
+    private readonly Label _attachLabel;
+    private readonly Button _attachClear;
+    private readonly Button _attachBtn;
+
     private BridgeClient? _bridge;
 
     private CancellationTokenSource? _streamCts;
@@ -38,10 +47,6 @@ internal sealed class ChatForm : Form
 
     // One-shot attachment for the next turn. Cleared after send.
     private AttachmentExtractResult? _pendingAttachment;
-    private readonly Panel _attachChip;
-    private readonly Label _attachLabel;
-    private readonly Button _attachClear;
-    private readonly Button _attachBtn;
 
     public ChatForm(ChatApiClient client, ClientSettingsStore store)
     {
@@ -63,30 +68,26 @@ internal sealed class ChatForm : Form
             Padding = new Padding(8, 4, 8, 4),
             Renderer = new UiTheme.ModernRenderer(),
         };
-        _agentCombo = new ToolStripComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Width = 260, Font = UiTheme.BaseFont };
-        _agentCombo.ComboBox!.DisplayMember = nameof(AgentDto.Name);
-        _agentCombo.SelectedIndexChanged += async (_, _) => await OnAgentChangedAsync();
-        _agentDescription = new ToolStripLabel("") { ForeColor = UiTheme.TextSecondary, Font = UiTheme.Caption };
         _changePwdBtn = new ToolStripButton("Change password\u2026") { Font = UiTheme.BaseFont };
         _changePwdBtn.Click += (_, _) => { using var d = new ChangePasswordForm(_client, forced: false); d.ShowDialog(this); };
         _signOutBtn = new ToolStripButton("Sign out") { Font = UiTheme.BaseFont };
         _signOutBtn.Click += (_, _) => { DialogResult = DialogResult.Retry; Close(); };
         _bridgeFolderBtn = new ToolStripButton("\uD83D\uDCC1  Folder\u2026") { Font = UiTheme.BaseFont, ToolTipText = "Pick the folder skills may read/write on this PC." };
         _bridgeFolderBtn.Click += (_, _) => PickBridgeFolder();
+        _themeBtn = new ToolStripButton("\uD83C\uDF19") { Font = UiTheme.BaseFont, ToolTipText = "Toggle light / dark theme" };
+        _themeBtn.Click += (_, _) => ToggleTheme();
         _toolbar.Items.AddRange(new ToolStripItem[]
         {
-            new ToolStripLabel("Agent: "),
-            _agentCombo,
-            new ToolStripSeparator(),
-            _agentDescription,
             new ToolStripSeparator { Alignment = ToolStripItemAlignment.Right },
             _signOutBtn,
             _changePwdBtn,
             _bridgeFolderBtn,
+            _themeBtn,
         });
         _changePwdBtn.Alignment = ToolStripItemAlignment.Right;
         _signOutBtn.Alignment = ToolStripItemAlignment.Right;
         _bridgeFolderBtn.Alignment = ToolStripItemAlignment.Right;
+        _themeBtn.Alignment = ToolStripItemAlignment.Right;
 
         _split = new SplitContainer
         {
@@ -132,6 +133,17 @@ internal sealed class ChatForm : Form
             ForeColor = UiTheme.TextPrimary,
             BackColor = UiTheme.SurfaceAlt,
         };
+        _searchBox = new TextBox
+        {
+            Dock = DockStyle.Top,
+            Font = UiTheme.BaseFont,
+            BorderStyle = BorderStyle.FixedSingle,
+            BackColor = UiTheme.SurfaceCard,
+            ForeColor = UiTheme.TextPrimary,
+            PlaceholderText = "Filter conversations\u2026",
+            Height = 28,
+        };
+        _searchBox.TextChanged += (_, _) => FilterConversations(_searchBox.Text);
         var leftButtons = new Panel
         {
             Dock = DockStyle.Bottom,
@@ -163,15 +175,58 @@ internal sealed class ChatForm : Form
         _conversationList.SelectedIndexChanged += async (_, _) => await OnConversationSelectedAsync();
         _split.Panel1.Controls.Add(_conversationList);
         _split.Panel1.Controls.Add(leftButtons);
+        _split.Panel1.Controls.Add(_searchBox);
         _split.Panel1.Controls.Add(leftHeader);
 
         // Right pane: history + input.
         _history = new ChatTranscript { Dock = DockStyle.Fill };
-        var inputPanel = new Panel
+
+        // Agent selector row (lives above the text input, below it visually).
+        _agentCombo = new ComboBox
+        {
+            DropDownStyle = ComboBoxStyle.DropDownList,
+            Font = UiTheme.BaseFont,
+            Width = 420,
+            BackColor = UiTheme.SurfaceCard,
+            ForeColor = UiTheme.TextPrimary,
+        };
+        _agentCombo.DisplayMember = nameof(AgentDto.Name);
+        _agentCombo.SelectedIndexChanged += async (_, _) => await OnAgentChangedAsync();
+        _agentDescription = new Label
+        {
+            AutoSize = true,
+            Font = UiTheme.Caption,
+            ForeColor = UiTheme.TextSecondary,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 0, 0),
+        };
+        var agentLbl = new Label
+        {
+            Text = "Agent:",
+            AutoSize = true,
+            Dock = DockStyle.Left,
+            Font = UiTheme.Caption,
+            ForeColor = UiTheme.TextSecondary,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(2, 0, 6, 0),
+        };
+        _agentRow = new Panel
+        {
+            Dock = DockStyle.Top,
+            Height = 34,
+            BackColor = UiTheme.Surface,
+            Padding = new Padding(2, 4, 4, 2),
+        };
+        _agentRow.Controls.Add(_agentDescription);  // Fill last
+        _agentRow.Controls.Add(_agentCombo);          // Left (added before Fill, so right of label)
+        _agentRow.Controls.Add(agentLbl);             // Left (added last = absolute left)
+
+        _inputPanel = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 150,
-            Padding = new Padding(12, 10, 12, 12),
+            Height = 160,
+            Padding = new Padding(12, 6, 12, 10),
             BackColor = UiTheme.Surface,
         };
 
@@ -181,7 +236,7 @@ internal sealed class ChatForm : Form
             Dock = DockStyle.Top,
             Height = 26,
             Visible = false,
-            BackColor = Color.FromArgb(232, 240, 254),
+            BackColor = UiTheme.AttachChipBg,
             Padding = new Padding(8, 4, 4, 4),
         };
         _attachLabel = new Label { AutoSize = true, Dock = DockStyle.Left, ForeColor = SystemColors.ControlText };
@@ -200,8 +255,11 @@ internal sealed class ChatForm : Form
             Font = new Font("Segoe UI", 10.5F),
             BorderStyle = BorderStyle.FixedSingle,
             BackColor = UiTheme.SurfaceCard,
+            ForeColor = UiTheme.TextPrimary,
+            PlaceholderText = "Message\u2026",
         };
         _input.KeyDown += OnInputKeyDown;
+        _input.TextChanged += (_, _) => UpdateInputHeight();
 
         var buttons = new FlowLayoutPanel
         {
@@ -221,11 +279,13 @@ internal sealed class ChatForm : Form
         buttons.Controls.Add(_attachBtn);
         buttons.Controls.Add(_send);
 
-        inputPanel.Controls.Add(_input);
-        inputPanel.Controls.Add(buttons);
-        inputPanel.Controls.Add(_attachChip);
+        // Control add order determines dock layout (last DockStyle.Top added = absolute top).
+        _inputPanel.Controls.Add(_input);
+        _inputPanel.Controls.Add(buttons);
+        _inputPanel.Controls.Add(_attachChip);
+        _inputPanel.Controls.Add(_agentRow);     // absolute top
         _split.Panel2.Controls.Add(_history);
-        _split.Panel2.Controls.Add(inputPanel);
+        _split.Panel2.Controls.Add(_inputPanel);
 
         _statusLabel = new ToolStripStatusLabel("Ready");
         _statsLabel = new ToolStripStatusLabel("") { Spring = true, TextAlign = ContentAlignment.MiddleRight, ForeColor = UiTheme.TextSecondary };
@@ -241,7 +301,13 @@ internal sealed class ChatForm : Form
         Controls.Add(_status);
         Controls.Add(_toolbar);
 
-        Load += async (_, _) => { StartBridge(); await ReloadAgentsAsync(); };
+        Load += async (_, _) =>
+        {
+            var saved = _store.Load();
+            if (saved.DarkTheme) { UiTheme.SetDark(true); ReapplyTheme(); }
+            StartBridge();
+            await ReloadAgentsAsync();
+        };
         FormClosing += (_, _) =>
         {
             _streamCts?.Cancel();
@@ -260,6 +326,70 @@ internal sealed class ChatForm : Form
             _bridgeLabel.Text = $"\uD83D\uDCC1 {prefix} \u2014 {s}";
         });
         _bridge.Start();
+    }
+
+    private void ToggleTheme()
+    {
+        var s = _store.Load();
+        s.DarkTheme = !s.DarkTheme;
+        _store.Save(s);
+        UiTheme.SetDark(s.DarkTheme);
+        ReapplyTheme();
+    }
+
+    private void ReapplyTheme()
+    {
+        _themeBtn.Text = UiTheme.IsDark ? "\u2600" : "\uD83C\uDF19";
+        UiTheme.ApplyForm(this);
+        _toolbar.BackColor = UiTheme.SurfaceCard;
+        _toolbar.Renderer = new UiTheme.ModernRenderer();
+        _status.BackColor = UiTheme.SurfaceCard;
+        _split.BackColor = UiTheme.Border;
+        _split.Panel1.BackColor = UiTheme.SurfaceAlt;
+        _split.Panel2.BackColor = UiTheme.Surface;
+        _conversationList.BackColor = UiTheme.SurfaceAlt;
+        _conversationList.ForeColor = UiTheme.TextPrimary;
+        _searchBox.BackColor = UiTheme.SurfaceCard;
+        _searchBox.ForeColor = UiTheme.TextPrimary;
+        _agentRow.BackColor = UiTheme.Surface;
+        _agentDescription.ForeColor = UiTheme.TextSecondary;
+        _agentCombo.BackColor = UiTheme.SurfaceCard;
+        _agentCombo.ForeColor = UiTheme.TextPrimary;
+        _inputPanel.BackColor = UiTheme.Surface;
+        _input.BackColor = UiTheme.SurfaceCard;
+        _input.ForeColor = UiTheme.TextPrimary;
+        _attachChip.BackColor = UiTheme.AttachChipBg;
+        UiTheme.Primary(_newChatBtn);
+        UiTheme.Secondary(_deleteChatBtn);
+        UiTheme.Secondary(_attachBtn);
+        if (_streaming) _send.BackColor = UiTheme.Danger; else UiTheme.Primary(_send);
+        _history.RefreshTheme();
+        _conversationList.Invalidate();
+        Invalidate(true);
+    }
+
+    private void UpdateInputHeight()
+    {
+        const int MinLines = 2, MaxLines = 8;
+        int lineH    = _input.Font.Height + 3;
+        int visLines = Math.Clamp(_input.GetLineFromCharIndex(_input.TextLength) + 1, MinLines, MaxLines);
+        int baseH    = Math.Max(visLines * lineH + 22, 104);
+        int chipH    = _attachChip.Visible ? _attachChip.Height : 0;
+        int desired  = _agentRow.Height + chipH + baseH;
+        if (_inputPanel.Height != desired) _inputPanel.Height = desired;
+    }
+
+    private void FilterConversations(string query)
+    {
+        _suppressConversationSelection = true;
+        _conversationList.BeginUpdate();
+        _conversationList.Items.Clear();
+        var filtered = string.IsNullOrWhiteSpace(query)
+            ? _conversations
+            : _conversations.Where(c => c.Title.Contains(query, StringComparison.OrdinalIgnoreCase)).ToList();
+        foreach (var c in filtered) _conversationList.Items.Add(c);
+        _conversationList.EndUpdate();
+        _suppressConversationSelection = false;
     }
 
     private void PickBridgeFolder()
@@ -302,7 +432,7 @@ internal sealed class ChatForm : Form
         {
             _statusLabel.Text = "Loading agents\u2026";
             _agents = await _client.ListAgentsAsync();
-            _agentCombo.ComboBox!.DataSource = _agents;
+            _agentCombo.DataSource = _agents;
             if (_agents.Count == 0)
             {
                 _statusLabel.Text = "No agents available. Ask your administrator to enable one.";
@@ -327,12 +457,14 @@ internal sealed class ChatForm : Form
     private async Task OnAgentChangedAsync()
     {
         var a = _agentCombo.SelectedItem as AgentDto;
-        _agentDescription.Text = a is null ? "" : "  " + a.Description;
+        _agentDescription.Text = a is null ? "" : a.Description;
         if (a is not null)
         {
             var s = _store.Load();
             s.LastAgentId = a.Id;
             _store.Save(s);
+            _history.SetAgentName(a.Name);
+            _input.PlaceholderText = $"Message {a.Name}\u2026";
             StartNewChat();
             await ReloadConversationsAsync();
         }
@@ -550,7 +682,19 @@ internal sealed class ChatForm : Form
     private void SetStreaming(bool streaming)
     {
         _streaming = streaming;
-        _send.Text = streaming ? "Cancel" : "Send";
+        if (streaming)
+        {
+            _send.Text = "\u23F9  Stop";
+            _send.BackColor = UiTheme.Danger;
+            _send.FlatAppearance.MouseOverBackColor = UiTheme.IsDark
+                ? Color.FromArgb(200, 60, 50) : Color.FromArgb(160, 30, 20);
+        }
+        else
+        {
+            _send.Text = "Send  \u23CE";
+            _send.BackColor = UiTheme.Accent;
+            _send.FlatAppearance.MouseOverBackColor = UiTheme.AccentHover;
+        }
         _agentCombo.Enabled = !streaming;
         _input.Enabled = !streaming;
         _newChatBtn.Enabled = !streaming;
@@ -624,8 +768,17 @@ internal sealed class ChatForm : Form
         var item = _conversationList.Items[e.Index] as ConversationSummaryDto;
 
         var selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-        var bg = selected ? Color.FromArgb(225, 238, 251) : UiTheme.SurfaceAlt;
+        var bg = selected
+            ? (UiTheme.IsDark ? Color.FromArgb(30, 65, 120) : Color.FromArgb(219, 234, 254))
+            : UiTheme.SurfaceAlt;
         using (var bgBrush = new SolidBrush(bg)) e.Graphics.FillRectangle(bgBrush, e.Bounds);
+
+        // 3 px accent bar on left edge of selected row.
+        if (selected)
+        {
+            using var ab = new SolidBrush(UiTheme.Accent);
+            e.Graphics.FillRectangle(ab, new Rectangle(e.Bounds.Left, e.Bounds.Top, 3, e.Bounds.Height));
+        }
 
         if (item is null)
         {
@@ -633,14 +786,15 @@ internal sealed class ChatForm : Form
             return;
         }
 
-        var titleFont = UiTheme.BaseBold;
-        var subFont = UiTheme.Caption;
+        var titleFont  = UiTheme.BaseBold;
+        var subFont    = UiTheme.Caption;
         var titleColor = UiTheme.TextPrimary;
-        var subColor = UiTheme.TextSecondary;
+        var subColor   = UiTheme.TextSecondary;
+        var textLeft   = e.Bounds.Left + 14;
 
-        var rect = e.Bounds;
-        var titleRect = new Rectangle(rect.Left + 12, rect.Top + 6, rect.Width - 16, 20);
-        var subRect = new Rectangle(rect.Left + 12, rect.Top + 24, rect.Width - 16, 18);
+        var rect       = e.Bounds;
+        var titleRect  = new Rectangle(textLeft, rect.Top + 6,  rect.Width - textLeft + e.Bounds.Left - 4, 20);
+        var subRect    = new Rectangle(textLeft, rect.Top + 24, rect.Width - textLeft + e.Bounds.Left - 4, 18);
 
         TextRenderer.DrawText(e.Graphics, item.Title, titleFont, titleRect, titleColor,
             TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);

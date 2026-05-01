@@ -15,6 +15,9 @@ public sealed class ClientSettings
     /// Null/empty means the bridge is disabled and every fs.* request returns fs.notConfigured.
     /// </summary>
     public string? BridgeRoot { get; set; }
+
+    /// <summary>Persisted UI theme preference.</summary>
+    public bool DarkTheme { get; set; }
 }
 
 public sealed class ClientSettingsStore

@@ -9,25 +9,75 @@ namespace MyLocalAssistant.Client.UI;
 /// </summary>
 internal static class UiTheme
 {
-    // ---------- Palette ----------
-    public static readonly Color Accent       = Color.FromArgb(0,   120, 212); // Win11 system accent
-    public static readonly Color AccentHover  = Color.FromArgb(0,   103, 184);
-    public static readonly Color AccentDown   = Color.FromArgb(0,    90, 158);
-    public static readonly Color AccentText   = Color.White;
+    // ── Light palette ──────────────────────────────────────────────────
+    private static readonly Color L_Accent        = Color.FromArgb(  0, 120, 212);
+    private static readonly Color L_AccentHover   = Color.FromArgb(  0, 103, 184);
+    private static readonly Color L_AccentDown    = Color.FromArgb(  0,  90, 158);
+    private static readonly Color L_Surface       = Color.FromArgb(250, 250, 252);
+    private static readonly Color L_SurfaceAlt    = Color.FromArgb(243, 243, 247);
+    private static readonly Color L_SurfaceCard   = Color.White;
+    private static readonly Color L_Border        = Color.FromArgb(225, 225, 230);
+    private static readonly Color L_TextPrimary   = Color.FromArgb( 32,  32,  32);
+    private static readonly Color L_TextSecondary = Color.FromArgb( 96,  96, 100);
+    private static readonly Color L_Danger        = Color.FromArgb(196,  43,  28);
+    private static readonly Color L_Success       = Color.FromArgb( 15, 123,  15);
+    private static readonly Color L_UserBubble    = Color.FromArgb(  0, 120, 212);
+    private static readonly Color L_AssistBubble  = Color.FromArgb(243, 244, 248);
+    private static readonly Color L_UserName      = Color.FromArgb( 15,  95, 168);
+    private static readonly Color L_AssistName    = Color.FromArgb( 31, 124,  67);
+    private static readonly Color L_CodeBg        = Color.FromArgb(245, 245, 250);
+    private static readonly Color L_NoteBg        = Color.FromArgb(255, 247, 225);
+    private static readonly Color L_ErrorBg       = Color.FromArgb(253, 232, 230);
+    private static readonly Color L_AttachChip    = Color.FromArgb(232, 240, 254);
 
-    public static readonly Color Surface      = Color.FromArgb(250, 250, 252);
-    public static readonly Color SurfaceAlt   = Color.FromArgb(243, 243, 247);
-    public static readonly Color SurfaceCard  = Color.White;
-    public static readonly Color Border       = Color.FromArgb(225, 225, 230);
+    // ── Dark palette ───────────────────────────────────────────────────
+    private static readonly Color D_Accent        = Color.FromArgb( 60, 145, 230);
+    private static readonly Color D_AccentHover   = Color.FromArgb( 45, 130, 210);
+    private static readonly Color D_AccentDown    = Color.FromArgb( 30, 110, 190);
+    private static readonly Color D_Surface       = Color.FromArgb( 30,  30,  30);
+    private static readonly Color D_SurfaceAlt    = Color.FromArgb( 38,  38,  38);
+    private static readonly Color D_SurfaceCard   = Color.FromArgb( 48,  48,  50);
+    private static readonly Color D_Border        = Color.FromArgb( 68,  68,  75);
+    private static readonly Color D_TextPrimary   = Color.FromArgb(218, 218, 218);
+    private static readonly Color D_TextSecondary = Color.FromArgb(148, 148, 155);
+    private static readonly Color D_Danger        = Color.FromArgb(240,  80,  70);
+    private static readonly Color D_Success       = Color.FromArgb( 50, 185,  80);
+    private static readonly Color D_UserBubble    = Color.FromArgb(  0,  90, 165);
+    private static readonly Color D_AssistBubble  = Color.FromArgb( 55,  55,  65);
+    private static readonly Color D_UserName      = Color.FromArgb(100, 175, 235);
+    private static readonly Color D_AssistName    = Color.FromArgb( 80, 195, 120);
+    private static readonly Color D_CodeBg        = Color.FromArgb( 24,  24,  30);
+    private static readonly Color D_NoteBg        = Color.FromArgb( 65,  55,  20);
+    private static readonly Color D_ErrorBg       = Color.FromArgb( 70,  25,  25);
+    private static readonly Color D_AttachChip    = Color.FromArgb( 25,  55,  95);
 
-    public static readonly Color TextPrimary   = Color.FromArgb(32, 32, 32);
-    public static readonly Color TextSecondary = Color.FromArgb(96, 96, 100);
-    public static readonly Color Danger        = Color.FromArgb(196, 43, 28);
-    public static readonly Color Success       = Color.FromArgb(15, 123, 15);
+    // ── Active theme ──────────────────────────────────────────────────
+    public static bool IsDark { get; private set; }
+    public static void SetDark(bool dark) => IsDark = dark;
 
-    // Conversation bubble colors.
-    public static readonly Color UserName      = Color.FromArgb(15, 95, 168);
-    public static readonly Color AssistantName = Color.FromArgb(31, 124, 67);
+    // ── Dynamic color properties (all callers compile unchanged) ──────
+    public static Color Accent        => IsDark ? D_Accent        : L_Accent;
+    public static Color AccentHover   => IsDark ? D_AccentHover   : L_AccentHover;
+    public static Color AccentDown    => IsDark ? D_AccentDown    : L_AccentDown;
+    public static Color AccentText    => Color.White;
+    public static Color Surface       => IsDark ? D_Surface       : L_Surface;
+    public static Color SurfaceAlt    => IsDark ? D_SurfaceAlt    : L_SurfaceAlt;
+    public static Color SurfaceCard   => IsDark ? D_SurfaceCard   : L_SurfaceCard;
+    public static Color Border        => IsDark ? D_Border        : L_Border;
+    public static Color TextPrimary   => IsDark ? D_TextPrimary   : L_TextPrimary;
+    public static Color TextSecondary => IsDark ? D_TextSecondary : L_TextSecondary;
+    public static Color Danger        => IsDark ? D_Danger        : L_Danger;
+    public static Color Success       => IsDark ? D_Success       : L_Success;
+
+    // Bubble / code-block colours (used by ChatBubble).
+    public static Color UserBubbleFill      => IsDark ? D_UserBubble   : L_UserBubble;
+    public static Color AssistantBubbleFill => IsDark ? D_AssistBubble : L_AssistBubble;
+    public static Color UserName            => IsDark ? D_UserName     : L_UserName;
+    public static Color AssistantName       => IsDark ? D_AssistName   : L_AssistName;
+    public static Color CodeBlockBg         => IsDark ? D_CodeBg       : L_CodeBg;
+    public static Color NoteBg              => IsDark ? D_NoteBg       : L_NoteBg;
+    public static Color ErrorBg             => IsDark ? D_ErrorBg      : L_ErrorBg;
+    public static Color AttachChipBg        => IsDark ? D_AttachChip   : L_AttachChip;
 
     // ---------- Fonts ----------
     public static readonly Font BaseFont   = new("Segoe UI", 10F);
@@ -75,6 +125,37 @@ internal static class UiTheme
         b.Cursor = Cursors.Hand;
         b.Height = Math.Max(b.Height, 32);
         ApplyRoundedRegion(b, 6);
+    }
+
+    /// <summary>
+    /// Walk a control tree and re-apply theme colours. Custom-painted controls (bubbles)
+    /// only need Invalidate(); standard controls get explicit colour assignments.
+    /// Call after <see cref="SetDark"/> to refresh an open form.
+    /// </summary>
+    public static void ApplyTheme(Control root)
+    {
+        root.SuspendLayout();
+        try { WalkTheme(root); }
+        finally { root.ResumeLayout(true); }
+        root.Invalidate(true);
+    }
+
+    private static void WalkTheme(Control c)
+    {
+        switch (c)
+        {
+            case Form f:        f.BackColor  = Surface;     f.ForeColor = TextPrimary;    break;
+            case StatusStrip s: s.BackColor  = SurfaceCard; break;
+            case ToolStrip ts:  ts.BackColor = SurfaceCard; ts.Renderer = new ModernRenderer(); break;
+            case ListBox lb:    lb.BackColor = SurfaceAlt;  lb.ForeColor = TextPrimary;   break;
+            case TextBox tb when !tb.Multiline:
+                tb.BackColor = SurfaceCard; tb.ForeColor = TextPrimary; break;
+            case Label lbl when lbl.Tag is string role:
+                lbl.ForeColor = role == "secondary" ? TextSecondary : TextPrimary;
+                if (lbl.BackColor != Color.Transparent) lbl.BackColor = Surface;
+                break;
+        }
+        foreach (Control child in c.Controls) WalkTheme(child);
     }
 
     /// <summary>Render a thin separator line at the bottom of a control.</summary>
@@ -168,29 +249,30 @@ internal static class UiTheme
 
         private sealed class ModernColors : ProfessionalColorTable
         {
-            public override Color MenuItemSelected            => Color.FromArgb(225, 238, 251);
-            public override Color MenuItemSelectedGradientBegin => Color.FromArgb(225, 238, 251);
-            public override Color MenuItemSelectedGradientEnd   => Color.FromArgb(225, 238, 251);
-            public override Color MenuItemPressedGradientBegin  => SurfaceAlt;
-            public override Color MenuItemPressedGradientEnd    => SurfaceAlt;
-            public override Color MenuItemBorder                => Color.Transparent;
-            public override Color MenuBorder                    => Border;
-            public override Color ToolStripBorder               => Color.Transparent;
-            public override Color ToolStripGradientBegin        => SurfaceCard;
-            public override Color ToolStripGradientMiddle       => SurfaceCard;
-            public override Color ToolStripGradientEnd          => SurfaceCard;
-            public override Color ButtonSelectedHighlight       => Color.FromArgb(225, 238, 251);
-            public override Color ButtonSelectedGradientBegin   => Color.FromArgb(225, 238, 251);
-            public override Color ButtonSelectedGradientMiddle  => Color.FromArgb(225, 238, 251);
-            public override Color ButtonSelectedGradientEnd     => Color.FromArgb(225, 238, 251);
-            public override Color ButtonPressedGradientBegin    => SurfaceAlt;
-            public override Color ButtonPressedGradientMiddle   => SurfaceAlt;
-            public override Color ButtonPressedGradientEnd      => SurfaceAlt;
-            public override Color ButtonSelectedBorder          => Color.Transparent;
-            public override Color StatusStripGradientBegin      => SurfaceCard;
-            public override Color StatusStripGradientEnd        => SurfaceCard;
-            public override Color SeparatorDark                 => Border;
-            public override Color SeparatorLight                => Border;
+            private static Color Sel => IsDark ? Color.FromArgb(40, 80, 130) : Color.FromArgb(225, 238, 251);
+            public override Color MenuItemSelected             => Sel;
+            public override Color MenuItemSelectedGradientBegin=> Sel;
+            public override Color MenuItemSelectedGradientEnd  => Sel;
+            public override Color MenuItemPressedGradientBegin => SurfaceAlt;
+            public override Color MenuItemPressedGradientEnd   => SurfaceAlt;
+            public override Color MenuItemBorder               => Color.Transparent;
+            public override Color MenuBorder                   => Border;
+            public override Color ToolStripBorder              => Color.Transparent;
+            public override Color ToolStripGradientBegin       => SurfaceCard;
+            public override Color ToolStripGradientMiddle      => SurfaceCard;
+            public override Color ToolStripGradientEnd         => SurfaceCard;
+            public override Color ButtonSelectedHighlight      => Sel;
+            public override Color ButtonSelectedGradientBegin  => Sel;
+            public override Color ButtonSelectedGradientMiddle => Sel;
+            public override Color ButtonSelectedGradientEnd    => Sel;
+            public override Color ButtonPressedGradientBegin   => SurfaceAlt;
+            public override Color ButtonPressedGradientMiddle  => SurfaceAlt;
+            public override Color ButtonPressedGradientEnd     => SurfaceAlt;
+            public override Color ButtonSelectedBorder         => Color.Transparent;
+            public override Color StatusStripGradientBegin     => SurfaceCard;
+            public override Color StatusStripGradientEnd       => SurfaceCard;
+            public override Color SeparatorDark                => Border;
+            public override Color SeparatorLight               => Border;
         }
     }
 
