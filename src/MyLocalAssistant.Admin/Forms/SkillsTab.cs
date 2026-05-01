@@ -54,6 +54,7 @@ internal sealed class SkillsTab : UserControl
             BorderStyle = BorderStyle.None,
             EditMode = DataGridViewEditMode.EditOnEnter,
         };
+        _grid.RowTemplate.Height = 32;
         _toolsCol = new DataGridViewButtonColumn
         {
             HeaderText = "Tools",

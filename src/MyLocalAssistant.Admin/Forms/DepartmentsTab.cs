@@ -44,6 +44,7 @@ internal sealed class DepartmentsTab : UserControl
             BackgroundColor = SystemColors.Window,
             BorderStyle = BorderStyle.None,
         };
+        _grid.RowTemplate.Height = 32;
         _grid.Columns.AddRange(new DataGridViewColumn[]
         {
             new DataGridViewTextBoxColumn { HeaderText = "Department", DataPropertyName = nameof(DepartmentDto.Name), Width = 260 },

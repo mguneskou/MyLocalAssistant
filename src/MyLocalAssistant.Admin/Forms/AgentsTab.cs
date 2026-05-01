@@ -52,6 +52,7 @@ internal sealed class AgentsTab : UserControl
             BorderStyle = BorderStyle.None,
             EditMode = DataGridViewEditMode.EditOnEnter,
         };
+        _grid.RowTemplate.Height = 32;
         _modelCol = new DataGridViewComboBoxColumn
         {
             HeaderText = "Default model",

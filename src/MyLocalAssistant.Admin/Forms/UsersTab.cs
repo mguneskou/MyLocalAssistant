@@ -52,6 +52,7 @@ internal sealed class UsersTab : UserControl
             BackgroundColor = SystemColors.Window,
             BorderStyle = BorderStyle.None,
         };
+        _grid.RowTemplate.Height = 32;
         _grid.Columns.AddRange(new DataGridViewColumn[]
         {
             new DataGridViewTextBoxColumn { HeaderText = "Username", DataPropertyName = nameof(UserAdminDto.Username), Width = 140 },

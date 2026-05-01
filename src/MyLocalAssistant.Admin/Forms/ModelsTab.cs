@@ -53,6 +53,7 @@ internal sealed class ModelsTab : UserControl
             BackgroundColor = SystemColors.Window,
             BorderStyle = BorderStyle.None,
         };
+        _grid.RowTemplate.Height = 32;
         _grid.Columns.AddRange(new DataGridViewColumn[]
         {
             new DataGridViewTextBoxColumn { HeaderText = "Model", DataPropertyName = nameof(ModelRow.DisplayName), Width = 220 },

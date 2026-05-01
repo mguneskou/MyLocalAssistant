@@ -103,6 +103,7 @@ internal sealed class AuditTab : UserControl
             BackgroundColor = SystemColors.Window,
             BorderStyle = BorderStyle.None,
         };
+        _grid.RowTemplate.Height = 32;
         _grid.Columns.AddRange(new DataGridViewColumn[]
         {
             new DataGridViewTextBoxColumn { HeaderText = "When", DataPropertyName = nameof(AuditEntryDto.Timestamp), Width = 150,

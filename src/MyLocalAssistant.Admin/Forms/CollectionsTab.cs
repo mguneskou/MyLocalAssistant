@@ -122,6 +122,7 @@ internal sealed class CollectionsTab : UserControl
             BackgroundColor = SystemColors.Window,
             BorderStyle = BorderStyle.None,
         };
+        g.RowTemplate.Height = 32;
         MyLocalAssistant.Admin.UI.UiTheme.StyleGrid(g);
         return g;
     }
