@@ -188,8 +188,10 @@ public static class ServerPaths
             try
             {
                 var dest = Path.Combine(PluginsDirectory, Path.GetFileName(src));
-                if (Directory.Exists(dest)) continue;
-                CopyDirectoryRecursive(src, dest);
+                // Always overwrite bundled plugin files so that signatures stay in sync with
+                // the bundled trusted key. Each CI release may re-sign with a new ephemeral key;
+                // leaving stale signatures in state/ would break verification after an update.
+                CopyDirectoryRecursive(src, dest, overwrite: true);
             }
             catch
             {
@@ -218,12 +220,12 @@ public static class ServerPaths
         }
     }
 
-    private static void CopyDirectoryRecursive(string source, string destination)
+    private static void CopyDirectoryRecursive(string source, string destination, bool overwrite = false)
     {
         Directory.CreateDirectory(destination);
         foreach (var file in Directory.EnumerateFiles(source, "*", SearchOption.TopDirectoryOnly))
-            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)));
+            File.Copy(file, Path.Combine(destination, Path.GetFileName(file)), overwrite);
         foreach (var sub in Directory.EnumerateDirectories(source, "*", SearchOption.TopDirectoryOnly))
-            CopyDirectoryRecursive(sub, Path.Combine(destination, Path.GetFileName(sub)));
+            CopyDirectoryRecursive(sub, Path.Combine(destination, Path.GetFileName(sub)), overwrite);
     }
 }
