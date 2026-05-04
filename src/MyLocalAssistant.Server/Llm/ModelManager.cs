@@ -68,6 +68,7 @@ public sealed class ModelManager(
                 ModelSource.Groq      => settings.IsGroqConfigured,
                 ModelSource.Gemini    => settings.IsGeminiConfigured,
                 ModelSource.Mistral   => settings.IsMistralConfigured,
+                ModelSource.Cerebras  => settings.IsCerebrasConfigured,
                 _ => false,
             };
             result.Add(new ModelDto(

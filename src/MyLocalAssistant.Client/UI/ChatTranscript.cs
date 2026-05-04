@@ -572,7 +572,7 @@ internal sealed class ChatBubble : Panel
             TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.TextBoxControl);
 
         var textW = Math.Min(maxTextW, Math.Max(40, measured.Width + 4));
-        var textH = Math.Max(_mainText.Font.Height, measured.Height);
+        var textH = Math.Max(_mainText.Font.Height, measured.Height) + 4; // +4 prevents last-line descender clipping
         var bW    = textW + InnerPadX * 2;
         var bH    = textH + InnerPadY * 2;
 
@@ -619,7 +619,7 @@ internal sealed class ChatBubble : Panel
                     new Size(innerW, int.MaxValue),
                     TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.TextBoxControl);
                 int tw = Math.Min(innerW, Math.Max(40, measured.Width + 4));
-                int th = Math.Max(tb.Font.Height, measured.Height);
+                int th = Math.Max(tb.Font.Height, measured.Height) + 4; // +4 prevents last-line descender clipping
                 tb.SetBounds(InnerPadX, y, tw, th);
                 y += th + SegGap;
             }

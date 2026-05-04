@@ -529,5 +529,101 @@
     "recommendedContextSize": 32000,
     "minRamGb": 0,
     "description": "Mistral Small Latest. Compact frontier model; capable coding and reasoning, free tier available. Requires a Mistral API key (free at console.mistral.ai). Conversations leave your network."
+  },
+  {
+    "id": "groq-llama-3.1-70b",
+    "displayName": "Llama 3.1 70B Versatile — Groq (free cloud)",
+    "tier": "heavy",
+    "source": "groq",
+    "remoteModel": "llama-3.1-70b-versatile",
+    "license": "Llama 3.1 Community",
+    "licenseUrl": "https://www.llama.com/llama3_1/license/",
+    "recommendedContextSize": 128000,
+    "minRamGb": 0,
+    "description": "Meta Llama 3.1 70B on Groq LPUs — 128k context. Free tier: 14 400 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
+  },
+  {
+    "id": "groq-mixtral-8x7b",
+    "displayName": "Mixtral 8x7B — Groq (free cloud)",
+    "tier": "workstation",
+    "source": "groq",
+    "remoteModel": "mixtral-8x7b-32768",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1",
+    "recommendedContextSize": 32768,
+    "minRamGb": 0,
+    "description": "Mistral Mixtral 8x7B MoE on Groq LPUs — 32k context, fast. Free tier: 30 req/min, 14 400 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
+  },
+  {
+    "id": "groq-qwen3-32b",
+    "displayName": "Qwen3 32B — Groq (free cloud)",
+    "tier": "workstation",
+    "source": "groq",
+    "remoteModel": "qwen-qwq-32b",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-32B",
+    "recommendedContextSize": 32768,
+    "minRamGb": 0,
+    "description": "Alibaba Qwen QwQ 32B reasoning model on Groq LPUs. Strong math and coding. Free tier. Requires a Groq API key. Conversations leave your network."
+  },
+  {
+    "id": "gemini-2.5-flash",
+    "displayName": "Gemini 2.5 Flash — Google (free cloud)",
+    "tier": "mid",
+    "source": "gemini",
+    "remoteModel": "gemini-2.5-flash-preview-05-20",
+    "license": "Google Terms of Service",
+    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
+    "recommendedContextSize": 1048576,
+    "minRamGb": 0,
+    "description": "Google Gemini 2.5 Flash. Frontier quality with 1M token context and built-in reasoning. Free tier: 10 req/min, 250 req/day. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
+  },
+  {
+    "id": "cerebras-llama3.1-8b",
+    "displayName": "Llama 3.1 8B — Cerebras (free cloud)",
+    "tier": "lightweight",
+    "source": "cerebras",
+    "remoteModel": "llama3.1-8b",
+    "license": "Llama 3.1 Community",
+    "licenseUrl": "https://www.llama.com/llama3_1/license/",
+    "recommendedContextSize": 8192,
+    "minRamGb": 0,
+    "description": "Meta Llama 3.1 8B on Cerebras CS-3 wafer-scale chips. Extremely fast (~2000 tokens/sec). Free tier ~20 req/min. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
+  },
+  {
+    "id": "cerebras-llama3.1-70b",
+    "displayName": "Llama 3.1 70B — Cerebras (free cloud)",
+    "tier": "heavy",
+    "source": "cerebras",
+    "remoteModel": "llama3.1-70b",
+    "license": "Llama 3.1 Community",
+    "licenseUrl": "https://www.llama.com/llama3_1/license/",
+    "recommendedContextSize": 8192,
+    "minRamGb": 0,
+    "description": "Meta Llama 3.1 70B on Cerebras CS-3 chips. Frontier-class quality at ~500 tokens/sec. Free tier ~10 req/min. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
+  },
+  {
+    "id": "cerebras-qwen3-32b",
+    "displayName": "Qwen3 32B — Cerebras (free cloud)",
+    "tier": "workstation",
+    "source": "cerebras",
+    "remoteModel": "qwen-3-32b",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-32B",
+    "recommendedContextSize": 32768,
+    "minRamGb": 0,
+    "description": "Alibaba Qwen3 32B on Cerebras CS-3 chips. Outstanding reasoning and coding. Free tier. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
+  },
+  {
+    "id": "cerebras-scout-17b",
+    "displayName": "Llama 4 Scout 17B — Cerebras (free cloud)",
+    "tier": "mid",
+    "source": "cerebras",
+    "remoteModel": "llama-4-scout-17b-16e-instruct",
+    "license": "Llama 4 Community",
+    "licenseUrl": "https://www.llama.com/llama4/license/",
+    "recommendedContextSize": 128000,
+    "minRamGb": 0,
+    "description": "Meta Llama 4 Scout 17B (MoE, 16 experts) on Cerebras. 128k context, multimodal capable (text via API). Free tier. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
   }
 ]

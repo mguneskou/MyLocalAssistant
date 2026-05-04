@@ -31,6 +31,7 @@ public sealed class ModelCapabilityRegistry
     // Conservative defaults: only families with proven tag-style tool use end up in "tags".
     private static readonly KeyValuePair<string, ModelCapability>[] s_builtInDefaults =
     {
+        // Local model families
         new("qwen2.5",      new ModelCapability(ToolCallProtocols.Tags, 32)),
         new("qwen3",        new ModelCapability(ToolCallProtocols.Tags, 32)),
         new("llama-3.1",    new ModelCapability(ToolCallProtocols.Tags, 16)),
@@ -39,6 +40,13 @@ public sealed class ModelCapabilityRegistry
         new("mistral-nemo", new ModelCapability(ToolCallProtocols.Tags, 32)),
         new("hermes-3",     new ModelCapability(ToolCallProtocols.Tags, 16)),
         new("command-r",    new ModelCapability(ToolCallProtocols.Tags, 32)),
+        // Cloud providers — all use the Tags protocol (our SSE streaming tool-call wrapper)
+        new("groq-",        new ModelCapability(ToolCallProtocols.Tags, 32)),
+        new("gemini-",      new ModelCapability(ToolCallProtocols.Tags, 128)),
+        new("mistral-",     new ModelCapability(ToolCallProtocols.Tags, 32)),
+        new("cerebras-",    new ModelCapability(ToolCallProtocols.Tags, 32)),
+        new("together-",    new ModelCapability(ToolCallProtocols.Tags, 32)),
+        new("cohere-",      new ModelCapability(ToolCallProtocols.Tags, 32)),
     };
 
     public ModelCapabilityRegistry(ILogger<ModelCapabilityRegistry> log, IHostEnvironment env)

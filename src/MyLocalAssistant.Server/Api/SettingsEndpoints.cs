@@ -31,7 +31,7 @@ public static class SettingsEndpoints
         // the server: GET returns booleans only; PUT writes new values (DPAPI-encrypted).
         owner.MapGet("/cloud-keys", (ServerSettings s) => Results.Ok(new CloudKeysStatusDto(
             s.IsOpenAiConfigured, s.IsAnthropicConfigured, s.OpenAiBaseUrl,
-            s.IsGroqConfigured, s.IsGeminiConfigured, s.IsMistralConfigured)));
+            s.IsGroqConfigured, s.IsGeminiConfigured, s.IsMistralConfigured, s.IsCerebrasConfigured)));
         owner.MapPut("/cloud-keys", (UpdateCloudKeysRequest req, ServerSettings s, ServerSettingsStore store) =>
         {
             // null = leave alone; empty = clear; any other value = replace (and re-encrypt).
@@ -57,10 +57,14 @@ public static class SettingsEndpoints
                 s.MistralApiKeyProtected = req.MistralApiKey.Length == 0
                     ? null
                     : SecretProtector.Protect(req.MistralApiKey.Trim());
+            if (req.CerebrasApiKey is not null)
+                s.CerebrasApiKeyProtected = req.CerebrasApiKey.Length == 0
+                    ? null
+                    : SecretProtector.Protect(req.CerebrasApiKey.Trim());
             store.Save(s);
             return Results.Ok(new CloudKeysStatusDto(
                 s.IsOpenAiConfigured, s.IsAnthropicConfigured, s.OpenAiBaseUrl,
-                s.IsGroqConfigured, s.IsGeminiConfigured, s.IsMistralConfigured));
+                s.IsGroqConfigured, s.IsGeminiConfigured, s.IsMistralConfigured, s.IsCerebrasConfigured));
         });
         owner.MapPost("/cloud-keys/test/openai", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
         {
@@ -158,6 +162,25 @@ public static class SettingsEndpoints
                 };
                 req.Headers.TryAddWithoutValidation("x-api-key", key);
                 req.Headers.TryAddWithoutValidation("anthropic-version", "2023-06-01");
+                using var resp = await http.SendAsync(req, ct);
+                if (resp.IsSuccessStatusCode)
+                    return Results.Ok(new CloudKeyTestResultDto(true, $"OK ({(int)resp.StatusCode})"));
+                var body = await resp.Content.ReadAsStringAsync(ct);
+                return Results.Ok(new CloudKeyTestResultDto(false, $"{(int)resp.StatusCode}: {Truncate(body, 300)}"));
+            }
+            catch (Exception ex) { return Results.Ok(new CloudKeyTestResultDto(false, ex.Message)); }
+        });
+        owner.MapPost("/cloud-keys/test/cerebras", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
+        {
+            var key = s.GetCerebrasApiKey();
+            if (string.IsNullOrEmpty(key))
+                return Results.Ok(new CloudKeyTestResultDto(false, "Cerebras API key is not configured."));
+            try
+            {
+                using var http = hf.CreateClient();
+                http.Timeout = TimeSpan.FromSeconds(15);
+                using var req = new HttpRequestMessage(HttpMethod.Get, "https://api.cerebras.ai/v1/models");
+                req.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", key);
                 using var resp = await http.SendAsync(req, ct);
                 if (resp.IsSuccessStatusCode)
                     return Results.Ok(new CloudKeyTestResultDto(true, $"OK ({(int)resp.StatusCode})"));

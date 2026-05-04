@@ -148,7 +148,10 @@ internal sealed class AgentsTab : UserControl
             _allCollections = await collTask;
             _allTools = await skillTask;
             var modelChoices = new List<string> { NoModelOverride };
-            modelChoices.AddRange(models.Where(m => m.IsInstalled).Select(m => m.Id));
+            // Include locally installed models AND cloud models that have an API key configured.
+            modelChoices.AddRange(models
+                .Where(m => m.IsInstalled || (m.IsCloud && m.IsCloudConfigured))
+                .Select(m => m.Id));
             _modelCol.DataSource = modelChoices;
 
             _suppressEvents = true;

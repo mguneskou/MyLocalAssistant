@@ -24,6 +24,7 @@ public enum ModelSource
     Groq = 3,
     Gemini = 4,
     Mistral = 5,
+    Cerebras = 6,
 }
 
 public sealed class CatalogFile

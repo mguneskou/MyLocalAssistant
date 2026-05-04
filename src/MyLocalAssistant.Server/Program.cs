@@ -68,6 +68,7 @@ try
     builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.IChatProvider, MyLocalAssistant.Server.Llm.GroqChatProvider>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.IChatProvider, MyLocalAssistant.Server.Llm.GeminiChatProvider>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.IChatProvider, MyLocalAssistant.Server.Llm.MistralChatProvider>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.IChatProvider, MyLocalAssistant.Server.Llm.CerebrasChatProvider>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Llm.ChatProviderRouter>();
     builder.Services.AddSingleton<ModelManager>();
     builder.Services.AddSingleton<InferenceQueue>();
@@ -90,6 +91,7 @@ try
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.ImageGenTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.MemoryTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.ReportGenTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.ExcelTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.EmailTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.SchedulerTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ToolRegistry>();

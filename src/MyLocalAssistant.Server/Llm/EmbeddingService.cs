@@ -116,12 +116,12 @@ public sealed class EmbeddingService(
             try
             {
                 weights = await LLamaWeights.LoadFromFileAsync(p).ConfigureAwait(false);
-                // Probe: LLamaEmbedder creation forces GPU buffer allocation; catch here
-                // rather than failing silently during the first EmbedAsync call.
+                // Probe: force KV-cache/compute buffer allocation so an integrated-GPU
+                // failure surfaces here rather than on the first real EmbedAsync call.
                 if (p.GpuLayerCount != 0)
                 {
-                    var probe = new LLamaEmbedder(weights, p, null);
-                    _ = probe; // not IDisposable — shares weight reference
+                    var probeEmbedder = new LLamaEmbedder(weights, p, null);
+                    await probeEmbedder.GetEmbeddings("probe", CancellationToken.None).ConfigureAwait(false);
                 }
             }
             catch (Exception ex) when (p.GpuLayerCount > 0)

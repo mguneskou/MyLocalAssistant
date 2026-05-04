@@ -40,6 +40,11 @@ internal sealed class CloudKeysDialog : Form
     private readonly Button _mistralTestBtn;
     private readonly Button _mistralClearBtn;
 
+    private readonly Label _cerebrasState;
+    private readonly TextBox _cerebrasKey;
+    private readonly Button _cerebrasTestBtn;
+    private readonly Button _cerebrasClearBtn;
+
     private readonly Label _statusLbl;
     private readonly Button _saveBtn;
     private readonly Button _closeBtn;
@@ -49,6 +54,7 @@ internal sealed class CloudKeysDialog : Form
     private bool _clearGroq;
     private bool _clearGemini;
     private bool _clearMistral;
+    private bool _clearCerebras;
 
     public CloudKeysDialog(ServerClient client, CloudKeysStatusDto status)
     {
@@ -60,7 +66,7 @@ internal sealed class CloudKeysDialog : Form
         UiTheme.ApplyDialog(this);
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false; MaximizeBox = false; ShowInTaskbar = false;
-        Width = 720; Height = 820;
+        Width = 720; Height = 960;
 
         var hint = new Label
         {
@@ -172,6 +178,22 @@ internal sealed class CloudKeysDialog : Form
         grid.Controls.Add(new Label(), 0, 15);
         grid.Controls.Add(mistralBtns, 1, 15);
 
+        // --- Cerebras ---
+        _cerebrasState = StateLabel(_status.CerebrasConfigured);
+        grid.Controls.Add(SectionLabel("Cerebras (free)"), 0, 16);
+        grid.Controls.Add(_cerebrasState, 1, 16);
+
+        _cerebrasKey = SecretBox();
+        _cerebrasKey.PlaceholderText = _status.CerebrasConfigured ? "(unchanged — leave blank to keep existing key)" : "csk-…";
+        grid.Controls.Add(RowLabel("API key"), 0, 17);
+        grid.Controls.Add(_cerebrasKey, 1, 17);
+
+        _cerebrasTestBtn = new Button { Text = "Test", AutoSize = true, Enabled = _status.CerebrasConfigured };
+        _cerebrasClearBtn = new Button { Text = "Clear key", AutoSize = true, Enabled = _status.CerebrasConfigured };
+        var cerebrasBtns = ButtonRow(_cerebrasTestBtn, _cerebrasClearBtn);
+        grid.Controls.Add(new Label(), 0, 18);
+        grid.Controls.Add(cerebrasBtns, 1, 18);
+
         _statusLbl = new Label { Dock = DockStyle.Bottom, Height = 24, Padding = new Padding(12, 4, 12, 0), ForeColor = SystemColors.GrayText };
         _saveBtn = new Button { Text = "Save", DialogResult = DialogResult.None, AutoSize = true };
         _closeBtn = new Button { Text = "Close", DialogResult = DialogResult.Cancel, AutoSize = true };
@@ -198,6 +220,7 @@ internal sealed class CloudKeysDialog : Form
         _groqTestBtn.Click += async (_, _) => await TestAsync("groq");
         _geminiTestBtn.Click += async (_, _) => await TestAsync("gemini");
         _mistralTestBtn.Click += async (_, _) => await TestAsync("mistral");
+        _cerebrasTestBtn.Click += async (_, _) => await TestAsync("cerebras");
         _openAiClearBtn.Click += (_, _) =>
         {
             if (Confirm("Clear the OpenAI API key?")) { _clearOpenAi = true; _openAiKey.Text = ""; _openAiKey.PlaceholderText = "(will be cleared on save)"; }
@@ -217,6 +240,10 @@ internal sealed class CloudKeysDialog : Form
         _mistralClearBtn.Click += (_, _) =>
         {
             if (Confirm("Clear the Mistral API key?")) { _clearMistral = true; _mistralKey.Text = ""; _mistralKey.PlaceholderText = "(will be cleared on save)"; }
+        };
+        _cerebrasClearBtn.Click += (_, _) =>
+        {
+            if (Confirm("Clear the Cerebras API key?")) { _clearCerebras = true; _cerebrasKey.Text = ""; _cerebrasKey.PlaceholderText = "(will be cleared on save)"; }
         };
     }
 
@@ -272,18 +299,21 @@ internal sealed class CloudKeysDialog : Form
                 OpenAiBaseUrl: _openAiBaseUrl.Text ?? "",
                 GroqApiKey: _clearGroq ? "" : (string.IsNullOrWhiteSpace(_groqKey.Text) ? null : _groqKey.Text),
                 GeminiApiKey: _clearGemini ? "" : (string.IsNullOrWhiteSpace(_geminiKey.Text) ? null : _geminiKey.Text),
-                MistralApiKey: _clearMistral ? "" : (string.IsNullOrWhiteSpace(_mistralKey.Text) ? null : _mistralKey.Text));
+                MistralApiKey: _clearMistral ? "" : (string.IsNullOrWhiteSpace(_mistralKey.Text) ? null : _mistralKey.Text),
+                CerebrasApiKey: _clearCerebras ? "" : (string.IsNullOrWhiteSpace(_cerebrasKey.Text) ? null : _cerebrasKey.Text));
             _status = await _client.SetCloudKeysAsync(req);
             _clearOpenAi = false;
             _clearAnthropic = false;
             _clearGroq = false;
             _clearGemini = false;
             _clearMistral = false;
+            _clearCerebras = false;
             _openAiKey.Text = "";
             _anthropicKey.Text = "";
             _groqKey.Text = "";
             _geminiKey.Text = "";
             _mistralKey.Text = "";
+            _cerebrasKey.Text = "";
             _openAiState.Text = _status.OpenAiConfigured ? "Configured" : "Not configured";
             _openAiState.ForeColor = _status.OpenAiConfigured ? UiTheme.Success : UiTheme.Warning;
             _anthropicState.Text = _status.AnthropicConfigured ? "Configured" : "Not configured";
@@ -294,16 +324,20 @@ internal sealed class CloudKeysDialog : Form
             _geminiState.ForeColor = _status.GeminiConfigured ? UiTheme.Success : UiTheme.Warning;
             _mistralState.Text = _status.MistralConfigured ? "Configured" : "Not configured";
             _mistralState.ForeColor = _status.MistralConfigured ? UiTheme.Success : UiTheme.Warning;
+            _cerebrasState.Text = _status.CerebrasConfigured ? "Configured" : "Not configured";
+            _cerebrasState.ForeColor = _status.CerebrasConfigured ? UiTheme.Success : UiTheme.Warning;
             _openAiTestBtn.Enabled = _openAiClearBtn.Enabled = _status.OpenAiConfigured;
             _anthropicTestBtn.Enabled = _anthropicClearBtn.Enabled = _status.AnthropicConfigured;
             _groqTestBtn.Enabled = _groqClearBtn.Enabled = _status.GroqConfigured;
             _geminiTestBtn.Enabled = _geminiClearBtn.Enabled = _status.GeminiConfigured;
             _mistralTestBtn.Enabled = _mistralClearBtn.Enabled = _status.MistralConfigured;
+            _cerebrasTestBtn.Enabled = _cerebrasClearBtn.Enabled = _status.CerebrasConfigured;
             _openAiKey.PlaceholderText = _status.OpenAiConfigured ? "(unchanged — leave blank to keep existing key)" : "sk-…";
             _anthropicKey.PlaceholderText = _status.AnthropicConfigured ? "(unchanged — leave blank to keep existing key)" : "sk-ant-…";
             _groqKey.PlaceholderText = _status.GroqConfigured ? "(unchanged — leave blank to keep existing key)" : "gsk_…";
             _geminiKey.PlaceholderText = _status.GeminiConfigured ? "(unchanged — leave blank to keep existing key)" : "AIza…";
             _mistralKey.PlaceholderText = _status.MistralConfigured ? "(unchanged — leave blank to keep existing key)" : "…";
+            _cerebrasKey.PlaceholderText = _status.CerebrasConfigured ? "(unchanged — leave blank to keep existing key)" : "csk-…";
             _statusLbl.Text = "Saved.";
         }
         catch (Exception ex)

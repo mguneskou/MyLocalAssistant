@@ -37,18 +37,17 @@ public sealed class LLamaSharpProvider : ILlmProvider
         try
         {
             _weights = await LLamaWeights.LoadFromFileAsync(_params, ct).ConfigureAwait(false);
-            // On integrated GPUs (e.g. Intel HD 620 with Vulkan) the weights may load
-            // successfully from file but executor creation or the first forward pass will
-            // fail when llama.cpp tries to move KV-cache / compute buffers to the tiny
-            // shared VRAM.  Probe with a zero-token executor now, while we can still
-            // cheaply fall back, rather than failing mid-inference later.
+            // On integrated GPUs (e.g. Intel HD 620 with Vulkan) the weights load fine from
+            // disk but the KV-cache / compute buffers are only allocated on the first real
+            // forward pass. Run a 1-token probe now so we can catch and retry CPU-only
+            // before returning to the caller rather than failing mid-inference.
             if (_params.GpuLayerCount != 0)
-                TryProbeExecutor(_weights, _params);
+                await TryProbeInferenceAsync(_weights, _params).ConfigureAwait(false);
         }
         catch (Exception ex) when (_params.GpuLayerCount > 0)
         {
-            // GPU path failed — either during file load or during the probe above.
-            // Reload with CPU-only so the model still works on low-end hardware.
+            // GPU path failed — either during file load or during the inference probe.
+            // Reload with CPU-only so the model still works on low-end / integrated GPU hardware.
             _logger.LogWarning(ex, "GPU load/probe failed for {Id} — retrying with CPU-only.", modelId);
             _weights?.Dispose();
             _weights = null;
@@ -56,8 +55,8 @@ public sealed class LLamaSharpProvider : ILlmProvider
             _weights = await LLamaWeights.LoadFromFileAsync(_params, ct).ConfigureAwait(false);
         }
         _modelId = modelId;
-        _logger.LogInformation("Model {Id} loaded (gpuLayers={Gpu}).", modelId,
-            _params.GpuLayerCount == 0 ? "CPU-only" : _params.GpuLayerCount.ToString());
+        _logger.LogInformation("Model {Id} loaded (gpu={Gpu}).", modelId,
+            _params.GpuLayerCount == 0 ? "CPU-only" : $"{_params.GpuLayerCount} layers");
     }
 
     public IAsyncEnumerable<string> GenerateAsync(
@@ -115,16 +114,22 @@ public sealed class LLamaSharpProvider : ILlmProvider
     }
 
     /// <summary>
-    /// Creates a <see cref="StatelessExecutor"/> against the given weights and immediately
-    /// disposes it. This forces llama.cpp to allocate KV-cache and compute buffers, which
-    /// is where integrated-GPU (Vulkan) failures typically surface — before the first real
-    /// inference call. Throws if executor creation fails.
+    /// Runs a single-token inference to force llama.cpp to allocate KV-cache and compute
+    /// buffers. On integrated GPUs (Intel HD 620 + Vulkan) these allocations succeed during
+    /// weight loading but fail on the first forward pass. Catching it here lets us fall back
+    /// to CPU-only before returning to the caller.
     /// </summary>
-    private static void TryProbeExecutor(LLamaWeights weights, ModelParams p)
+    private static async Task TryProbeInferenceAsync(LLamaWeights weights, ModelParams p)
     {
         var exec = new StatelessExecutor(weights, p);
-        // StatelessExecutor itself is not IDisposable in LLamaSharp — it shares the
-        // weights reference.  Creating it is enough to trigger the allocation check.
-        _ = exec;
+        var inferParams = new InferenceParams
+        {
+            MaxTokens = 1,
+            AntiPrompts = new[] { "\n" },
+            SamplingPipeline = new DefaultSamplingPipeline(),
+        };
+        // Consume exactly one token (or hit the anti-prompt) — enough to trigger VRAM allocation.
+        await foreach (var _ in exec.InferAsync("Hi", inferParams, CancellationToken.None).ConfigureAwait(false))
+            break;
     }
 }

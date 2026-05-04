@@ -33,7 +33,8 @@ public sealed record CloudKeysStatusDto(
     string? OpenAiBaseUrl,
     bool GroqConfigured,
     bool GeminiConfigured,
-    bool MistralConfigured);
+    bool MistralConfigured,
+    bool CerebrasConfigured);
 
 /// <summary>Replace cloud API keys. <c>null</c> field = leave unchanged; empty string = clear.</summary>
 public sealed record UpdateCloudKeysRequest(
@@ -42,6 +43,7 @@ public sealed record UpdateCloudKeysRequest(
     string? OpenAiBaseUrl,
     string? GroqApiKey,
     string? GeminiApiKey,
-    string? MistralApiKey);
+    string? MistralApiKey,
+    string? CerebrasApiKey);
 
 public sealed record CloudKeyTestResultDto(bool Ok, string? Detail);

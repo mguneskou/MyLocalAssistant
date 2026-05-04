@@ -43,6 +43,7 @@ public sealed class ServerSettings
     public string? GroqApiKeyProtected { get; set; }
     public string? GeminiApiKeyProtected { get; set; }
     public string? MistralApiKeyProtected { get; set; }
+    public string? CerebrasApiKeyProtected { get; set; }
     /// <summary>
     /// Optional override for the OpenAI base URL. Lets admins point at Azure OpenAI / vLLM /
     /// any OpenAI-compatible gateway without code changes. Default <c>https://api.openai.com/v1</c>.
@@ -54,11 +55,13 @@ public sealed class ServerSettings
     public string? GetGroqApiKey() => SecretProtector.Unprotect(GroqApiKeyProtected);
     public string? GetGeminiApiKey() => SecretProtector.Unprotect(GeminiApiKeyProtected);
     public string? GetMistralApiKey() => SecretProtector.Unprotect(MistralApiKeyProtected);
+    public string? GetCerebrasApiKey() => SecretProtector.Unprotect(CerebrasApiKeyProtected);
     public bool IsOpenAiConfigured => !string.IsNullOrEmpty(GetOpenAiApiKey());
     public bool IsAnthropicConfigured => !string.IsNullOrEmpty(GetAnthropicApiKey());
     public bool IsGroqConfigured => !string.IsNullOrEmpty(GetGroqApiKey());
     public bool IsGeminiConfigured => !string.IsNullOrEmpty(GetGeminiApiKey());
     public bool IsMistralConfigured => !string.IsNullOrEmpty(GetMistralApiKey());
+    public bool IsCerebrasConfigured => !string.IsNullOrEmpty(GetCerebrasApiKey());
 
     // ── Conversation memory summarisation ─────────────────────────────────────
     /// <summary>When true, the MemorySummarizationService compresses old messages. Default off.</summary>
