@@ -82,6 +82,11 @@ internal sealed class MainForm : Form
         auditPage.Controls.Add(new AuditTab(_client));
         _tabs.TabPages.Add(auditPage);
 
+        var statsPage = new TabPage("Usage") { UseVisualStyleBackColor = true };
+        var statsTab = new StatsTab(_client);
+        statsPage.Controls.Add(statsTab);
+        _tabs.TabPages.Add(statsPage);
+
         var settingsPage = new TabPage("Server Settings") { UseVisualStyleBackColor = true };
         settingsPage.Controls.Add(new SettingsTab(_client));
         _tabs.TabPages.Add(settingsPage);

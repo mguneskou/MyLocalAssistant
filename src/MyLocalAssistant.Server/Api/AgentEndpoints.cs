@@ -28,11 +28,18 @@ public static class AgentEndpoints
             Results.Ok(await svc.ListAllAsync(ct)));
 
         // Editing agents (enabled flag, model, RAG bindings, system prompt) is reserved for the global admin.
-        admin.MapPatch("/{id}", async (string id, AgentUpdateRequest req, AgentService svc, CancellationToken ct) =>
+        admin.MapPatch("/{id}", async (HttpContext http, string id, AgentUpdateRequest req, AgentService svc, AuditWriter audit, CancellationToken ct) =>
         {
+            var sub = http.User.FindFirstValue("sub");
+            Guid.TryParse(sub, out var actorId);
+            var actorName = http.User.FindFirstValue("name");
             try
             {
                 var dto = await svc.UpdateAsync(id, req, ct);
+                await audit.WriteAsync("admin.agent.update", actorId == Guid.Empty ? null : actorId, actorName,
+                    success: true, detail: $"updated agent '{id}'",
+                    ipAddress: http.Connection.RemoteIpAddress?.ToString(),
+                    isAdminAction: true, ct: CancellationToken.None);
                 return Results.Ok(dto);
             }
             catch (KeyNotFoundException ex)

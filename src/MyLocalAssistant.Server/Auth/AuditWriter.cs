@@ -17,6 +17,7 @@ public sealed class AuditWriter(IServiceScopeFactory scopes, ILogger<AuditWriter
         string? agentId = null,
         string? detail = null,
         string? ipAddress = null,
+        bool isAdminAction = false,
         CancellationToken ct = default)
     {
         try
@@ -32,6 +33,7 @@ public sealed class AuditWriter(IServiceScopeFactory scopes, ILogger<AuditWriter
                 Detail = detail,
                 IpAddress = ipAddress,
                 Success = success,
+                IsAdminAction = isAdminAction,
             });
             await db.SaveChangesAsync(ct);
         }

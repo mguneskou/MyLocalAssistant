@@ -8,7 +8,7 @@ public sealed class InferenceQueue
 {
     private readonly SemaphoreSlim _slot = new(1, 1);
 
-    public int Waiting { get; private set; }
+    public int Waiting => _waitingField;
 
     public async Task<IDisposable> AcquireAsync(CancellationToken ct)
     {

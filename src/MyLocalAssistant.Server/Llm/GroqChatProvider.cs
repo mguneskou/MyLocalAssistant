@@ -21,12 +21,14 @@ public sealed class GroqChatProvider : IChatProvider
     private readonly ServerSettings _settings;
     private readonly IHttpClientFactory _httpFactory;
     private readonly ILogger<GroqChatProvider> _log;
+    private readonly CloudCircuitBreaker _circuit;
 
     public GroqChatProvider(ServerSettings settings, IHttpClientFactory httpFactory, ILogger<GroqChatProvider> log)
     {
         _settings = settings;
         _httpFactory = httpFactory;
         _log = log;
+        _circuit = new CloudCircuitBreaker("groq", log);
     }
 
     public ModelSource Source => ModelSource.Groq;
@@ -46,6 +48,14 @@ public sealed class GroqChatProvider : IChatProvider
     public Task UnloadAsync() => Task.CompletedTask;
 
     public async IAsyncEnumerable<string> GenerateAsync(
+        CatalogEntry entry, string prompt, int maxTokens, IReadOnlyList<string> stops,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        await foreach (var token in _circuit.ExecuteAsync(() => GenerateCoreAsync(entry, prompt, maxTokens, stops, ct), ct).ConfigureAwait(false))
+            yield return token;
+    }
+
+    private async IAsyncEnumerable<string> GenerateCoreAsync(
         CatalogEntry entry, string prompt, int maxTokens, IReadOnlyList<string> stops,
         [EnumeratorCancellation] CancellationToken ct)
     {

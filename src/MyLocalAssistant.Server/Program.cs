@@ -136,6 +136,8 @@ try
         await EnsureUserWorkRootColumnAsync(db);
         // Skills→Tools rename (v2.4.0): Agent.SkillIds renamed to Agent.ToolIds.
         await EnsureAgentToolIdsColumnAsync(db);
+        // v2.8.0: AuditEntries.IsAdminAction column added.
+        await EnsureAuditIsAdminActionColumnAsync(db);
         var userSvc = scope.ServiceProvider.GetRequiredService<UserService>();
         await userSvc.EnsureAdminBootstrapAsync();
         await userSvc.EnsureGlobalAdminAsync();
@@ -163,6 +165,7 @@ try
     app.MapConversationEndpoints();
     app.MapRoleEndpoints();
     app.MapAuditEndpoints();
+    app.MapStatsEndpoints();
     app.MapSettingsEndpoints();
     app.MapAttachmentEndpoints();
     app.MapToolEndpoints();
@@ -310,5 +313,27 @@ static async Task EnsureAgentToolIdsColumnAsync(AppDbContext db)
     catch (Exception ex)
     {
         Log.Warning(ex, "Could not rename SkillIds to ToolIds in Agents table.");
+    }
+}
+
+static async Task EnsureAuditIsAdminActionColumnAsync(AppDbContext db)
+{
+    try
+    {
+        await using var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync();
+        await using (var probe = conn.CreateCommand())
+        {
+            probe.CommandText = "SELECT 1 FROM pragma_table_info('AuditEntries') WHERE name = 'IsAdminAction' LIMIT 1";
+            if (await probe.ExecuteScalarAsync() is not null) return;
+        }
+        await using var alter = conn.CreateCommand();
+        alter.CommandText = "ALTER TABLE AuditEntries ADD COLUMN IsAdminAction INTEGER NOT NULL DEFAULT 0";
+        await alter.ExecuteNonQueryAsync();
+        Log.Information("Added AuditEntries.IsAdminAction column to existing database.");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Could not add IsAdminAction column to AuditEntries.");
     }
 }

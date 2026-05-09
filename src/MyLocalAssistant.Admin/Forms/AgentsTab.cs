@@ -21,6 +21,7 @@ internal sealed class AgentsTab : UserControl
     private DataGridViewButtonColumn _promptCol = null!;
     private DataGridViewButtonColumn _toolsCol = null!;
     private readonly ToolStripButton _globalPromptBtn;
+    private readonly ToolStripButton _testBtn;
     private List<RagCollectionDto> _allCollections = new();
     private List<ToolDto> _allTools = new();
     private bool _suppressEvents;
@@ -32,12 +33,11 @@ internal sealed class AgentsTab : UserControl
 
         _toolbar = new ToolStrip { GripStyle = ToolStripGripStyle.Hidden, Dock = DockStyle.Top };
         _refreshBtn = new ToolStripButton("Refresh");
-        _globalPromptBtn = new ToolStripButton("Edit global system prompt…");
-        _hint = new ToolStripLabel("  Toggle Enabled/RAG, pick a default model, click RAG to choose collections, click Prompt to edit.")
+        _globalPromptBtn = new ToolStripButton("Edit global system prompt…");        _testBtn = new ToolStripButton("Test agent\u2026") { ToolTipText = "Open a prompt test chat for the selected agent" };        _hint = new ToolStripLabel("  Toggle Enabled/RAG, pick a default model, click RAG to choose collections, click Prompt to edit.")
         {
             ForeColor = SystemColors.GrayText,
         };
-        _toolbar.Items.AddRange(new ToolStripItem[] { _refreshBtn, _globalPromptBtn, new ToolStripSeparator(), _hint });
+        _toolbar.Items.AddRange(new ToolStripItem[] { _refreshBtn, _globalPromptBtn, _testBtn, new ToolStripSeparator(), _hint });
 
         _grid = new DataGridView
         {
@@ -96,6 +96,7 @@ internal sealed class AgentsTab : UserControl
             _collectionsCol,
             _toolsCol,
             _promptCol,
+            new DataGridViewTextBoxColumn { HeaderText = "Max tools", DataPropertyName = nameof(AgentRow.MaxToolCalls), Width = 70, ToolTipText = "Max tool calls per turn (1-20, blank = default 3)" },
             new DataGridViewTextBoxColumn { HeaderText = "Description", DataPropertyName = nameof(AgentRow.Description), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, ReadOnly = true },
         });
         _grid.DataSource = _rows;
@@ -117,6 +118,7 @@ internal sealed class AgentsTab : UserControl
 
         _refreshBtn.Click += async (_, _) => await ReloadAsync();
         _globalPromptBtn.Click += async (_, _) => await EditGlobalPromptAsync();
+        _testBtn.Click += OnTestAgentClicked;
         Load += async (_, _) => await ReloadAsync();
     }
 
@@ -133,6 +135,15 @@ internal sealed class AgentsTab : UserControl
             _statusLabel.Text = saved.Length == 0 ? "Global system prompt cleared." : $"Global system prompt saved ({saved.Length} chars).";
         }
         catch (Exception ex) { ShowError("Global prompt", ex); }
+    }
+
+    private void OnTestAgentClicked(object? sender, EventArgs e)
+    {
+        var idx = _grid.CurrentRow?.Index ?? -1;
+        if (idx < 0 || idx >= _rows.Count) { MessageBox.Show("Select an agent first.", "Test agent", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+        var row = _rows[idx];
+        var form = new PromptTestForm(row.Id, row.Name, _client);
+        form.Show(FindForm());
     }
 
     private async Task ReloadAsync()
@@ -217,8 +228,8 @@ internal sealed class AgentsTab : UserControl
         {
             var defaultModelId = row.DefaultModelDisplay == NoModelOverride ? null : row.DefaultModelDisplay;
             var updated = await _client.UpdateAgentAsync(row.Id,
-                new AgentUpdateRequest(row.Enabled, defaultModelId, row.RagEnabled, row.RagCollectionIds, row.SystemPrompt, Description: null, ToolIds: row.ToolIds));
-            _statusLabel.Text = $"Saved {updated.Name} (rag={updated.RagEnabled}, collections={updated.RagCollectionIds.Count}, tools={updated.ToolIds?.Count ?? 0}).";
+                new AgentUpdateRequest(row.Enabled, defaultModelId, row.RagEnabled, row.RagCollectionIds, row.SystemPrompt, Description: null, ToolIds: row.ToolIds, MaxToolCalls: row.MaxToolCalls));
+            _statusLabel.Text = $"Saved {updated.Name} (rag={updated.RagEnabled}, collections={updated.RagCollectionIds.Count}, tools={updated.ToolIds?.Count ?? 0}, maxTools={updated.MaxToolCalls ?? 3}).";
         }
         catch (Exception ex) { ShowError("Save failed", ex); await ReloadAsync(); }
     }
@@ -258,6 +269,7 @@ internal sealed class AgentsTab : UserControl
         public string SystemPrompt { get; set; } = "";
         public IReadOnlyList<string> ToolIds { get; set; } = Array.Empty<string>();
         public string ToolsDisplay { get; set; } = "(choose\u2026)";
+        public int? MaxToolCalls { get; set; }
 
         public static AgentRow From(AgentDto a, IReadOnlyList<string> modelChoices, IReadOnlyList<RagCollectionDto> allCollections, IReadOnlyList<ToolDto> allSkills)
         {
@@ -277,6 +289,7 @@ internal sealed class AgentsTab : UserControl
                 RagCollectionIds = a.RagCollectionIds,
                 SystemPrompt = a.SystemPrompt,
                 ToolIds = a.ToolIds ?? Array.Empty<string>(),
+                MaxToolCalls = a.MaxToolCalls,
             };
             row.RecomputeCollectionsDisplay(allCollections);
             row.RecomputeToolsDisplay(allSkills);

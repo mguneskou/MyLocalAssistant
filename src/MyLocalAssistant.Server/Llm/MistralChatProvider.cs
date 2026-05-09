@@ -21,12 +21,14 @@ public sealed class MistralChatProvider : IChatProvider
     private readonly ServerSettings _settings;
     private readonly IHttpClientFactory _httpFactory;
     private readonly ILogger<MistralChatProvider> _log;
+    private readonly CloudCircuitBreaker _circuit;
 
     public MistralChatProvider(ServerSettings settings, IHttpClientFactory httpFactory, ILogger<MistralChatProvider> log)
     {
         _settings = settings;
         _httpFactory = httpFactory;
         _log = log;
+        _circuit = new CloudCircuitBreaker("mistral", log);
     }
 
     public ModelSource Source => ModelSource.Mistral;
@@ -46,6 +48,14 @@ public sealed class MistralChatProvider : IChatProvider
     public Task UnloadAsync() => Task.CompletedTask;
 
     public async IAsyncEnumerable<string> GenerateAsync(
+        CatalogEntry entry, string prompt, int maxTokens, IReadOnlyList<string> stops,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        await foreach (var token in _circuit.ExecuteAsync(() => GenerateCoreAsync(entry, prompt, maxTokens, stops, ct), ct).ConfigureAwait(false))
+            yield return token;
+    }
+
+    private async IAsyncEnumerable<string> GenerateCoreAsync(
         CatalogEntry entry, string prompt, int maxTokens, IReadOnlyList<string> stops,
         [EnumeratorCancellation] CancellationToken ct)
     {

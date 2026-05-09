@@ -85,6 +85,15 @@ public sealed class ChatApiClient : IDisposable
         return await resp.Content.ReadFromJsonAsync<List<ConversationSummaryDto>>(s_json, ct) ?? new();
     }
 
+    public async Task<List<ConversationSummaryDto>> SearchConversationsAsync(
+        string query, bool semantic = false, CancellationToken ct = default)
+    {
+        var path = $"api/chat/conversations/search?q={Uri.EscapeDataString(query)}&semantic={(semantic ? "true" : "false")}";
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, path, null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<List<ConversationSummaryDto>>(s_json, ct) ?? new();
+    }
+
     public async Task<ConversationDetailDto?> GetConversationAsync(Guid id, CancellationToken ct = default)
     {
         var resp = await SendAuthorizedAsync(HttpMethod.Get, $"api/chat/conversations/{id}", null, ct);

@@ -379,6 +379,14 @@ public sealed class ServerClient : IDisposable
         return parts.Count == 0 ? "" : "?" + string.Join("&", parts);
     }
 
+    public async Task<StatsDto> GetStatsAsync(int days = 30, CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Get, $"api/admin/stats?days={days}", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+        return await resp.Content.ReadFromJsonAsync<StatsDto>(s_json, ct)
+               ?? throw new InvalidOperationException("Empty stats response.");
+    }
+
     public async Task<ServerSettingsDto> GetServerSettingsAsync(CancellationToken ct = default)
     {
         var resp = await SendAuthorizedAsync(HttpMethod.Get, "api/admin/settings/", null, ct);
@@ -437,6 +445,44 @@ public sealed class ServerClient : IDisposable
         await EnsureSuccessAsync(resp, ct);
         return await resp.Content.ReadFromJsonAsync<CloudKeyTestResultDto>(s_json, ct)
             ?? throw new InvalidOperationException("Empty test response.");
+    }
+
+    /// <summary>
+    /// Streams a chat request. The admin uses the same endpoint as the Client
+    /// so the workbench can test agents without a separate auth flow.
+    /// </summary>
+    public async IAsyncEnumerable<MyLocalAssistant.Shared.Contracts.TokenStreamFrame> StreamChatAsync(
+        MyLocalAssistant.Shared.Contracts.ChatRequest request,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct = default)
+    {
+        await EnsureFreshTokenAsync(ct);
+        using var req = new HttpRequestMessage(HttpMethod.Post, "api/chat/stream");
+        if (!string.IsNullOrEmpty(_accessToken))
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _accessToken);
+        req.Content = System.Net.Http.Json.JsonContent.Create(request, options: s_json);
+
+        using var resp = await _http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var body = await resp.Content.ReadAsStringAsync(ct);
+            throw new ServerApiException((int)resp.StatusCode, body);
+        }
+
+        using var stream = await resp.Content.ReadAsStreamAsync(ct);
+        using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.UTF8);
+        while (!reader.EndOfStream)
+        {
+            ct.ThrowIfCancellationRequested();
+            var line = await reader.ReadLineAsync(ct);
+            if (line is null) break;
+            if (!line.StartsWith("data:", StringComparison.Ordinal)) continue;
+            var payload = line.AsSpan(5).TrimStart().ToString();
+            if (payload.Length == 0) continue;
+            MyLocalAssistant.Shared.Contracts.TokenStreamFrame? frame = null;
+            try { frame = JsonSerializer.Deserialize<MyLocalAssistant.Shared.Contracts.TokenStreamFrame>(payload, s_json); }
+            catch { /* malformed line; skip */ }
+            if (frame is not null) yield return frame;
+        }
     }
 
     private void SetTokens(LoginResponse login)

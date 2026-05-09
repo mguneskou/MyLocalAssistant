@@ -9,7 +9,8 @@ public sealed record AuditEntryDto(
     string? AgentId,
     string? Detail,
     string? IpAddress,
-    bool Success);
+    bool Success,
+    bool IsAdminAction = false);
 
 public sealed record AuditPageDto(
     System.Collections.Generic.List<AuditEntryDto> Items,

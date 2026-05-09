@@ -93,6 +93,8 @@ public sealed class Agent
     public string? RagCollectionIds { get; set; }
     /// <summary>Semicolon-separated list of ToolState.Id strings the agent is allowed to invoke as tools.</summary>
     public string? ToolIds { get; set; }
+    /// <summary>Maximum tool calls per chat turn. Null = use the server default (3).</summary>
+    public int? MaxToolCalls { get; set; }
 }
 
 public sealed class Conversation
@@ -141,6 +143,8 @@ public sealed class AuditEntry
     public string? Detail { get; set; }
     public string? IpAddress { get; set; }
     public bool Success { get; set; }
+    /// <summary>True for admin configuration changes (user CRUD, agent edits, key rotations). False for chat/auth events.</summary>
+    public bool IsAdminAction { get; set; }
 }
 
 public sealed class RagCollection

@@ -28,8 +28,8 @@ public sealed class ChatService(
 {
     public sealed record VisibilityCheck(bool Allowed, string? Reason, Agent? Agent);
 
-    /// <summary>Hard cap on tool invocations per chat turn. Prevents runaway loops on jailbreaks.</summary>
-    private const int MaxToolCallsPerTurn = 3;
+    /// <summary>Server-wide default cap on tool invocations per chat turn. Agents may lower or raise this (max 20).</summary>
+    private const int DefaultMaxToolCallsPerTurn = 3;
 
     private const string ToolCallOpen = "<tool_call>";
     private const string ToolCallClose = "</tool_call>";
@@ -59,6 +59,8 @@ public sealed class ChatService(
         public Action<string, string>? OnToolCall { get; init; }
         /// <summary>Fired with the result (or error message) returned by the tool.</summary>
         public Action<string, string, bool>? OnToolResult { get; init; }
+        /// <summary>Fired when the request must wait for the inference queue. Argument is the 1-based position.</summary>
+        public Action<int>? OnQueued { get; init; }
         /// <summary>Conversation id for the current turn (passed into <see cref="ToolContext"/>).</summary>
         public Guid ConversationId { get; init; }
     }
@@ -99,18 +101,26 @@ public sealed class ChatService(
         var resolvedSkills = ResolveSkills(agent, capability, callbacks.OnToolUnavailable);
         var toolMode = resolvedSkills.Count > 0;
 
+        var maxToolCalls = Math.Clamp(agent.MaxToolCalls ?? DefaultMaxToolCallsPerTurn, 1, 20);
         var basePrompt = BuildPrompt(
             settings.GlobalSystemPrompt,
             agent.SystemPrompt,
             userMessage,
             retrieval.Chunks,
             history,
-            resolvedSkills);
+            resolvedSkills,
+            maxToolCalls);
 
         log.LogDebug("Chat: agent={AgentId}, user={User}, ragChunks={Chunks}, history={Hist}, promptChars={Chars}, model={Model}, tools={Tools}/{Bound}",
             agent.Id, principal.Username ?? principal.UserId.ToString(),
             retrieval.Chunks.Count, history.Count, basePrompt.Length, activeModelId,
             resolvedSkills.Count, ToolRegistry.ParseToolIds(agent.ToolIds).Count);
+
+        // If other requests are queued for the local model, notify the client so the UI can show a position indicator.
+        // Cloud providers never contend on the queue, but the notification is harmless for them.
+        var waiting = queue.Waiting;
+        if (waiting > 0)
+            callbacks.OnQueued?.Invoke(waiting + 1);   // +1 = this request's position once it joins
 
         using var lease = await queue.AcquireAsync(ct);
 
@@ -128,7 +138,7 @@ public sealed class ChatService(
             workDir,
             ct);
 
-        for (var iteration = 0; iteration <= MaxToolCallsPerTurn; iteration++)
+        for (var iteration = 0; iteration <= maxToolCalls; iteration++)
         {
             var prompt = basePrompt + assistantSoFar.ToString();
             var hideMode = false;
@@ -207,10 +217,10 @@ public sealed class ChatService(
                 }
             }
 
-            if (iteration == MaxToolCallsPerTurn)
+            if (iteration == maxToolCalls)
             {
                 callbacks.OnToolUnavailable?.Invoke("(loop)",
-                    $"Tool-call limit reached ({MaxToolCallsPerTurn}). Aborting further calls.");
+                    $"Tool-call limit reached ({maxToolCalls}). Aborting further calls.");
                 yield break;
             }
 
@@ -420,9 +430,12 @@ public sealed class ChatService(
         string userMessage,
         IReadOnlyList<RagContextChunk> chunks,
         IReadOnlyList<HistoryTurn> history,
-        IReadOnlyList<ITool> tools)
+        IReadOnlyList<ITool> tools,
+        int maxToolCalls = DefaultMaxToolCallsPerTurn)
     {
         var sb = new StringBuilder();
+        // Always inject current date so the model knows "today" without needing a tool call.
+        sb.Append($"Today's date is {DateTime.Now:dddd, MMMM d, yyyy}.\n\n");
         if (!string.IsNullOrWhiteSpace(globalSystemPrompt))
         {
             sb.Append(globalSystemPrompt!.Trim());
@@ -447,7 +460,7 @@ public sealed class ChatService(
             sb.Append("Stop immediately after the closing tag. The system will respond with:\n");
             sb.Append("<tool_result>{\"content\":\"...\"}</tool_result>\n");
             sb.Append("Then continue your answer to the user. Call a tool only when it materially helps. Maximum ");
-            sb.Append(MaxToolCallsPerTurn).Append(" tool calls per turn.\n\nAvailable tools:\n");
+            sb.Append(maxToolCalls).Append(" tool calls per turn.\n\nAvailable tools:\n");
             foreach (var skill in tools)
             {
                 foreach (var t in skill.Tools)

@@ -21,6 +21,7 @@ internal sealed class ChatForm : Form
     private readonly Button _newChatBtn;
     private readonly Button _deleteChatBtn;
     private readonly ComboBox _agentCombo;
+    private readonly Button _agentInfoBtn;
     private readonly Label _agentDescription;
     private readonly Panel _agentRow;
     private readonly ChatTranscript _history;
@@ -140,10 +141,18 @@ internal sealed class ChatForm : Form
             BorderStyle = BorderStyle.FixedSingle,
             BackColor = UiTheme.SurfaceCard,
             ForeColor = UiTheme.TextPrimary,
-            PlaceholderText = "Filter conversations\u2026",
+            PlaceholderText = "Filter conversations\u2026 (Enter to search server)",
             Height = 28,
         };
         _searchBox.TextChanged += (_, _) => FilterConversations(_searchBox.Text);
+        _searchBox.KeyDown += async (_, e) =>
+        {
+            if (e.KeyCode == Keys.Return && !string.IsNullOrWhiteSpace(_searchBox.Text))
+            {
+                e.SuppressKeyPress = true;
+                await SearchConversationsAsync(_searchBox.Text);
+            }
+        };
         var leftButtons = new Panel
         {
             Dock = DockStyle.Bottom,
@@ -192,6 +201,22 @@ internal sealed class ChatForm : Form
         };
         _agentCombo.DisplayMember = nameof(AgentDto.Name);
         _agentCombo.SelectedIndexChanged += async (_, _) => await OnAgentChangedAsync();
+        _agentInfoBtn = new Button
+        {
+            Text = "\u24D8", // ⓘ
+            Font = UiTheme.Caption,
+            Width = 24,
+            Height = 24,
+            Dock = DockStyle.Left,
+            FlatStyle = FlatStyle.Flat,
+            Cursor = Cursors.Hand,
+            TabStop = false,
+            BackColor = UiTheme.Surface,
+            ForeColor = UiTheme.TextSecondary,
+            Enabled = false,
+        };
+        _agentInfoBtn.FlatAppearance.BorderSize = 0;
+        _agentInfoBtn.Click += OnAgentInfoClicked;
         _agentDescription = new Label
         {
             AutoSize = true,
@@ -219,6 +244,7 @@ internal sealed class ChatForm : Form
             Padding = new Padding(2, 4, 4, 2),
         };
         _agentRow.Controls.Add(_agentDescription);  // Fill last
+        _agentRow.Controls.Add(_agentInfoBtn);        // info button right of combo
         _agentRow.Controls.Add(_agentCombo);          // Left (added before Fill, so right of label)
         _agentRow.Controls.Add(agentLbl);             // Left (added last = absolute left)
 
@@ -392,6 +418,26 @@ internal sealed class ChatForm : Form
         _suppressConversationSelection = false;
     }
 
+    private async Task SearchConversationsAsync(string query)
+    {
+        try
+        {
+            _statusLabel.Text = "Searching\u2026";
+            var results = await _client.SearchConversationsAsync(query, semantic: true);
+            _suppressConversationSelection = true;
+            _conversationList.BeginUpdate();
+            _conversationList.Items.Clear();
+            foreach (var c in results) _conversationList.Items.Add(c);
+            _conversationList.EndUpdate();
+            _suppressConversationSelection = false;
+            _statusLabel.Text = $"{results.Count} result(s) for \"{query}\"";
+        }
+        catch (Exception ex)
+        {
+            _statusLabel.Text = "Search error: " + ex.Message;
+        }
+    }
+
     private void PickBridgeFolder()
     {
         var current = _store.Load().BridgeRoot;
@@ -458,6 +504,7 @@ internal sealed class ChatForm : Form
     {
         var a = _agentCombo.SelectedItem as AgentDto;
         _agentDescription.Text = a is null ? "" : a.Description;
+        _agentInfoBtn.Enabled = a is not null;
         if (a is not null)
         {
             var s = _store.Load();
@@ -468,6 +515,25 @@ internal sealed class ChatForm : Form
             StartNewChat();
             await ReloadConversationsAsync();
         }
+    }
+
+    private void OnAgentInfoClicked(object? sender, EventArgs e)
+    {
+        var agent = _agentCombo.SelectedItem as AgentDto;
+        if (agent is null) return;
+
+        var toolCount = agent.ToolIds?.Count ?? 0;
+        var ragInfo = agent.RagEnabled ? "Yes" : "No";
+        var modelInfo = string.IsNullOrWhiteSpace(agent.DefaultModelId) ? "(server default)" : agent.DefaultModelId;
+
+        var info = $"{agent.Name}\n\n" +
+                   $"Description: {(string.IsNullOrWhiteSpace(agent.Description) ? "(none)" : agent.Description)}\n" +
+                   $"Model: {modelInfo}\n" +
+                   $"Tools: {toolCount}\n" +
+                   $"RAG: {ragInfo}\n" +
+                   $"Max tool calls/turn: {agent.MaxToolCalls?.ToString() ?? "3 (default)"}";
+
+        MessageBox.Show(info, $"Agent: {agent.Name}", MessageBoxButtons.OK, MessageBoxIcon.Information);
     }
 
     private async Task ReloadConversationsAsync()
@@ -608,6 +674,7 @@ internal sealed class ChatForm : Form
         SetStreaming(true);
         var sw = Stopwatch.StartNew();
         var tokens = 0;
+        var outputChars = 0;
         var wasNew = _currentConversationId is null;
         try
         {
@@ -622,6 +689,7 @@ internal sealed class ChatForm : Form
                 else if (frame.Kind == TokenStreamFrameKind.Token && frame.Text is not null)
                 {
                     _history.AppendAssistantText(frame.Text);
+                    outputChars += frame.Text.Length;
                     tokens++;
                     var rate = sw.Elapsed.TotalSeconds > 0 ? tokens / sw.Elapsed.TotalSeconds : 0;
                     _statsLabel.Text = $"{tokens} tokens \u00b7 {rate:F1} tok/s";
@@ -634,7 +702,22 @@ internal sealed class ChatForm : Form
                 }
                 else if (frame.Kind == TokenStreamFrameKind.End)
                 {
+                    // Estimate cost for cloud models (local = free).
+                    var inputEst  = message.Length / 4;
+                    var outputEst = outputChars / 4;
+                    var cost = MyLocalAssistant.Client.Services.ModelPricing.Estimate(
+                        agent.DefaultModelId, inputEst, outputEst);
+                    var costStr = MyLocalAssistant.Client.Services.ModelPricing.Format(cost);
+                    var rate = sw.Elapsed.TotalSeconds > 0 ? tokens / sw.Elapsed.TotalSeconds : 0;
+                    _statsLabel.Text = string.IsNullOrEmpty(costStr)
+                        ? $"{tokens} tok \u00b7 {rate:F1} tok/s"
+                        : $"{tokens} tok \u00b7 {rate:F1} tok/s \u00b7 {costStr}";
                     break;
+                }
+                else if (frame.Kind == TokenStreamFrameKind.Queued)
+                {
+                    var pos = frame.QueuePosition ?? 0;
+                    _statsLabel.Text = pos > 1 ? $"Queued — position {pos} in line\u2026" : "Starting\u2026";
                 }
                 else if (frame.Kind == TokenStreamFrameKind.ToolUnavailable)
                 {
@@ -655,7 +738,8 @@ internal sealed class ChatForm : Form
                     }
                     else
                     {
-                        _history.AppendNote($"\u2190 {(isErr ? "tool error" : "tool result")}: {frame.ToolName ?? "?"} {frame.ToolJson ?? ""}",
+                        var displayJson = isErr ? ExtractErrorMessage(frame.ToolJson) : frame.ToolJson ?? "";
+                        _history.AppendNote($"\u2190 {(isErr ? "tool error" : "tool result")}: {frame.ToolName ?? "?"} {displayJson}",
                             isErr ? BubbleKind.Error : BubbleKind.Note);
                     }
                 }
@@ -717,7 +801,7 @@ internal sealed class ChatForm : Form
         using var dlg = new OpenFileDialog
         {
             Title = "Attach a file to this turn",
-            Filter = "Supported (*.txt;*.md;*.pdf;*.docx;*.html;*.htm)|*.txt;*.md;*.markdown;*.pdf;*.docx;*.html;*.htm|All files (*.*)|*.*",
+            Filter = "Supported (*.txt;*.md;*.pdf;*.docx;*.xlsx;*.html;*.htm)|*.txt;*.md;*.markdown;*.pdf;*.docx;*.xlsx;*.xls;*.html;*.htm|All files (*.*)|*.*",
             CheckFileExists = true,
             Multiselect = false,
         };
@@ -820,5 +904,25 @@ internal sealed class ChatForm : Form
         // Subtle bottom separator.
         using var pen = new Pen(UiTheme.Border);
         e.Graphics.DrawLine(pen, rect.Left + 8, rect.Bottom - 1, rect.Right - 8, rect.Bottom - 1);
+    }
+
+    /// <summary>
+    /// Extracts the human-readable "error" field from a JSON payload like <c>{"error":"message"}</c>.
+    /// Falls back to the raw string (truncated) when the JSON can't be parsed.
+    /// </summary>
+    private static string ExtractErrorMessage(string? json)
+    {
+        if (string.IsNullOrWhiteSpace(json)) return "";
+        try
+        {
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("error", out var errProp)
+                && errProp.ValueKind == System.Text.Json.JsonValueKind.String)
+            {
+                return errProp.GetString() ?? json;
+            }
+        }
+        catch { /* fall through */ }
+        return json.Length > 200 ? json[..200] + "\u2026" : json;
     }
 }

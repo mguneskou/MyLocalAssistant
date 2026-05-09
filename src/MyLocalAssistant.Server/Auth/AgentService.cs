@@ -170,6 +170,11 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
             if (d.Length > 512) throw new ArgumentException("Description exceeds 512 characters.");
             a.Description = d;
         }
+        if (req.MaxToolCalls is int mtc)
+        {
+            if (mtc < 1 || mtc > 20) throw new ArgumentException("MaxToolCalls must be between 1 and 20.");
+            a.MaxToolCalls = mtc;
+        }
         await db.SaveChangesAsync(ct);
         log.LogInformation("Agent {Id} updated: enabled={Enabled}, model={Model}, rag={Rag}, collections={Coll}, promptChars={Prompt}.",
             id, a.Enabled, a.DefaultModelId, a.RagEnabled, a.RagCollectionIds, a.SystemPrompt.Length);
@@ -179,5 +184,5 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
     private static AgentDto ToDto(Agent a) => new(
         a.Id, a.Name, a.Description, a.Category, a.IsGeneric, a.Enabled, a.DefaultModelId,
         a.RagEnabled, RagService.ParseCollectionIds(a.RagCollectionIds), a.SystemPrompt,
-        MyLocalAssistant.Server.Tools.ToolRegistry.ParseToolIds(a.ToolIds));
+        MyLocalAssistant.Server.Tools.ToolRegistry.ParseToolIds(a.ToolIds), a.MaxToolCalls);
 }

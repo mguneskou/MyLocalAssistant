@@ -26,7 +26,8 @@ public static class AuditEndpoints
         DateTimeOffset? to,
         string? action,
         string? user,
-        bool? success)
+        bool? success,
+        bool? isAdminAction = null)
     {
         var q = db.AuditEntries.AsNoTracking().AsQueryable();
         if (from is { } f) q = q.Where(a => a.Timestamp >= f);
@@ -41,6 +42,7 @@ public static class AuditEndpoints
                 q = q.Where(a => a.Username != null && a.Username.Contains(u));
         }
         if (success is bool s) q = q.Where(a => a.Success == s);
+        if (isAdminAction is bool ia) q = q.Where(a => a.IsAdminAction == ia);
         return q;
     }
 
@@ -52,19 +54,20 @@ public static class AuditEndpoints
         string? action = null,
         string? user = null,
         bool? success = null,
+        bool? isAdminAction = null,
         int skip = 0,
         int take = 100)
     {
         if (skip < 0) skip = 0;
         take = Math.Clamp(take, 1, MaxTake);
 
-        var q = ApplyFilter(db, from, to, action, user, success);
+        var q = ApplyFilter(db, from, to, action, user, success, isAdminAction);
         var total = await q.CountAsync(ct);
         var rows = await q
             .OrderByDescending(a => a.Timestamp).ThenByDescending(a => a.Id)
             .Skip(skip).Take(take)
             .Select(a => new AuditEntryDto(a.Id, a.Timestamp, a.UserId, a.Username, a.Action,
-                a.AgentId, a.Detail, a.IpAddress, a.Success))
+                a.AgentId, a.Detail, a.IpAddress, a.Success, a.IsAdminAction))
             .ToListAsync(ct);
         return Results.Ok(new AuditPageDto(rows, total, skip, take));
     }
@@ -87,9 +90,10 @@ public static class AuditEndpoints
         DateTimeOffset? to = null,
         string? action = null,
         string? user = null,
-        bool? success = null)
+        bool? success = null,
+        bool? isAdminAction = null)
     {
-        var q = ApplyFilter(db, from, to, action, user, success)
+        var q = ApplyFilter(db, from, to, action, user, success, isAdminAction)
             .OrderByDescending(a => a.Timestamp).ThenByDescending(a => a.Id)
             .Take(MaxExport);
 
@@ -99,7 +103,7 @@ public static class AuditEndpoints
         http.Response.Headers.ContentDisposition = $"attachment; filename=\"{fileName}\"";
 
         var sb = new StringBuilder();
-        sb.AppendLine("Id,Timestamp,UserId,Username,Action,AgentId,IpAddress,Success,Detail");
+        sb.AppendLine("Id,Timestamp,UserId,Username,Action,AgentId,IpAddress,Success,IsAdminAction,Detail");
         await http.Response.WriteAsync(sb.ToString(), ct);
         sb.Clear();
 
@@ -113,6 +117,7 @@ public static class AuditEndpoints
             AppendCsv(sb, a.AgentId); sb.Append(',');
             AppendCsv(sb, a.IpAddress); sb.Append(',');
             sb.Append(a.Success ? "1" : "0").Append(',');
+            sb.Append(a.IsAdminAction ? "1" : "0").Append(',');
             AppendCsv(sb, a.Detail);
             sb.Append('\n');
             if (sb.Length > 32_768)

@@ -1,4 +1,5 @@
 using System.Text;
+using ClosedXML.Excel;
 using DocumentFormat.OpenXml.Packaging;
 using HtmlAgilityPack;
 using UglyToad.PdfPig;
@@ -15,7 +16,7 @@ public static class DocumentParsers
     public static bool IsSupported(string fileName)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        return ext is ".txt" or ".md" or ".markdown" or ".pdf" or ".docx" or ".html" or ".htm";
+        return ext is ".txt" or ".md" or ".markdown" or ".pdf" or ".docx" or ".html" or ".htm" or ".xlsx" or ".xls";
     }
 
     public static IReadOnlyList<DocumentPage> Parse(Stream content, string fileName)
@@ -27,6 +28,7 @@ public static class DocumentParsers
             ".pdf" => ParsePdf(content),
             ".docx" => ParseDocx(content),
             ".html" or ".htm" => ParseHtml(content),
+            ".xlsx" or ".xls" => ParseExcel(content),
             _ => throw new NotSupportedException($"Unsupported file extension: {ext}"),
         };
     }
@@ -73,5 +75,26 @@ public static class DocumentParsers
             n.Remove();
         var text = HtmlEntity.DeEntitize(html.DocumentNode.InnerText ?? "");
         return new[] { new DocumentPage(1, text) };
+    }
+
+    private static IReadOnlyList<DocumentPage> ParseExcel(Stream s)
+    {
+        using var wb = new XLWorkbook(s);
+        var pages = new List<DocumentPage>();
+        int pageNum = 1;
+        foreach (var ws in wb.Worksheets)
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine($"Sheet: {ws.Name}");
+            var range = ws.RangeUsed();
+            if (range is null) { pageNum++; continue; }
+            foreach (var row in range.Rows())
+            {
+                var cells = row.Cells().Select(c => c.GetFormattedString()).ToArray();
+                sb.AppendLine(string.Join("\t", cells));
+            }
+            pages.Add(new DocumentPage(pageNum++, sb.ToString()));
+        }
+        return pages.Count > 0 ? pages : new[] { new DocumentPage(1, "") };
     }
 }

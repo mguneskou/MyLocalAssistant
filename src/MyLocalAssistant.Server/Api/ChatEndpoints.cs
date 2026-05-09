@@ -135,6 +135,16 @@ public static class ChatEndpoints
             {
                 OnRetrieval = r => lastRetrieval = r,
                 ConversationId = conversationIdLocal,
+                OnQueued = position =>
+                {
+                    try
+                    {
+                        WriteFrameAsync(http.Response,
+                            new TokenStreamFrame(TokenStreamFrameKind.Queued, QueuePosition: position),
+                            ct).GetAwaiter().GetResult();
+                    }
+                    catch { /* response broken */ }
+                },
                 OnToolUnavailable = (toolId, reason) =>
                 {
                     try

@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using HtmlAgilityPack;
 using MyLocalAssistant.Shared.Contracts;
 
 namespace MyLocalAssistant.Server.Tools.BuiltIn;
@@ -188,6 +189,12 @@ internal sealed class WebSearchTool : ITool
         using var resp = await s_http.SendAsync(req, ct);
         var html = await resp.Content.ReadAsStringAsync(ct);
 
+        // Try HtmlAgilityPack first (robust against DDG HTML changes).
+        var results = ParseDdgHtml(html, max);
+        if (results.Length > 0)
+            return ToolResult.Ok(results);
+
+        // Fallback to legacy regex if HAP found nothing.
         var matches = s_ddgResult.Matches(html);
         if (matches.Count == 0)
             return ToolResult.Error("No results found (DuckDuckGo).");
@@ -205,6 +212,45 @@ internal sealed class WebSearchTool : ITool
             sb.AppendLine($"    URL: {href}");
         }
         return ToolResult.Ok(sb.ToString().TrimEnd());
+    }
+
+    private static string ParseDdgHtml(string html, int max)
+    {
+        var doc = new HtmlDocument();
+        doc.LoadHtml(html);
+
+        // DDG result links are inside <a> elements with class "result__a" or inside divs
+        // with class "result__body". Use attribute selectors for resilience.
+        var resultNodes = doc.DocumentNode.SelectNodes(
+            "//div[contains(@class,'result') and not(contains(@class,'result--ad'))]");
+        if (resultNodes is null) return "";
+
+        var sb = new System.Text.StringBuilder();
+        int i = 0;
+        foreach (var node in resultNodes)
+        {
+            if (i >= max) break;
+            var titleNode   = node.SelectSingleNode(".//a[@class='result__a']") ??
+                              node.SelectSingleNode(".//h2//a") ??
+                              node.SelectSingleNode(".//a[contains(@class,'result')]");
+            var snippetNode = node.SelectSingleNode(".//*[contains(@class,'result__snippet')]") ??
+                              node.SelectSingleNode(".//*[contains(@class,'snippet')]");
+            if (titleNode is null) continue;
+
+            var href    = WebUtility.HtmlDecode(titleNode.GetAttributeValue("href", ""));
+            var title   = WebUtility.HtmlDecode(titleNode.InnerText).Trim();
+            var snippet = snippetNode is null ? "" : WebUtility.HtmlDecode(snippetNode.InnerText).Trim();
+
+            if (string.IsNullOrWhiteSpace(href) || string.IsNullOrWhiteSpace(title)) continue;
+            // Skip DDG-internal links.
+            if (href.StartsWith("/", StringComparison.Ordinal) && !href.StartsWith("//", StringComparison.Ordinal)) continue;
+
+            i++;
+            sb.AppendLine($"[{i}] {title}");
+            if (!string.IsNullOrWhiteSpace(snippet)) sb.AppendLine($"    {snippet}");
+            sb.AppendLine($"    URL: {href}");
+        }
+        return sb.ToString().TrimEnd();
     }
 
     // ── web.visit ─────────────────────────────────────────────────────────────

@@ -11,7 +11,8 @@ public sealed record AgentDto(
     bool RagEnabled,
     IReadOnlyList<Guid> RagCollectionIds,
     string SystemPrompt = "",
-    IReadOnlyList<string>? ToolIds = null);
+    IReadOnlyList<string>? ToolIds = null,
+    int? MaxToolCalls = null);
 
 public sealed record AgentUpdateRequest(
     bool Enabled,
@@ -20,7 +21,8 @@ public sealed record AgentUpdateRequest(
     IReadOnlyList<Guid>? RagCollectionIds,
     string? SystemPrompt = null,
     string? Description = null,
-    IReadOnlyList<string>? ToolIds = null);
+    IReadOnlyList<string>? ToolIds = null,
+    int? MaxToolCalls = null);
 
 public sealed record ChatTurnRequest(
     string AgentId,
@@ -45,6 +47,8 @@ public enum TokenStreamFrameKind
     ToolResult,
     /// <summary>An agent-bound skill was skipped (disabled, missing, model lacks tool support, or context too small).</summary>
     ToolUnavailable,
+    /// <summary>The request is queued behind other local-model requests. Payload: position=1-based queue position.</summary>
+    Queued,
 }
 
 public sealed record TokenStreamFrame(
@@ -54,4 +58,5 @@ public sealed record TokenStreamFrame(
     System.Guid? ConversationId = null,
     string? ToolName = null,
     string? ToolJson = null,
-    string? ToolReason = null);
+    string? ToolReason = null,
+    int? QueuePosition = null);

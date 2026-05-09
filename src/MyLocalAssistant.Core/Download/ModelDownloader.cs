@@ -18,6 +18,8 @@ public sealed class ModelDownloader
 {
     private const int BufferSize = 1 << 16; // 64 KB
     private const int ProgressIntervalMs = 250;
+    private const int MaxRetries = 5;
+    private static readonly TimeSpan[] RetryDelays = { TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(15), TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(60) };
 
     private readonly HttpClient _http;
     private readonly ILogger<ModelDownloader> _logger;
@@ -44,6 +46,7 @@ public sealed class ModelDownloader
     /// Downloads <paramref name="url"/> to <paramref name="destinationPath"/>.
     /// If a .partial file exists, resumes from its size. Verifies SHA256 if provided.
     /// On verification failure both the .partial and final file are deleted.
+    /// Retries up to 5 times with exponential backoff on transient errors (429, 5xx, IOException).
     /// </summary>
     public async Task DownloadAsync(
         string url,
@@ -59,11 +62,42 @@ public sealed class ModelDownloader
 
         if (File.Exists(destinationPath))
         {
-            // Already there; just verify.
             await VerifyAndReportAsync(destinationPath, expectedSha256, fileName, expectedSize, progress, ct).ConfigureAwait(false);
             return;
         }
 
+        for (var attempt = 0; attempt <= MaxRetries; attempt++)
+        {
+            try
+            {
+                await TryDownloadOnceAsync(url, destinationPath, partial, fileName, expectedSize, expectedSha256, progress, ct).ConfigureAwait(false);
+                return; // success
+            }
+            catch (OperationCanceledException) { throw; }  // never retry cancellation
+            catch (DownloadFailedException) { throw; }     // SHA256 mismatch is not transient
+            catch (Exception ex) when (attempt < MaxRetries && IsTransient(ex))
+            {
+                var delay = RetryDelays[Math.Min(attempt, RetryDelays.Length - 1)];
+                _logger.LogWarning("Download attempt {Attempt}/{Max} failed ({Msg}); retrying in {Delay}s.",
+                    attempt + 1, MaxRetries + 1, ex.Message, delay.TotalSeconds);
+                await Task.Delay(delay, ct).ConfigureAwait(false);
+            }
+        }
+    }
+
+    private static bool IsTransient(Exception ex) => ex is HttpRequestException or IOException or TimeoutException
+        || (ex is InvalidOperationException ioe && (ioe.Message.Contains("429") || ioe.Message.Contains("503") || ioe.Message.Contains("502") || ioe.Message.Contains("500")));
+
+    private async Task TryDownloadOnceAsync(
+        string url,
+        string destinationPath,
+        string partial,
+        string fileName,
+        long expectedSize,
+        string expectedSha256,
+        IProgress<DownloadProgress>? progress,
+        CancellationToken ct)
+    {
         long existing = File.Exists(partial) ? new FileInfo(partial).Length : 0;
         if (expectedSize > 0 && existing > expectedSize)
         {
