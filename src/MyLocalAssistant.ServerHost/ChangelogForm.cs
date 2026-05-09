@@ -7,6 +7,34 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.13.0
+        ───────────────────────────────────────────────────────────
+        • Improved: Chat window visual polish — modern look throughout.
+        • Improved: User messages now use a subtle tinted bubble instead of
+          solid blue, making the transcript easier to read.
+        • Improved: Conversation sidebar shows date group headers
+          (Today / Yesterday / This Week / This Month / Older).
+        • Improved: Each conversation item now shows a coloured avatar circle
+          with the first letter of the conversation title.
+        • Improved: Message input box uses a smooth rounded border instead
+          of the flat OS-default rectangle.
+        • Improved: Streaming indicator replaced with a blinking cursor
+          (instead of three bouncing dots) while waiting for the first token.
+        • Improved: Code blocks show a rounded language pill (e.g. "python")
+          in the header bar.
+        • Improved: Empty state shows a chat-bubble illustration above the
+          "Start a conversation" prompt.
+        • Improved: Top bar now shows the app name on the left.
+        • Improved: Flat toolbar — ToolStrip replaced with a lightweight Panel
+          with regular Buttons; horizontal Send / Attach layout; agent combo
+          no longer clips on narrow windows.
+
+        v2.12.0
+        ───────────────────────────────────────────────────────────
+        • New: "What's New…" item in tray menu shows this changelog.
+        • New: "Submit Feedback…" item in tray menu opens a structured form
+          testers can fill in and save as a Markdown file to share.
+
         v2.11.0
         ───────────────────────────────────────────────────────────
         • Fixed: After using "Check for updates", the app disappeared from the
