@@ -413,10 +413,15 @@ internal sealed class ChatBubble : Panel
         _fullText    += s;
         _mainText.AppendText(s);
         _pendingChars += s.Length;
+        // Only relayout when enough text has accumulated OR a newline forces a height change.
+        // Measure the new required height first; skip expensive Relayout if it won't change.
         if (_pendingChars >= 64 || s.Contains('\n'))
         {
             _pendingChars = 0;
+            var prevH = Height;
             Relayout();
+            // If height changed, parent flow already repositioned; otherwise just paint.
+            if (Height == prevH) Invalidate();
         }
     }
 

@@ -10,11 +10,11 @@ internal sealed class ChatForm : Form
 {
     private readonly ChatApiClient _client;
     private readonly ClientSettingsStore _store;
-    private readonly ToolStrip _toolbar;
-    private readonly ToolStripButton _themeBtn;
-    private readonly ToolStripButton _changePwdBtn;
-    private readonly ToolStripButton _signOutBtn;
-    private readonly ToolStripButton _bridgeFolderBtn;
+    private readonly Panel _topBar;
+    private readonly Button _themeBtn;
+    private readonly Button _changePwdBtn;
+    private readonly Button _signOutBtn;
+    private readonly Button _bridgeFolderBtn;
     private readonly SplitContainer _split;
     private readonly ListBox _conversationList;
     private readonly TextBox _searchBox;
@@ -60,35 +60,52 @@ internal sealed class ChatForm : Form
         Size = new Size(1180, 760);
         UiTheme.ApplyForm(this);
 
-        _toolbar = new ToolStrip
+        // \u2500\u2500 Flat top bar (replaces ToolStrip for a cleaner look) \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
+        Button MakeBarBtn(string text, string? tip = null)
         {
-            GripStyle = ToolStripGripStyle.Hidden,
-            Dock = DockStyle.Top,
-            ImageScalingSize = new Size(16, 16),
-            BackColor = UiTheme.SurfaceCard,
-            Padding = new Padding(8, 4, 8, 4),
-            Renderer = new UiTheme.ModernRenderer(),
-        };
-        _changePwdBtn = new ToolStripButton("Change password\u2026") { Font = UiTheme.BaseFont };
-        _changePwdBtn.Click += (_, _) => { using var d = new ChangePasswordForm(_client, forced: false); d.ShowDialog(this); };
-        _signOutBtn = new ToolStripButton("Sign out") { Font = UiTheme.BaseFont };
-        _signOutBtn.Click += (_, _) => { DialogResult = DialogResult.Retry; Close(); };
-        _bridgeFolderBtn = new ToolStripButton("\uD83D\uDCC1  Folder\u2026") { Font = UiTheme.BaseFont, ToolTipText = "Pick the folder tools may read/write on this PC." };
-        _bridgeFolderBtn.Click += (_, _) => PickBridgeFolder();
-        _themeBtn = new ToolStripButton("\uD83C\uDF19") { Font = UiTheme.BaseFont, ToolTipText = "Toggle light / dark theme" };
+            var b = new Button
+            {
+                Text = text,
+                AutoSize = true,
+                FlatStyle = FlatStyle.Flat,
+                Font = UiTheme.BaseFont,
+                BackColor = Color.Transparent,
+                ForeColor = UiTheme.TextPrimary,
+                Cursor = Cursors.Hand,
+                Dock = DockStyle.Right,
+                Height = 40,
+                Padding = new Padding(8, 0, 8, 0),
+                TabStop = false,
+            };
+            b.FlatAppearance.BorderSize = 0;
+            b.FlatAppearance.MouseOverBackColor = UiTheme.SurfaceAlt;
+            b.FlatAppearance.MouseDownBackColor = UiTheme.Border;
+            if (tip != null) new ToolTip().SetToolTip(b, tip);
+            return b;
+        }
+
+        _themeBtn = MakeBarBtn("\uD83C\uDF19", "Toggle light / dark theme");
         _themeBtn.Click += (_, _) => ToggleTheme();
-        _toolbar.Items.AddRange(new ToolStripItem[]
+        _bridgeFolderBtn = MakeBarBtn("\uD83D\uDCC1  Folder\u2026", "Pick the folder tools may read/write on this PC.");
+        _bridgeFolderBtn.Click += (_, _) => PickBridgeFolder();
+        _changePwdBtn = MakeBarBtn("Change password\u2026");
+        _changePwdBtn.Click += (_, _) => { using var d = new ChangePasswordForm(_client, forced: false); d.ShowDialog(this); };
+        _signOutBtn = MakeBarBtn("Sign out");
+        _signOutBtn.Click += (_, _) => { DialogResult = DialogResult.Retry; Close(); };
+
+        _topBar = new Panel
         {
-            new ToolStripSeparator { Alignment = ToolStripItemAlignment.Right },
-            _signOutBtn,
-            _changePwdBtn,
-            _bridgeFolderBtn,
-            _themeBtn,
-        });
-        _changePwdBtn.Alignment = ToolStripItemAlignment.Right;
-        _signOutBtn.Alignment = ToolStripItemAlignment.Right;
-        _bridgeFolderBtn.Alignment = ToolStripItemAlignment.Right;
-        _themeBtn.Alignment = ToolStripItemAlignment.Right;
+            Dock = DockStyle.Top,
+            Height = 40,
+            BackColor = UiTheme.SurfaceCard,
+            Padding = new Padding(8, 0, 8, 0),
+        };
+        _topBar.Paint += (_, e) => UiTheme.DrawBottomBorder(e.Graphics, _topBar.ClientRectangle);
+        // Add right-to-left (Dock=Right, last added = rightmost).
+        _topBar.Controls.Add(_themeBtn);
+        _topBar.Controls.Add(_bridgeFolderBtn);
+        _topBar.Controls.Add(_changePwdBtn);
+        _topBar.Controls.Add(_signOutBtn);
 
         _split = new SplitContainer
         {
@@ -178,7 +195,7 @@ internal sealed class ChatForm : Form
             BackColor = UiTheme.SurfaceAlt,
             ForeColor = UiTheme.TextPrimary,
             DrawMode = DrawMode.OwnerDrawFixed,
-            ItemHeight = 46,
+            ItemHeight = 44,
         };
         _conversationList.DrawItem += OnDrawConversationItem;
         _conversationList.SelectedIndexChanged += async (_, _) => await OnConversationSelectedAsync();
@@ -195,7 +212,7 @@ internal sealed class ChatForm : Form
         {
             DropDownStyle = ComboBoxStyle.DropDownList,
             Font = UiTheme.BaseFont,
-            Width = 420,
+            Dock = DockStyle.Fill,
             BackColor = UiTheme.SurfaceCard,
             ForeColor = UiTheme.TextPrimary,
         };
@@ -219,12 +236,13 @@ internal sealed class ChatForm : Form
         _agentInfoBtn.Click += OnAgentInfoClicked;
         _agentDescription = new Label
         {
-            AutoSize = true,
+            AutoSize = false,
+            AutoEllipsis = true,
             Font = UiTheme.Caption,
             ForeColor = UiTheme.TextSecondary,
             Dock = DockStyle.Fill,
             TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(8, 0, 0, 0),
+            Padding = new Padding(6, 0, 0, 0),
         };
         var agentLbl = new Label
         {
@@ -234,38 +252,68 @@ internal sealed class ChatForm : Form
             Font = UiTheme.Caption,
             ForeColor = UiTheme.TextSecondary,
             TextAlign = ContentAlignment.MiddleLeft,
-            Padding = new Padding(2, 0, 6, 0),
+            Padding = new Padding(4, 0, 6, 0),
         };
+        // Agent row: TableLayoutPanel keeps label fixed, combo + description flexible.
+        var agentTlp = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 4,
+            RowCount = 1,
+            Padding = new Padding(0),
+            Margin = new Padding(0),
+            BackColor = UiTheme.Surface,
+        };
+        agentTlp.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));          // "Agent:" label
+        agentTlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38));       // combo
+        agentTlp.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));          // ⓘ button
+        agentTlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62));       // description
+        agentTlp.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+        agentTlp.Controls.Add(agentLbl, 0, 0);
+        agentTlp.Controls.Add(_agentCombo, 1, 0);
+        agentTlp.Controls.Add(_agentInfoBtn, 2, 0);
+        agentTlp.Controls.Add(_agentDescription, 3, 0);
+        _agentCombo.Dock = DockStyle.Fill;
+        _agentInfoBtn.Dock = DockStyle.Fill;
+        _agentDescription.Dock = DockStyle.Fill;
         _agentRow = new Panel
         {
             Dock = DockStyle.Top,
             Height = 34,
             BackColor = UiTheme.Surface,
-            Padding = new Padding(2, 4, 4, 2),
+            Padding = new Padding(4, 3, 4, 3),
         };
-        _agentRow.Controls.Add(_agentDescription);  // Fill last
-        _agentRow.Controls.Add(_agentInfoBtn);        // info button right of combo
-        _agentRow.Controls.Add(_agentCombo);          // Left (added before Fill, so right of label)
-        _agentRow.Controls.Add(agentLbl);             // Left (added last = absolute left)
+        _agentRow.Controls.Add(agentTlp);
 
         _inputPanel = new Panel
         {
             Dock = DockStyle.Bottom,
-            Height = 160,
-            Padding = new Padding(12, 6, 12, 10),
+            Height = 160,   // recalculated on first layout by UpdateInputHeight
             BackColor = UiTheme.Surface,
+        };
+        _inputPanel.Paint += (_, e) =>
+        {
+            using var p = new Pen(UiTheme.Border);
+            e.Graphics.DrawLine(p, 0, 0, _inputPanel.Width, 0);
         };
 
         // Attachment chip strip (hidden when no attachment is pending).
         _attachChip = new Panel
         {
-            Dock = DockStyle.Top,
-            Height = 26,
+            Dock = DockStyle.Fill,
             Visible = false,
             BackColor = UiTheme.AttachChipBg,
-            Padding = new Padding(8, 4, 4, 4),
+            Padding = new Padding(8, 2, 4, 2),
         };
-        _attachLabel = new Label { AutoSize = true, Dock = DockStyle.Left, ForeColor = SystemColors.ControlText };
+        _attachLabel = new Label
+        {
+            AutoSize = false,
+            AutoEllipsis = true,
+            Dock = DockStyle.Fill,
+            TextAlign = ContentAlignment.MiddleLeft,
+            ForeColor = UiTheme.TextPrimary,
+            Font = UiTheme.Caption,
+        };
         _attachClear = new Button { Text = "\u2715", Dock = DockStyle.Right, Width = 26, FlatStyle = FlatStyle.Flat, TabStop = false };
         _attachClear.FlatAppearance.BorderSize = 0;
         _attachClear.Click += (_, _) => ClearAttachment();
@@ -287,29 +335,44 @@ internal sealed class ChatForm : Form
         _input.KeyDown += OnInputKeyDown;
         _input.TextChanged += (_, _) => UpdateInputHeight();
 
-        var buttons = new FlowLayoutPanel
-        {
-            Dock = DockStyle.Right,
-            FlowDirection = FlowDirection.TopDown,
-            Width = 120,
-            WrapContents = false,
-            Padding = new Padding(8, 0, 0, 0),
-            BackColor = UiTheme.Surface,
-        };
-        _attachBtn = new Button { Text = "\uD83D\uDCCE  Attach", Width = 110, Height = 34 };
+        // Send / Attach as horizontal row: Attach left, Send right.
+        _attachBtn = new Button { Text = "\uD83D\uDCCE  Attach", Height = 34, AutoSize = true, Padding = new Padding(10, 0, 10, 0) };
         UiTheme.Secondary(_attachBtn);
         _attachBtn.Click += async (_, _) => await OnAttachAsync();
-        _send = new Button { Text = "Send  \u23CE", Width = 110, Height = 60, Margin = new Padding(0, 8, 0, 0) };
+        _send = new Button { Text = "Send  \u23CE", Height = 34, AutoSize = true, Padding = new Padding(20, 0, 20, 0) };
         UiTheme.Primary(_send);
         _send.Click += async (_, _) => await OnSendOrCancelAsync();
-        buttons.Controls.Add(_attachBtn);
-        buttons.Controls.Add(_send);
+        var btnRow = new Panel
+        {
+            Dock = DockStyle.Bottom,
+            Height = 46,
+            BackColor = UiTheme.Surface,
+            Padding = new Padding(0, 6, 0, 6),
+        };
+        _send.Dock    = DockStyle.Right;
+        _attachBtn.Dock = DockStyle.Left;
+        btnRow.Controls.Add(_send);
+        btnRow.Controls.Add(_attachBtn);
 
-        // Control add order determines dock layout (last DockStyle.Top added = absolute top).
-        _inputPanel.Controls.Add(_input);
-        _inputPanel.Controls.Add(buttons);
-        _inputPanel.Controls.Add(_attachChip);
-        _inputPanel.Controls.Add(_agentRow);     // absolute top
+        // TableLayoutPanel keeps chip / text / button row in fixed lanes — no overlap.
+        var inputTlp = new TableLayoutPanel
+        {
+            Dock = DockStyle.Fill,
+            ColumnCount = 1,
+            RowCount = 3,
+            Padding = new Padding(10, 4, 10, 0),
+            BackColor = UiTheme.Surface,
+        };
+        inputTlp.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
+        inputTlp.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));   // attach chip
+        inputTlp.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // text input
+        inputTlp.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));   // button row
+        inputTlp.Controls.Add(_attachChip, 0, 0);
+        inputTlp.Controls.Add(_input,      0, 1);
+        inputTlp.Controls.Add(btnRow,      0, 2);
+
+        _inputPanel.Controls.Add(inputTlp);   // Fill
+        _inputPanel.Controls.Add(_agentRow);  // Top — absolute top
         _split.Panel2.Controls.Add(_history);
         _split.Panel2.Controls.Add(_inputPanel);
 
@@ -325,7 +388,7 @@ internal sealed class ChatForm : Form
 
         Controls.Add(_split);
         Controls.Add(_status);
-        Controls.Add(_toolbar);
+        Controls.Add(_topBar);
 
         Load += async (_, _) =>
         {
@@ -366,9 +429,14 @@ internal sealed class ChatForm : Form
     private void ReapplyTheme()
     {
         _themeBtn.Text = UiTheme.IsDark ? "\u2600" : "\uD83C\uDF19";
+        _themeBtn.ForeColor       = UiTheme.TextPrimary;
+        _signOutBtn.ForeColor     = UiTheme.TextPrimary;
+        _changePwdBtn.ForeColor   = UiTheme.TextPrimary;
+        _bridgeFolderBtn.ForeColor= UiTheme.TextPrimary;
+        _topBar.BackColor = UiTheme.SurfaceCard;
+        foreach (Control c in _topBar.Controls)
+            if (c is Button b) { b.FlatAppearance.MouseOverBackColor = UiTheme.SurfaceAlt; b.FlatAppearance.MouseDownBackColor = UiTheme.Border; }
         UiTheme.ApplyForm(this);
-        _toolbar.BackColor = UiTheme.SurfaceCard;
-        _toolbar.Renderer = new UiTheme.ModernRenderer();
         _status.BackColor = UiTheme.SurfaceCard;
         _split.BackColor = UiTheme.Border;
         _split.Panel1.BackColor = UiTheme.SurfaceAlt;
@@ -391,17 +459,20 @@ internal sealed class ChatForm : Form
         if (_streaming) _send.BackColor = UiTheme.Danger; else UiTheme.Primary(_send);
         _history.RefreshTheme();
         _conversationList.Invalidate();
+        _topBar.Invalidate();
+        _inputPanel.Invalidate();
         Invalidate(true);
     }
 
     private void UpdateInputHeight()
     {
-        const int MinLines = 2, MaxLines = 8;
+        const int MinLines = 2, MaxLines = 6;
         int lineH    = _input.Font.Height + 3;
         int visLines = Math.Clamp(_input.GetLineFromCharIndex(_input.TextLength) + 1, MinLines, MaxLines);
-        int baseH    = Math.Max(visLines * lineH + 22, 104);
-        int chipH    = _attachChip.Visible ? _attachChip.Height : 0;
-        int desired  = _agentRow.Height + chipH + baseH;
+        // agent row (34) + chip (26 if visible, else 0) + text rows + button row (46) + tlp padding (4)
+        int chipH   = _attachChip.Visible ? 26 : 0;
+        int textH   = visLines * lineH + 8;
+        int desired = _agentRow.Height + chipH + textH + 46 + 4;
         if (_inputPanel.Height != desired) _inputPanel.Height = desired;
     }
 
