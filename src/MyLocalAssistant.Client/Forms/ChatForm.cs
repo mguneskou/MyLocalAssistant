@@ -36,6 +36,7 @@ internal sealed class ChatForm : Form
     private readonly Label _attachLabel;
     private readonly Button _attachClear;
     private readonly Button _attachBtn;
+    private readonly Label _topBarLabel;
 
     private BridgeClient? _bridge;
 
@@ -106,6 +107,18 @@ internal sealed class ChatForm : Form
         _topBar.Controls.Add(_bridgeFolderBtn);
         _topBar.Controls.Add(_changePwdBtn);
         _topBar.Controls.Add(_signOutBtn);
+
+        _topBarLabel = new Label
+        {
+            Text = "MyLocalAssistant",
+            Dock = DockStyle.Left,
+            Font = UiTheme.BaseBold,
+            ForeColor = UiTheme.TextPrimary,
+            TextAlign = ContentAlignment.MiddleLeft,
+            Padding = new Padding(8, 0, 0, 0),
+            AutoSize = true,
+        };
+        _topBar.Controls.Add(_topBarLabel);
 
         _split = new SplitContainer
         {
@@ -194,11 +207,22 @@ internal sealed class ChatForm : Form
             DisplayMember = nameof(ConversationSummaryDto.Title),
             BackColor = UiTheme.SurfaceAlt,
             ForeColor = UiTheme.TextPrimary,
-            DrawMode = DrawMode.OwnerDrawFixed,
-            ItemHeight = 44,
+            DrawMode = DrawMode.OwnerDrawVariable,
         };
+        _conversationList.MeasureItem += (_, me) =>
+            me.ItemHeight = _conversationList.Items[me.Index] is ConvHeader ? 22 : 48;
         _conversationList.DrawItem += OnDrawConversationItem;
-        _conversationList.SelectedIndexChanged += async (_, _) => await OnConversationSelectedAsync();
+        _conversationList.SelectedIndexChanged += async (_, _) =>
+        {
+            if (_conversationList.SelectedItem is ConvHeader)
+            {
+                _suppressConversationSelection = true;
+                _conversationList.SelectedIndex = -1;
+                _suppressConversationSelection = false;
+                return;
+            }
+            await OnConversationSelectedAsync();
+        };
         _split.Panel1.Controls.Add(_conversationList);
         _split.Panel1.Controls.Add(leftButtons);
         _split.Panel1.Controls.Add(_searchBox);
@@ -367,9 +391,26 @@ internal sealed class ChatForm : Form
         inputTlp.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));   // attach chip
         inputTlp.RowStyles.Add(new RowStyle(SizeType.Percent, 100));   // text input
         inputTlp.RowStyles.Add(new RowStyle(SizeType.Absolute, 46));   // button row
-        inputTlp.Controls.Add(_attachChip, 0, 0);
-        inputTlp.Controls.Add(_input,      0, 1);
-        inputTlp.Controls.Add(btnRow,      0, 2);
+        var inputBorder = new Panel
+        {
+            Dock = DockStyle.Fill,
+            Padding = new Padding(3),
+            BackColor = Color.Transparent,
+        };
+        inputBorder.Paint += (_, e) =>
+        {
+            e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            var r = new Rectangle(0, 0, inputBorder.Width - 1, inputBorder.Height - 1);
+            using var path = UiTheme.MakeRoundedPath(r, 8);
+            using var fill = new SolidBrush(UiTheme.SurfaceCard);
+            e.Graphics.FillPath(fill, path);
+            using var p = new Pen(UiTheme.Border, 1.5f);
+            e.Graphics.DrawPath(p, path);
+        };
+        inputBorder.Controls.Add(_input);
+        inputTlp.Controls.Add(_attachChip,   0, 0);
+        inputTlp.Controls.Add(inputBorder,   0, 1);
+        inputTlp.Controls.Add(btnRow,        0, 2);
 
         _inputPanel.Controls.Add(inputTlp);   // Fill
         _inputPanel.Controls.Add(_agentRow);  // Top — absolute top
@@ -433,6 +474,7 @@ internal sealed class ChatForm : Form
         _signOutBtn.ForeColor     = UiTheme.TextPrimary;
         _changePwdBtn.ForeColor   = UiTheme.TextPrimary;
         _bridgeFolderBtn.ForeColor= UiTheme.TextPrimary;
+        _topBarLabel.ForeColor    = UiTheme.TextPrimary;
         _topBar.BackColor = UiTheme.SurfaceCard;
         foreach (Control c in _topBar.Controls)
             if (c is Button b) { b.FlatAppearance.MouseOverBackColor = UiTheme.SurfaceAlt; b.FlatAppearance.MouseDownBackColor = UiTheme.Border; }
@@ -487,6 +529,23 @@ internal sealed class ChatForm : Form
         foreach (var c in filtered) _conversationList.Items.Add(c);
         _conversationList.EndUpdate();
         _suppressConversationSelection = false;
+    }
+
+    private void FillConversationList(IEnumerable<ConversationSummaryDto> items)
+    {
+        var today = DateTime.Today;
+        string? lastGroup = null;
+        foreach (var c in items)
+        {
+            var days  = (today - c.UpdatedAt.ToLocalTime().Date).TotalDays;
+            var group = days < 1  ? "Today"
+                      : days < 2  ? "Yesterday"
+                      : days < 8  ? "This Week"
+                      : days < 31 ? "This Month"
+                      : "Older";
+            if (group != lastGroup) { _conversationList.Items.Add(new ConvHeader(group)); lastGroup = group; }
+            _conversationList.Items.Add(c);
+        }
     }
 
     private async Task SearchConversationsAsync(string query)
@@ -621,8 +680,9 @@ internal sealed class ChatForm : Form
                 _conversationList.Items.Add(c);
             if (_currentConversationId is Guid cid)
             {
-                var idx = _conversations.FindIndex(c => c.Id == cid);
-                if (idx >= 0) _conversationList.SelectedIndex = idx;
+                for (int i = 0; i < _conversationList.Items.Count; i++)
+                    if (_conversationList.Items[i] is ConversationSummaryDto c && c.Id == cid)
+                    { _conversationList.SelectedIndex = i; break; }
             }
             _conversationList.EndUpdate();
         }
@@ -929,38 +989,63 @@ internal sealed class ChatForm : Form
     private void OnDrawConversationItem(object? sender, DrawItemEventArgs e)
     {
         if (e.Index < 0) return;
-        var item = _conversationList.Items[e.Index] as ConversationSummaryDto;
+        var rawItem = _conversationList.Items[e.Index];
 
+        // ── Group header ──────────────────────────────────────────────────
+        if (rawItem is ConvHeader hdr)
+        {
+            using (var bgBrush = new SolidBrush(UiTheme.SurfaceAlt))
+                e.Graphics.FillRectangle(bgBrush, e.Bounds);
+            var textRect = new Rectangle(e.Bounds.Left + 8, e.Bounds.Top, e.Bounds.Width - 16, e.Bounds.Height);
+            TextRenderer.DrawText(e.Graphics, hdr.GroupName.ToUpperInvariant(), UiTheme.Caption,
+                textRect, UiTheme.TextSecondary, TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+            using var hp = new Pen(UiTheme.Border);
+            e.Graphics.DrawLine(hp, e.Bounds.Left, e.Bounds.Bottom - 1, e.Bounds.Right, e.Bounds.Bottom - 1);
+            return;
+        }
+
+        var item     = rawItem as ConversationSummaryDto;
         var selected = (e.State & DrawItemState.Selected) == DrawItemState.Selected;
-        var bg = selected
+        var bg       = selected
             ? (UiTheme.IsDark ? Color.FromArgb(30, 65, 120) : Color.FromArgb(219, 234, 254))
             : UiTheme.SurfaceAlt;
         using (var bgBrush = new SolidBrush(bg)) e.Graphics.FillRectangle(bgBrush, e.Bounds);
 
-        // 3 px accent bar on left edge of selected row.
         if (selected)
         {
             using var ab = new SolidBrush(UiTheme.Accent);
             e.Graphics.FillRectangle(ab, new Rectangle(e.Bounds.Left, e.Bounds.Top, 3, e.Bounds.Height));
         }
 
-        if (item is null)
-        {
-            e.DrawFocusRectangle();
-            return;
-        }
+        if (item is null) { e.DrawFocusRectangle(); return; }
 
-        var titleFont  = UiTheme.BaseBold;
-        var subFont    = UiTheme.Caption;
-        var titleColor = UiTheme.TextPrimary;
-        var subColor   = UiTheme.TextSecondary;
-        var textLeft   = e.Bounds.Left + 14;
+        // ── Avatar circle ──────────────────────────────────────────────────
+        const int AvatarSize = 32;
+        int avatarX = e.Bounds.Left + 10;
+        int avatarY = e.Bounds.Top + (e.Bounds.Height - AvatarSize) / 2;
+        var avatarRect = new Rectangle(avatarX, avatarY, AvatarSize, AvatarSize);
+        Color[] palette =
+        [
+            Color.FromArgb( 99, 102, 241), Color.FromArgb(236,  72, 153),
+            Color.FromArgb(245, 158,  11), Color.FromArgb( 16, 185, 129),
+            Color.FromArgb( 59, 130, 246), Color.FromArgb(239,  68,  68),
+        ];
+        var avatarColor = palette[Math.Abs((item.Title ?? "").GetHashCode()) % palette.Length];
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+        using (var avBrush = new SolidBrush(avatarColor))
+            e.Graphics.FillEllipse(avBrush, avatarRect);
+        var initial = item.Title is { Length: > 0 } t ? t[0].ToString().ToUpperInvariant() : "?";
+        TextRenderer.DrawText(e.Graphics, initial, UiTheme.BaseBold, avatarRect, Color.White,
+            TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter | TextFormatFlags.NoPadding);
+        e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.Default;
 
-        var rect       = e.Bounds;
-        var titleRect  = new Rectangle(textLeft, rect.Top + 6,  rect.Width - textLeft + e.Bounds.Left - 4, 20);
-        var subRect    = new Rectangle(textLeft, rect.Top + 24, rect.Width - textLeft + e.Bounds.Left - 4, 18);
+        // ── Text ───────────────────────────────────────────────────────────────────
+        int textLeft  = avatarX + AvatarSize + 8;
+        var rect      = e.Bounds;
+        var titleRect = new Rectangle(textLeft, rect.Top + 8,  rect.Right - textLeft - 6, 20);
+        var subRect   = new Rectangle(textLeft, rect.Top + 26, rect.Right - textLeft - 6, 18);
 
-        TextRenderer.DrawText(e.Graphics, item.Title, titleFont, titleRect, titleColor,
+        TextRenderer.DrawText(e.Graphics, item.Title, UiTheme.BaseBold, titleRect, UiTheme.TextPrimary,
             TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
 
         var stamp = item.UpdatedAt.ToLocalTime();
@@ -969,10 +1054,9 @@ internal sealed class ChatForm : Form
             : (DateTime.Today - stamp.Date).TotalDays < 7
                 ? stamp.ToString("ddd HH:mm")
                 : stamp.ToString("yyyy-MM-dd HH:mm");
-        TextRenderer.DrawText(e.Graphics, subText, subFont, subRect, subColor,
+        TextRenderer.DrawText(e.Graphics, subText, UiTheme.Caption, subRect, UiTheme.TextSecondary,
             TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.NoPadding);
 
-        // Subtle bottom separator.
         using var pen = new Pen(UiTheme.Border);
         e.Graphics.DrawLine(pen, rect.Left + 8, rect.Bottom - 1, rect.Right - 8, rect.Bottom - 1);
     }
@@ -996,4 +1080,6 @@ internal sealed class ChatForm : Form
         catch { /* fall through */ }
         return json.Length > 200 ? json[..200] + "\u2026" : json;
     }
+
+    private sealed record ConvHeader(string GroupName);
 }

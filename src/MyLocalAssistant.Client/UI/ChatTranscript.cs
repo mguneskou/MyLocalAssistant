@@ -16,6 +16,7 @@ internal sealed class ChatTranscript : Panel
 {
     private readonly FlowLayoutPanel _flow;
     private readonly Panel _emptyPanel;
+    private readonly Panel _emptyIcon;
     private readonly Label _emptyTitle;
     private readonly Label _emptyHint;
     private readonly Panel _fab;
@@ -54,11 +55,26 @@ internal sealed class ChatTranscript : Panel
             ForeColor = UiTheme.TextSecondary,
             Text      = "Type a message below",
         };
-        _emptyPanel = new Panel { BackColor = Color.Transparent, Size = new Size(320, 80) };
+        _emptyIcon = new Panel { BackColor = Color.Transparent, Size = new Size(56, 56) };
+        _emptyIcon.Paint += (_, e) =>
+        {
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            using var pen = new Pen(UiTheme.Accent, 2.5f);
+            using var bp = UiTheme.MakeRoundedPath(new Rectangle(2, 2, 50, 36), 10);
+            e.Graphics.DrawPath(pen, bp);
+            var tail = new[] { new Point(8, 38), new Point(12, 34), new Point(22, 34) };
+            e.Graphics.DrawPolygon(pen, tail);
+            using var db = new SolidBrush(UiTheme.Accent);
+            for (int i = 0; i < 3; i++) e.Graphics.FillEllipse(db, 13 + i * 12, 15, 6, 6);
+        };
+        int emptyW = Math.Max(Math.Max(_emptyTitle.PreferredWidth, _emptyHint.PreferredWidth) + 20, 80);
+        _emptyPanel = new Panel { BackColor = Color.Transparent, Size = new Size(emptyW, 64 + _emptyTitle.PreferredHeight + 10 + _emptyHint.PreferredHeight) };
+        _emptyIcon.Location  = new Point((emptyW - 56) / 2, 0);
+        _emptyTitle.Location = new Point(0, 64);
+        _emptyHint.Location  = new Point(2, 64 + _emptyTitle.PreferredHeight + 8);
+        _emptyPanel.Controls.Add(_emptyIcon);
         _emptyPanel.Controls.Add(_emptyTitle);
         _emptyPanel.Controls.Add(_emptyHint);
-        _emptyTitle.Location = new Point(0, 0);
-        _emptyHint.Location  = new Point(2, _emptyTitle.PreferredHeight + 8);
 
         // â”€â”€ Scroll-to-bottom FAB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         _fab = new Panel { Size = new Size(38, 38), BackColor = UiTheme.SurfaceCard, Visible = false, Cursor = Cursors.Hand };
@@ -117,10 +133,11 @@ internal sealed class ChatTranscript : Panel
         _agentName       = name;
         _emptyTitle.Text = name;
         _emptyHint.Text  = "Start typing to begin";
-        _emptyPanel.Size = new Size(
-            Math.Max(_emptyTitle.PreferredWidth, _emptyHint.PreferredWidth) + 20,
-            _emptyTitle.PreferredHeight + 10 + _emptyHint.PreferredHeight);
-        _emptyHint.Location = new Point(2, _emptyTitle.PreferredHeight + 8);
+        int panelW = Math.Max(Math.Max(_emptyTitle.PreferredWidth, _emptyHint.PreferredWidth) + 20, 80);
+        _emptyPanel.Size = new Size(panelW, 64 + _emptyTitle.PreferredHeight + 10 + _emptyHint.PreferredHeight);
+        _emptyIcon.Location  = new Point((panelW - 56) / 2, 0);
+        _emptyTitle.Location = new Point(0, 64);
+        _emptyHint.Location  = new Point(2, 64 + _emptyTitle.PreferredHeight + 8);
         PositionOverlays();
     }
 
@@ -274,6 +291,7 @@ internal sealed class ChatTranscript : Panel
             if (c is ChatBubble b) b.RefreshTheme();
             else if (c is ImageBubble ib) ib.RefreshTheme();
         }
+        _emptyIcon.Invalidate();
         _fab.Invalidate();
         Invalidate(true);
     }
@@ -342,8 +360,8 @@ internal sealed class ChatBubble : Panel
         Margin    = new Padding(0, 0, 0, 8);
 
         // Dots timer (streaming animation)
-        _dotsTimer = new System.Windows.Forms.Timer { Interval = 400 };
-        _dotsTimer.Tick += (_, _) => { _dotsPhase = (_dotsPhase + 1) % 3; Invalidate(); };
+        _dotsTimer = new System.Windows.Forms.Timer { Interval = 530 };
+        _dotsTimer.Tick += (_, _) => { _dotsPhase = (_dotsPhase + 1) % 2; Invalidate(); };
 
         // Main text control (always present; hidden when segments exist)
         _mainText = new TextBox
@@ -514,15 +532,20 @@ internal sealed class ChatBubble : Panel
 
         var panel = new Panel { BackColor = codeBg };
 
+        var pillBg  = UiTheme.IsDark ? Color.FromArgb(38, 65, 110) : Color.FromArgb(215, 230, 255);
         var langLbl = new Label
         {
             Text      = string.IsNullOrEmpty(lang) ? "code" : lang,
-            AutoSize  = true,
+            AutoSize  = false,
             Font      = CodeHdrFont,
             ForeColor = hdrColor,
-            BackColor = Color.Transparent,
-            Location  = new Point(CodePadH, 5),
+            BackColor = pillBg,
+            TextAlign = ContentAlignment.MiddleCenter,
+            Location  = new Point(CodePadH, 4),
+            Height    = 18,
         };
+        langLbl.Width = TextRenderer.MeasureText(langLbl.Text, langLbl.Font).Width + 12;
+        UiTheme.ApplyRoundedRegion(langLbl, 9);
 
         var copyLbl = new Label
         {
@@ -679,18 +702,13 @@ internal sealed class ChatBubble : Panel
             e.Graphics.DrawPath(p, path);
         }
 
-        // Animated dots while waiting for the first token
-        if (IsStreaming && string.IsNullOrEmpty(_fullText))
+        // Blinking cursor while waiting for the first token
+        if (IsStreaming && string.IsNullOrEmpty(_fullText) && _dotsPhase == 0)
         {
-            var baseClr = GetTextColor(Kind);
-            int cy = _bubbleBounds.Y + _bubbleBounds.Height / 2 - 4;
-            int cx = _bubbleBounds.X + InnerPadX;
-            for (int i = 0; i < 3; i++)
-            {
-                int alpha = i == _dotsPhase ? 230 : 70;
-                using var db = new SolidBrush(Color.FromArgb(alpha, baseClr.R, baseClr.G, baseClr.B));
-                e.Graphics.FillEllipse(db, cx + i * 14, cy, 8, 8);
-            }
+            int cy = _bubbleBounds.Y + (_bubbleBounds.Height - BodyFont.Height) / 2;
+            int cx = _bubbleBounds.X + InnerPadX + 2;
+            using var db = new SolidBrush(Color.FromArgb(210, GetTextColor(Kind)));
+            e.Graphics.FillRectangle(db, cx, cy, 2, BodyFont.Height);
         }
     }
 
@@ -714,9 +732,11 @@ internal sealed class ChatBubble : Panel
             {
                 var codeBg = UiTheme.CodeBlockBg;
                 var codeFg = UiTheme.IsDark ? Color.FromArgb(200, 200, 200) : Color.FromArgb(30, 30, 30);
-                cp.BackColor           = codeBg;
-                refs.CodeBox.BackColor = codeBg;
-                refs.CodeBox.ForeColor = codeFg;
+                var pillBg = UiTheme.IsDark ? Color.FromArgb(38, 65, 110) : Color.FromArgb(215, 230, 255);
+                cp.BackColor            = codeBg;
+                refs.LangLbl.BackColor  = pillBg;
+                refs.CodeBox.BackColor  = codeBg;
+                refs.CodeBox.ForeColor  = codeFg;
             }
         }
         Invalidate();
@@ -733,7 +753,7 @@ internal sealed class ChatBubble : Panel
 
     private static Color GetTextColor(BubbleKind k) => k switch
     {
-        BubbleKind.User      => Color.White,
+        BubbleKind.User      => UiTheme.TextPrimary,
         BubbleKind.Assistant => UiTheme.TextPrimary,
         BubbleKind.Note      => UiTheme.IsDark ? Color.FromArgb(230, 190, 100) : Color.FromArgb(116, 86, 12),
         BubbleKind.Error     => UiTheme.Danger,
@@ -742,6 +762,7 @@ internal sealed class ChatBubble : Panel
 
     private static Color GetBorder(BubbleKind k) => k switch
     {
+        BubbleKind.User      => UiTheme.UserBubbleBorder,
         BubbleKind.Assistant => UiTheme.Border,
         BubbleKind.Note      => UiTheme.IsDark ? Color.FromArgb(100, 80, 30) : Color.FromArgb(245, 220, 160),
         BubbleKind.Error     => UiTheme.IsDark ? Color.FromArgb(150, 50, 50) : Color.FromArgb(240, 180, 175),

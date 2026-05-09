@@ -21,7 +21,8 @@ internal static class UiTheme
     private static readonly Color L_TextSecondary = Color.FromArgb( 96,  96, 100);
     private static readonly Color L_Danger        = Color.FromArgb(196,  43,  28);
     private static readonly Color L_Success       = Color.FromArgb( 15, 123,  15);
-    private static readonly Color L_UserBubble    = Color.FromArgb(  0, 120, 212);
+    private static readonly Color L_UserBubble    = Color.FromArgb(220, 235, 255);
+    private static readonly Color L_UserBubbleBrd = Color.FromArgb(175, 210, 255);
     private static readonly Color L_AssistBubble  = Color.FromArgb(243, 244, 248);
     private static readonly Color L_UserName      = Color.FromArgb( 15,  95, 168);
     private static readonly Color L_AssistName    = Color.FromArgb( 31, 124,  67);
@@ -42,7 +43,8 @@ internal static class UiTheme
     private static readonly Color D_TextSecondary = Color.FromArgb(148, 148, 155);
     private static readonly Color D_Danger        = Color.FromArgb(240,  80,  70);
     private static readonly Color D_Success       = Color.FromArgb( 50, 185,  80);
-    private static readonly Color D_UserBubble    = Color.FromArgb(  0,  90, 165);
+    private static readonly Color D_UserBubble    = Color.FromArgb( 22,  50,  95);
+    private static readonly Color D_UserBubbleBrd = Color.FromArgb( 38,  75, 145);
     private static readonly Color D_AssistBubble  = Color.FromArgb( 55,  55,  65);
     private static readonly Color D_UserName      = Color.FromArgb(100, 175, 235);
     private static readonly Color D_AssistName    = Color.FromArgb( 80, 195, 120);
@@ -71,6 +73,7 @@ internal static class UiTheme
 
     // Bubble / code-block colours (used by ChatBubble).
     public static Color UserBubbleFill      => IsDark ? D_UserBubble   : L_UserBubble;
+    public static Color UserBubbleBorder    => IsDark ? D_UserBubbleBrd: L_UserBubbleBrd;
     public static Color AssistantBubbleFill => IsDark ? D_AssistBubble : L_AssistBubble;
     public static Color UserName            => IsDark ? D_UserName     : L_UserName;
     public static Color AssistantName       => IsDark ? D_AssistName   : L_AssistName;
