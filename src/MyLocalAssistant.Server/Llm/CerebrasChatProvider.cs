@@ -1,5 +1,4 @@
 using System.Net.Http.Headers;
-using System.Net.Http.Json;
 using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
@@ -78,9 +77,10 @@ public sealed class CerebrasChatProvider : IChatProvider
             stop = stopArr,
         };
 
+        var json = JsonSerializer.Serialize(body);
         using var req = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/chat/completions")
         {
-            Content = JsonContent.Create(body),
+            Content = new StringContent(json, Encoding.UTF8, "application/json"),
         };
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));

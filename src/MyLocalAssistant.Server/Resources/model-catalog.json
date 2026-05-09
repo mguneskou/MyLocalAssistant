@@ -507,35 +507,23 @@
     "description": "Mistral Small Latest. Compact frontier model; capable coding and reasoning, free tier available. Requires a Mistral API key (free at console.mistral.ai). Conversations leave your network."
   },
   {
-    "id": "groq-mixtral-8x7b",
-    "displayName": "Mixtral 8x7B — Groq (free cloud)",
-    "tier": "workstation",
-    "source": "groq",
-    "remoteModel": "mixtral-8x7b-32768",
-    "license": "Apache-2.0",
-    "licenseUrl": "https://huggingface.co/mistralai/Mixtral-8x7B-Instruct-v0.1",
-    "recommendedContextSize": 32768,
-    "minRamGb": 0,
-    "description": "Mistral Mixtral 8x7B MoE on Groq LPUs — 32k context, fast. Free tier: 30 req/min, 14 400 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
-  },
-  {
     "id": "groq-qwen3-32b",
     "displayName": "Qwen3 32B — Groq (free cloud)",
     "tier": "workstation",
     "source": "groq",
-    "remoteModel": "qwen-qwq-32b",
+    "remoteModel": "qwen/qwen3-32b",
     "license": "Apache-2.0",
     "licenseUrl": "https://huggingface.co/Qwen/Qwen3-32B",
     "recommendedContextSize": 32768,
     "minRamGb": 0,
-    "description": "Alibaba Qwen QwQ 32B reasoning model on Groq LPUs. Strong math and coding. Free tier. Requires a Groq API key. Conversations leave your network."
+    "description": "Alibaba Qwen3 32B on Groq LPUs. Strong reasoning, math and coding. Free tier (preview). Requires a Groq API key. Conversations leave your network."
   },
   {
     "id": "gemini-2.5-flash",
     "displayName": "Gemini 2.5 Flash — Google (free cloud)",
     "tier": "mid",
     "source": "gemini",
-    "remoteModel": "gemini-2.5-flash-preview-05-20",
+    "remoteModel": "gemini-2.5-flash",
     "license": "Google Terms of Service",
     "licenseUrl": "https://ai.google.dev/gemini-api/terms",
     "recommendedContextSize": 1048576,

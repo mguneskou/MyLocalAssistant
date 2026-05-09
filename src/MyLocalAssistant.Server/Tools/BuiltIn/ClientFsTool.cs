@@ -1,4 +1,6 @@
+using System.Text;
 using System.Text.Json;
+using ClosedXML.Excel;
 using MyLocalAssistant.Server.ClientBridge;
 using MyLocalAssistant.Shared.Contracts;
 
@@ -44,7 +46,7 @@ internal sealed class ClientFsTool : ITool
               }, "required": ["path"], "additionalProperties": false }
             """),
         new ToolFunctionDto("client.fs.read",
-            "Read up to 256 KiB of a file inside the user's shared folder. Returns base64 bytes and an eof flag for chunked reads.",
+            "Read up to 4 MiB of a file inside the user's shared folder. Returns base64 bytes and eof flag for chunked reads. Excel files (.xlsx/.xls) are automatically parsed and returned as readable tab-separated text — do NOT use this for xlsx; use excel.get_sheet_names + excel.read_range instead when possible, or rely on the auto-parse.",
             """
             { "type": "object", "properties": {
                 "path": { "type": "string" },
@@ -117,6 +119,15 @@ internal sealed class ClientFsTool : ITool
             return ToolResult.Error("Arguments must be a JSON object: " + ex.Message);
         }
 
+        // Intercept Excel reads: parse .xlsx/.xls and return readable text instead of raw binary.
+        if (call.ToolName == "client.fs.read" && @params is JsonElement fsEl &&
+            fsEl.TryGetProperty("path", out var fsPathEl) && fsPathEl.GetString() is string fsFilePath &&
+            (fsFilePath.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) ||
+             fsFilePath.EndsWith(".xls",  StringComparison.OrdinalIgnoreCase)))
+        {
+            return await ReadExcelFromClientAsync(bridge, fsFilePath, ctx.CancellationToken);
+        }
+
         // Map LLM-facing tool name to wire method ("client.fs.read" -> "fs.read").
         var method = call.ToolName.StartsWith("client.fs.", StringComparison.Ordinal)
             ? "fs." + call.ToolName.Substring("client.fs.".Length)
@@ -135,6 +146,57 @@ internal sealed class ClientFsTool : ITool
         catch (TimeoutException)
         {
             return ToolResult.Error("Client did not respond in time. The Client app may be unresponsive or disconnected.");
+        }
+    }
+
+    /// <summary>
+    /// Reads an Excel file from the client's shared folder via the bridge and returns
+    /// the cell data as readable tab-separated text, sheet by sheet.
+    /// </summary>
+    private static async Task<ToolResult> ReadExcelFromClientAsync(
+        IClientBridge bridge, string path, CancellationToken ct)
+    {
+        const int MaxBytes = 4 * 1024 * 1024;
+        JsonElement? raw;
+        try
+        {
+            raw = await bridge.InvokeAsync(
+                "fs.read", new { path, offset = 0, length = MaxBytes },
+                TimeSpan.FromSeconds(60), ct);
+        }
+        catch (ClientBridgeException ex) { return ToolResult.Error($"{ex.Code}: {ex.Message}"); }
+        catch (TimeoutException) { return ToolResult.Error("Client did not respond in time."); }
+
+        if (raw is null || !raw.Value.TryGetProperty("bytesB64", out var b64Prop))
+            return ToolResult.Error("Unexpected response from client bridge.");
+
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(b64Prop.GetString() ?? ""); }
+        catch { return ToolResult.Error("Invalid base64 data from client bridge."); }
+
+        if (bytes.Length >= MaxBytes &&
+            raw.Value.TryGetProperty("eof", out var eofProp) && !eofProp.GetBoolean())
+            return ToolResult.Error("Excel file exceeds 4 MB and cannot be read in one call.");
+
+        try
+        {
+            using var ms = new MemoryStream(bytes);
+            using var wb = new XLWorkbook(ms);
+            var sb = new StringBuilder();
+            foreach (var ws in wb.Worksheets)
+            {
+                sb.AppendLine($"## Sheet: {ws.Name}");
+                var range = ws.RangeUsed();
+                if (range is null) continue;
+                foreach (var row in range.Rows())
+                    sb.AppendLine(string.Join("\t", row.Cells().Select(c => c.GetFormattedString())));
+            }
+            var text = sb.ToString();
+            return ToolResult.Ok(JsonSerializer.Serialize(new { text, eof = true }), text);
+        }
+        catch (Exception ex)
+        {
+            return ToolResult.Error($"Failed to parse Excel file: {ex.Message}");
         }
     }
 }
