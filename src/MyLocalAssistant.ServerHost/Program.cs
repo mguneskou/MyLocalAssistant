@@ -32,7 +32,7 @@ internal static class Program
         if (!owned) return;
 
         ApplicationConfiguration.Initialize();
-        Application.Run(new TrayContext());
+        Application.Run(new TrayContext(mtx));
     }
 }
 
@@ -58,8 +58,11 @@ internal sealed class TrayContext : ApplicationContext
     // (it takes an exclusive file lock in the package folder). Serialize all
     // calls through this gate so the timer Tick can't collide with the menu.
     private readonly SemaphoreSlim _updateGate = new(1, 1);
+    // Held in Main(); must be released before ApplyUpdatesAndRestart so the
+    // relaunched process can acquire it (otherwise new instance sees !owned and exits).
+    private readonly Mutex _singleInstanceMutex;
 
-    public TrayContext()
+    public TrayContext(Mutex singleInstanceMutex)
     {
         _statusItem = new ToolStripMenuItem("Server: starting…") { Enabled = false };
         _openAdminItem = new ToolStripMenuItem("Open Admin", null, (_, _) => LaunchSibling(AdminExeName));
@@ -82,6 +85,8 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(new ToolStripMenuItem("About", null, (_, _) => ShowAbout()));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Quit (stop server)", null, (_, _) => Quit()));
+
+        _singleInstanceMutex = singleInstanceMutex;
 
         _icon = new NotifyIcon
         {
@@ -348,8 +353,16 @@ internal sealed class TrayContext : ApplicationContext
             }
 
             await _updater.DownloadUpdatesAsync(info);
+            // Mark as shutting down and hide icon NOW so there's no ghost icon
+            // and no timer callbacks fire during the restart handoff.
+            _shuttingDown = true;
+            _icon.Visible = false;
             await StopServerAsync();
-            // ApplyUpdatesAndRestart relaunches ServerHost.exe after the swap.
+            // Release the single-instance mutex BEFORE Velopack launches the new
+            // process. Without this the new instance hits `!owned` and exits
+            // immediately, leaving nothing in the tray after the update.
+            try { _singleInstanceMutex.ReleaseMutex(); } catch { }
+            // ApplyUpdatesAndRestart swaps current/ and relaunches ServerHost.exe.
             _updater.ApplyUpdatesAndRestart(info);
         }
         catch (Exception ex) when (ex.Message.Contains("exclusive lock", StringComparison.OrdinalIgnoreCase))

@@ -13,9 +13,9 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>MyLocalAssistant.Admin</AssemblyName>
     <RootNamespace>MyLocalAssistant.Admin</RootNamespace>
-    <Version>2.10.0.0</Version>
-    <AssemblyVersion>2.10.0.0</AssemblyVersion>
-    <FileVersion>2.10.0.0</FileVersion>
+    <Version>2.11.0.0</Version>
+    <AssemblyVersion>2.11.0.0</AssemblyVersion>
+    <FileVersion>2.11.0.0</FileVersion>
     <InformationalVersion>2.5.0.0</InformationalVersion>
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
