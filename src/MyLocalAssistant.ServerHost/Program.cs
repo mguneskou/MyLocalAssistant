@@ -81,8 +81,9 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Check for updates\u2026", null, async (_, _) => await CheckForUpdatesAsync(interactive: true)));
         _pauseUpdatesItem = new ToolStripMenuItem("Pause auto-updates", null, (_, _) => TogglePauseUpdates()) { CheckOnClick = false };
-        menu.Items.Add(_pauseUpdatesItem);
-        menu.Items.Add(new ToolStripMenuItem("About", null, (_, _) => ShowAbout()));
+        menu.Items.Add(_pauseUpdatesItem);        menu.Items.Add(new ToolStripMenuItem("What’s New…", null, (_, _) => ShowChangelog()));
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(new ToolStripMenuItem("Submit Feedback…", null, (_, _) => ShowFeedback()));        menu.Items.Add(new ToolStripMenuItem("About", null, (_, _) => ShowAbout()));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Quit (stop server)", null, (_, _) => Quit()));
 
@@ -459,6 +460,18 @@ internal sealed class TrayContext : ApplicationContext
         _pauseUpdatesItem.ToolTipText = envForced
             ? "Forced off by MLA_DISABLE_AUTO_UPDATE environment variable."
             : (paused ? "Click to resume automatic update checks." : "Click to stop automatic update checks on this machine.");
+    }
+
+    private static void ShowChangelog()
+    {
+        using var f = new ChangelogForm();
+        f.ShowDialog();
+    }
+
+    private static void ShowFeedback()
+    {
+        using var f = new FeedbackForm();
+        f.ShowDialog();
     }
 
     private static void ShowAbout()
