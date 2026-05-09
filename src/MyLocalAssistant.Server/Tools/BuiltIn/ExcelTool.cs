@@ -60,9 +60,14 @@ internal sealed class ExcelTool : ITool
             ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string","description":"Sheet name. Defaults to first sheet if omitted."},"range":{"type":"string","description":"Excel range address, e.g. 'A1:D10'. Omit to read the entire used range."}},"required":["filename"]}"""),
 
         new ToolFunctionDto(
+            Name: "excel.read_formulas",
+            Description: "Read formula strings from a cell range. Returns a 2-D array matching the range; cells without formulas have an empty string. Formula strings are returned with a leading '=' (e.g. '=SUM(A1:A10)').",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string","description":"Sheet name. Defaults to first sheet if omitted."},"range":{"type":"string","description":"Excel range address, e.g. 'A1:D10'. Omit to read the entire used range."}},"required":["filename"]}"""),
+
+        new ToolFunctionDto(
             Name: "excel.write_range",
-            Description: "Write a 2-D array of values to a cell range in a workbook. Existing content in the range is overwritten.",
-            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string","description":"Sheet name. Defaults to first sheet."},"startCell":{"type":"string","description":"Top-left cell address, e.g. 'A1'."},"values":{"type":"array","description":"Row-major 2-D array of cell values.","items":{"type":"array","items":{}}},"headers":{"type":"array","description":"Optional header row written above 'values'.","items":{"type":"string"}}},"required":["filename","startCell","values"]}"""),
+            Description: "Write a 2-D array of values to a cell range in a workbook. Existing content in the range is overwritten. String values starting with '=' are written as Excel formulas (e.g. '=SUM(A1:A5)').",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string","description":"Sheet name. Defaults to first sheet."},"startCell":{"type":"string","description":"Top-left cell address, e.g. 'A1'."},"values":{"type":"array","description":"Row-major 2-D array of cell values. Strings starting with '=' are treated as formulas.","items":{"type":"array","items":{}}},"headers":{"type":"array","description":"Optional header row written above 'values'.","items":{"type":"string"}}},"required":["filename","startCell","values"]}"""),
 
         new ToolFunctionDto(
             Name: "excel.write_cell",
@@ -133,6 +138,7 @@ internal sealed class ExcelTool : ITool
                 "excel.add_sheet"       => AddSheet(root, ctx),
                 "excel.delete_sheet"    => DeleteSheet(root, ctx),
                 "excel.read_range"      => ReadRange(root, ctx),
+                "excel.read_formulas"   => ReadFormulas(root, ctx),
                 "excel.write_range"     => WriteRange(root, ctx),
                 "excel.write_cell"      => WriteCell(root, ctx),
                 "excel.format_range"    => FormatRange(root, ctx),
@@ -280,6 +286,31 @@ internal sealed class ExcelTool : ITool
         return ToolResult.Ok(JsonSerializer.Serialize(rows, s_json));
     }
 
+    private static ToolResult ReadFormulas(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        if (!File.Exists(path))
+            return ToolResult.Error($"File not found: {Path.GetFileName(path)}");
+        using var wb = new XLWorkbook(path);
+        var ws = GetSheet(wb, root);
+
+        IXLRange range;
+        if (root.TryGetProperty("range", out var rp) && rp.GetString() is { Length: > 0 } addr)
+            range = ws.Range(addr);
+        else
+            range = ws.RangeUsed() ?? ws.Range("A1:A1");
+
+        var rows = new List<List<string>>();
+        foreach (var row in range.Rows())
+        {
+            var cells = new List<string>();
+            foreach (var cell in row.Cells())
+                cells.Add(cell.HasFormula ? "=" + cell.FormulaA1 : "");
+            rows.Add(cells);
+        }
+        return ToolResult.Ok(JsonSerializer.Serialize(rows, s_json));
+    }
+
     private static ToolResult WriteRange(JsonElement root, ToolContext ctx)
     {
         var path = ResolveFile(root, ctx);
@@ -310,7 +341,12 @@ internal sealed class ExcelTool : ITool
             foreach (var cellEl in rowEl.EnumerateArray())
             {
                 var cell = ws.Cell(row, c++);
-                SetCellValue(cell, cellEl);
+                // Strings starting with '=' are treated as Excel formulas.
+                if (cellEl.ValueKind == JsonValueKind.String &&
+                    cellEl.GetString() is { } sv && sv.StartsWith('='))
+                    cell.FormulaA1 = sv[1..];
+                else
+                    SetCellValue(cell, cellEl);
             }
             row++;
         }
