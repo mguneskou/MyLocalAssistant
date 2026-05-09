@@ -189,8 +189,8 @@
     "license": "Apache-2.0",
     "licenseUrl": "https://huggingface.co/Qwen/Qwen3-8B",
     "recommendedContextSize": 8192,
-    "minRamGb": 8,
-    "description": "Mid-range Qwen3 with strong multilingual + coding ability.",
+    "minRamGb": 10,
+    "description": "Mid-range Qwen3 with strong multilingual + coding ability. Requires ~10 GB free RAM (use Qwen3 4B on 8 GB machines).",
     "files": [
       {
         "fileName": "Qwen3-8B-Q4_K_M.gguf",
@@ -577,5 +577,41 @@
     "recommendedContextSize": 128000,
     "minRamGb": 0,
     "description": "Meta Llama 4 Scout 17B (MoE, 16 experts) on Cerebras. 128k context, multimodal capable (text via API). Free tier. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
+  },
+  {
+    "id": "cerebras-qwen3-235b",
+    "displayName": "Qwen3 235B A22B — Cerebras (preview cloud)",
+    "tier": "workstation",
+    "source": "cerebras",
+    "remoteModel": "qwen-3-235b-a22b-instruct-2507",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-235B-A22B",
+    "recommendedContextSize": 32768,
+    "minRamGb": 0,
+    "description": "Alibaba Qwen3 235B MoE (22B active) on Cerebras CS-3 chips. Frontier reasoning and coding at extreme speed. Preview tier. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
+  },
+  {
+    "id": "cerebras-gpt-oss-120b",
+    "displayName": "OpenAI GPT-OSS 120B — Cerebras (cloud)",
+    "tier": "workstation",
+    "source": "cerebras",
+    "remoteModel": "gpt-oss-120b",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/openai/gpt-oss-120b",
+    "recommendedContextSize": 32768,
+    "minRamGb": 0,
+    "description": "OpenAI's open-weight 120B flagship served on Cerebras CS-3 chips. Supports reasoning effort control (low/medium/high). Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
+  },
+  {
+    "id": "cerebras-zai-glm-4.7",
+    "displayName": "Z.ai GLM-4.7 — Cerebras (preview cloud)",
+    "tier": "mid",
+    "source": "cerebras",
+    "remoteModel": "zai-glm-4.7",
+    "license": "Z.ai Terms",
+    "licenseUrl": "https://docs.z.ai",
+    "recommendedContextSize": 32768,
+    "minRamGb": 0,
+    "description": "Z.ai GLM-4.7 on Cerebras CS-3 chips. Built-in reasoning mode, strong multilingual ability. Preview tier. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
   }
 ]

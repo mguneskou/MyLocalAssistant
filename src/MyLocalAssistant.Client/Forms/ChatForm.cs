@@ -435,6 +435,7 @@ internal sealed class ChatForm : Form
         {
             var saved = _store.Load();
             if (saved.DarkTheme) { UiTheme.SetDark(true); ReapplyTheme(); }
+            UpdateInputHeight();   // set correct initial height before first paint
             StartBridge();
             await ReloadAgentsAsync();
         };
@@ -785,10 +786,8 @@ internal sealed class ChatForm : Form
         string displayMessage;
         if (_pendingAttachment is { } att)
         {
-            var header = $"[Attached: {att.FileName}";
-            if (att.Truncated) header += " (truncated)";
-            header += "]\n";
-            message = header + att.Text + "\n\n" + typed;
+            var truncNote = att.Truncated ? " (truncated to first 60 000 chars)" : "";
+            message = $"<document name=\"{att.FileName}\"{truncNote}>\n{att.Text}\n</document>\n\n{typed}";
             displayMessage = $"\uD83D\uDCCE {att.FileName} ({att.CharCount:N0} chars)\n{typed}";
         }
         else
@@ -843,6 +842,7 @@ internal sealed class ChatForm : Form
                     _statsLabel.Text = string.IsNullOrEmpty(costStr)
                         ? $"{tokens} tok \u00b7 {rate:F1} tok/s"
                         : $"{tokens} tok \u00b7 {rate:F1} tok/s \u00b7 {costStr}";
+                    _history.EndAssistantStream(tokens, sw.Elapsed.TotalSeconds);
                     break;
                 }
                 else if (frame.Kind == TokenStreamFrameKind.Queued)

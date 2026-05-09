@@ -14,8 +14,8 @@ namespace MyLocalAssistant.Server.Api;
 
 public static class ChatEndpoints
 {
-    private const int DefaultMaxTokens = 512;
-    private const int MaxAllowedTokens = 4096;
+    private const int DefaultMaxTokens = 2048;
+    private const int MaxAllowedTokens = 8192;
     private const int HistoryWindow = 16; // last N messages fed back as context
 
     private static readonly JsonSerializerOptions s_json = new(JsonSerializerDefaults.Web);

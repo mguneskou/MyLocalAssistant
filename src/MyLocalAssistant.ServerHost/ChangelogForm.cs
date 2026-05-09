@@ -7,6 +7,27 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.14.0
+        ───────────────────────────────────────────────────────────
+        • Fixed: Input panel was partially hidden on first load (regression
+          from v2.13.0 — height was not calculated until first keystroke).
+        • Fixed: Chat bubbles clipped the last line of text; selecting down
+          revealed hidden words. Padding increased to prevent this.
+        • Fixed: Excel files attached via the Attach button now reach the LLM
+          more reliably (cleaner document wrapper format; max output tokens
+          raised from 512 to 2 048 so analysis responses aren't cut short).
+        • New: Word document tool (word.read / word.write) — agents can now
+          read and create .docx files in their work directory.
+        • New: Word documents (.docx) in the client shared folder are now
+          automatically parsed when read via the client filesystem tool, just
+          like Excel files. Supply chain agents can read procurement docs.
+        • New: Per-response stats appear in the bubble footer after each
+          assistant reply: elapsed seconds, token count, and tok/s rate.
+        • New: Three new Cerebras cloud models —
+            Qwen3 235B A22B (preview), OpenAI GPT-OSS 120B, Z.ai GLM-4.7 (preview).
+        • Fixed: Qwen3 8B local model minimum RAM corrected from 8 GB to
+          10 GB (8 GB machines should use Qwen3 4B instead).
+
         v2.13.0
         ───────────────────────────────────────────────────────────
         • Improved: Chat window visual polish — modern look throughout.

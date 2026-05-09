@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json;
 using ClosedXML.Excel;
 using MyLocalAssistant.Server.ClientBridge;
+using MyLocalAssistant.Server.Rag;
 using MyLocalAssistant.Shared.Contracts;
 
 namespace MyLocalAssistant.Server.Tools.BuiltIn;
@@ -46,7 +47,7 @@ internal sealed class ClientFsTool : ITool
               }, "required": ["path"], "additionalProperties": false }
             """),
         new ToolFunctionDto("client.fs.read",
-            "Read up to 4 MiB of a file inside the user's shared folder. Returns base64 bytes and eof flag for chunked reads. Excel files (.xlsx/.xls) are automatically parsed and returned as readable tab-separated text — do NOT use this for xlsx; use excel.get_sheet_names + excel.read_range instead when possible, or rely on the auto-parse.",
+            "Read up to 4 MiB of a file inside the user's shared folder. Returns base64 bytes and eof flag for chunked reads. Excel files (.xlsx/.xls) are automatically parsed and returned as readable tab-separated text. Word documents (.docx) are automatically parsed and returned as plain text — do NOT try to read their raw bytes.",
             """
             { "type": "object", "properties": {
                 "path": { "type": "string" },
@@ -128,6 +129,14 @@ internal sealed class ClientFsTool : ITool
             return await ReadExcelFromClientAsync(bridge, fsFilePath, ctx.CancellationToken);
         }
 
+        // Intercept Word reads: parse .docx and return plain text instead of raw binary.
+        if (call.ToolName == "client.fs.read" && @params is JsonElement docEl &&
+            docEl.TryGetProperty("path", out var docPathEl) && docPathEl.GetString() is string docFilePath &&
+            docFilePath.EndsWith(".docx", StringComparison.OrdinalIgnoreCase))
+        {
+            return await ReadWordFromClientAsync(bridge, docFilePath, ctx.CancellationToken);
+        }
+
         // Map LLM-facing tool name to wire method ("client.fs.read" -> "fs.read").
         var method = call.ToolName.StartsWith("client.fs.", StringComparison.Ordinal)
             ? "fs." + call.ToolName.Substring("client.fs.".Length)
@@ -197,6 +206,48 @@ internal sealed class ClientFsTool : ITool
         catch (Exception ex)
         {
             return ToolResult.Error($"Failed to parse Excel file: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Reads a Word document (.docx) from the client's shared folder via the bridge
+    /// and returns the extracted plain text.
+    /// </summary>
+    private static async Task<ToolResult> ReadWordFromClientAsync(
+        IClientBridge bridge, string path, CancellationToken ct)
+    {
+        const int MaxBytes = 4 * 1024 * 1024;
+        JsonElement? raw;
+        try
+        {
+            raw = await bridge.InvokeAsync(
+                "fs.read", new { path, offset = 0, length = MaxBytes },
+                TimeSpan.FromSeconds(60), ct);
+        }
+        catch (ClientBridgeException ex) { return ToolResult.Error($"{ex.Code}: {ex.Message}"); }
+        catch (TimeoutException) { return ToolResult.Error("Client did not respond in time."); }
+
+        if (raw is null || !raw.Value.TryGetProperty("bytesB64", out var b64Prop))
+            return ToolResult.Error("Unexpected response from client bridge.");
+
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(b64Prop.GetString() ?? ""); }
+        catch { return ToolResult.Error("Invalid base64 data from client bridge."); }
+
+        if (bytes.Length >= MaxBytes &&
+            raw.Value.TryGetProperty("eof", out var eofProp) && !eofProp.GetBoolean())
+            return ToolResult.Error("Word document exceeds 4 MB and cannot be read in one call.");
+
+        try
+        {
+            using var ms = new MemoryStream(bytes);
+            var pages = DocumentParsers.Parse(ms, System.IO.Path.GetFileName(path));
+            var text = string.Join("\n\n", pages.Select(p => p.Text.TrimEnd()));
+            return ToolResult.Ok(JsonSerializer.Serialize(new { text, eof = true }), text);
+        }
+        catch (Exception ex)
+        {
+            return ToolResult.Error($"Failed to parse Word document: {ex.Message}");
         }
     }
 }

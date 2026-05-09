@@ -205,8 +205,10 @@ internal sealed class ChatTranscript : Panel
         if (_pinnedToBottom) ScrollToEnd();
     }
 
-    public void EndAssistantStream()
+    public void EndAssistantStream(int tokens = 0, double elapsedSeconds = 0)
     {
+        if (_streaming is not null && tokens > 0)
+            _streaming.SetStats(tokens, elapsedSeconds);
         _streaming?.FinishStreaming();
         _streaming = null;
     }
@@ -343,6 +345,18 @@ internal sealed class ChatBubble : Panel
     public DateTime   CreatedAt   { get; }
     public bool       IsStreaming { get; private set; }
     public string     PlainText   => _fullText;
+
+    private string _statsSuffix = "";  // e.g. "  ·  2.1s · 312 tok"
+
+    /// <summary>Sets response stats shown in the meta line (assistant bubbles only).</summary>
+    public void SetStats(int tokens, double elapsedSeconds)
+    {
+        if (tokens <= 0) return;
+        var rate = elapsedSeconds > 0.1 ? $" · {tokens / elapsedSeconds:F0} tok/s" : "";
+        _statsSuffix = $"  \u00b7  {elapsedSeconds:F1}s · {tokens:N0} tok{rate}";
+        UpdateMeta();
+        Relayout();
+    }
 
     public ChatBubble(BubbleKind kind, string text, string speakerName, DateTime when)
     {
@@ -602,7 +616,7 @@ internal sealed class ChatBubble : Panel
             TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.TextBoxControl);
 
         var textW = Math.Min(maxTextW, Math.Max(40, measured.Width + 4));
-        var textH = Math.Max(_mainText.Font.Height, measured.Height) + 8; // +8 prevents last-line descender clipping
+        var textH = Math.Max(_mainText.Font.Height, measured.Height) + 16; // +16 prevents last-line descender clipping
         var bW    = textW + InnerPadX * 2;
         var bH    = textH + InnerPadY * 2;
 
@@ -649,7 +663,7 @@ internal sealed class ChatBubble : Panel
                     new Size(innerW, int.MaxValue),
                     TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.TextBoxControl);
                 int tw = Math.Min(innerW, Math.Max(40, measured.Width + 4));
-                int th = Math.Max(tb.Font.Height, measured.Height) + 8; // +8 prevents last-line descender clipping
+                int th = Math.Max(tb.Font.Height, measured.Height) + 16; // +16 prevents last-line descender clipping
                 tb.SetBounds(InnerPadX, y, tw, th);
                 y += th + SegGap;
             }
@@ -683,7 +697,8 @@ internal sealed class ChatBubble : Panel
     private void UpdateMeta()
     {
         var ts   = CreatedAt.ToLocalTime().ToString("HH:mm");
-        _meta.Text = string.IsNullOrEmpty(SpeakerName) ? ts : $"{SpeakerName}  \u00b7  {ts}";
+        var base_ = string.IsNullOrEmpty(SpeakerName) ? ts : $"{SpeakerName}  \u00b7  {ts}";
+        _meta.Text = base_ + _statsSuffix;
     }
 
     // â”€â”€ Painting â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
