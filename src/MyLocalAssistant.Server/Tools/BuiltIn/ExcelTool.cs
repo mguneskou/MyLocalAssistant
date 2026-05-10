@@ -56,7 +56,7 @@ internal sealed class ExcelTool : ITool
 
         new ToolFunctionDto(
             Name: "excel.read_range",
-            Description: "Read a cell range from an existing workbook. Returns a 2-D array of cell values (row-major).",
+            Description: "Read a cell range. Returns {firstRow, firstColumn, rows} — the 2-D data array plus starting position metadata so you know which Excel row/column each value belongs to. Correct types are preserved: booleans, dates (yyyy-MM-dd), numbers, and text. Use firstRow when constructing subsequent write_cell or format_range addresses.",
             ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string","description":"Sheet name. Defaults to first sheet if omitted."},"range":{"type":"string","description":"Excel range address, e.g. 'A1:D10'. Omit to read the entire used range."}},"required":["filename"]}"""),
 
         new ToolFunctionDto(
@@ -66,7 +66,7 @@ internal sealed class ExcelTool : ITool
 
         new ToolFunctionDto(
             Name: "excel.write_range",
-            Description: "Write a 2-D array of values to a cell range in a workbook. Existing content in the range is overwritten. String values starting with '=' are written as Excel formulas (e.g. '=SUM(A1:A5)').",
+            Description: "Write a 2-D array of values and formulas to a workbook. Strings starting with '=' are written as Excel formulas. Examples of useful formulas: '=SUM(B2:B100)', '=AVERAGE(C:C)', '=COUNTA(A:A)-1', '=VLOOKUP(A2,$Data.$A:$C,3,FALSE)', '=SUMIF(B:B,\"Active\",D:D)', '=COUNTIF(C:C,\">\"+E1)', '=IF(D2>1000,\"High\",\"Low\")', '=IFERROR(VLOOKUP(A2,Sheet2!A:B,2,0),\"\")' , '=TEXT(TODAY(),\"dd/mm/yyyy\")'. Write headers first via the headers property for clean table structure.",
             ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string","description":"Sheet name. Defaults to first sheet."},"startCell":{"type":"string","description":"Top-left cell address, e.g. 'A1'."},"values":{"type":"array","description":"Row-major 2-D array of cell values. Strings starting with '=' are treated as formulas.","items":{"type":"array","items":{}}},"headers":{"type":"array","description":"Optional header row written above 'values'.","items":{"type":"string"}}},"required":["filename","startCell","values"]}"""),
 
         new ToolFunctionDto(
@@ -76,8 +76,8 @@ internal sealed class ExcelTool : ITool
 
         new ToolFunctionDto(
             Name: "excel.format_range",
-            Description: "Apply formatting to a cell range: bold, italic, font size, font color, background color, border style, horizontal alignment, and/or number format.",
-            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"range":{"type":"string","description":"Excel range, e.g. 'A1:F1'."},"bold":{"type":"boolean"},"italic":{"type":"boolean"},"fontSize":{"type":"number","description":"Font size in points."},"fontColor":{"type":"string","description":"HTML hex color, e.g. '#FF0000'."},"backgroundColor":{"type":"string","description":"HTML hex fill color."},"borderStyle":{"type":"string","description":"thin | medium | thick | none","enum":["thin","medium","thick","none"]},"alignment":{"type":"string","description":"left | center | right | general","enum":["left","center","right","general"]},"numberFormat":{"type":"string","description":"Excel number format string."}},"required":["filename","range"]}"""),
+            Description: "Apply formatting to a cell range: bold, italic, font size, font/background color, outside and inside borders, horizontal and vertical alignment, text wrap, number format, and cell lock state. Common number formats: '#,##0.00' (currency), '0%' (percent), 'dd/mm/yyyy' (date), '#,##0' (integer with separator). Set locked=false on data-entry cells before calling excel.protect_sheet.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"range":{"type":"string","description":"Excel range, e.g. 'A1:F1'."},"bold":{"type":"boolean"},"italic":{"type":"boolean"},"fontSize":{"type":"number","description":"Font size in points."},"fontColor":{"type":"string","description":"HTML hex color, e.g. '#FF0000'."},"backgroundColor":{"type":"string","description":"HTML hex fill color."},"borderStyle":{"type":"string","description":"Outside border: thin | medium | thick | none","enum":["thin","medium","thick","none"]},"insideBorder":{"type":"string","description":"Inside borders between cells: thin | medium | thick | none","enum":["thin","medium","thick","none"]},"alignment":{"type":"string","description":"Horizontal: left | center | right | general","enum":["left","center","right","general"]},"verticalAlignment":{"type":"string","description":"Vertical: top | center | bottom","enum":["top","center","bottom"]},"wrapText":{"type":"boolean","description":"Wrap long text within the cell."},"numberFormat":{"type":"string","description":"Excel number format string, e.g. '#,##0.00', '0%', 'dd/mm/yyyy'."},"locked":{"type":"boolean","description":"Lock cell (only effective when sheet is protected). Set false on data-entry cells before protect_sheet."}},"required":["filename","range"]}"""),
 
         new ToolFunctionDto(
             Name: "excel.set_column_width",
@@ -153,6 +153,51 @@ internal sealed class ExcelTool : ITool
             Name: "excel.find_replace",
             Description: "Find all occurrences of a value in a sheet and optionally replace them. Returns the count of cells affected.",
             ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"find":{"type":"string","description":"Value to search for."},"replace":{"type":"string","description":"Replacement value. Omit to report matches without replacing."},"matchCase":{"type":"boolean","description":"Case-sensitive search. Default false."}},"required":["filename","find"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.summarize_range",
+            Description: "Compute summary statistics (count, sum, min, max, average) per column in a range without reading all rows. Essential for analysing large datasets. The first row of the range is treated as column headers. Returns per-column stats.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"range":{"type":"string","description":"Range including header row, e.g. 'A1:E500'. First row is headers."},"columns":{"type":"array","description":"Optional: restrict to these column letters, e.g. ['C','D']. Defaults to all columns.","items":{"type":"string"}}},"required":["filename","range"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.add_data_validation",
+            Description: "Add a validation rule to a range of cells. Use type='list' to create in-cell dropdown menus (e.g. department names, status codes, Yes/No). Use type='whole' or 'decimal' to restrict numeric input. Use type='date' to restrict date entry. Essential for data-entry forms.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"range":{"type":"string","description":"Cells to apply validation to, e.g. 'B2:B100'."},"type":{"type":"string","enum":["list","whole","decimal","date","textLength"]},"values":{"type":"array","description":"For type=list: dropdown items, e.g. ['Approved','Pending','Rejected'].","items":{"type":"string"}},"listRange":{"type":"string","description":"For type=list: sheet range containing items instead of hard-coded values, e.g. 'Lists!$A$1:$A$5'."},"min":{"description":"For whole/decimal/date/textLength: minimum allowed value."},"max":{"description":"For whole/decimal/date/textLength: maximum allowed value."},"errorTitle":{"type":"string","description":"Title of the error pop-up on invalid entry."},"errorMessage":{"type":"string","description":"Body of the error pop-up."},"promptTitle":{"type":"string","description":"Input message title shown when cell is selected."},"promptMessage":{"type":"string","description":"Instruction shown when cell is selected (e.g. 'Select a department from the list')."}},"required":["filename","range","type"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.add_conditional_format",
+            Description: "Add conditional formatting to highlight cells automatically based on their values. Use formatType='highlight' to color cells matching a rule (e.g. sales > target = green, overdue = red, duplicates = orange). Use 'colorscale' for a heat-map gradient (red-yellow-green). Use 'databar' for in-cell bar chart. Ideal for dashboards and exception reports.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"range":{"type":"string","description":"Range to format, e.g. 'C2:C500'."},"formatType":{"type":"string","enum":["highlight","colorscale","databar"]},"condition":{"type":"string","description":"For highlight: comparison rule.","enum":["greaterThan","greaterThanOrEqual","lessThan","lessThanOrEqual","equalTo","between","notBetween","containsText","notContainsText","top","bottom","duplicates","unique"]},"value":{"description":"Threshold value (number or text). For top/bottom: the count N."},"value2":{"description":"Upper bound for 'between'/'notBetween'."},"backgroundColor":{"type":"string","description":"Hex fill color, e.g. '#C6EFCE' (light green), '#FFC7CE' (light red), '#FFEB9C' (light yellow)."},"fontColor":{"type":"string","description":"Hex font color, e.g. '#006100' (dark green), '#9C0006' (dark red)."},"bold":{"type":"boolean"},"minColor":{"type":"string","description":"For colorscale: lowest-value color, e.g. '#F8696B' (red)."},"midColor":{"type":"string","description":"For colorscale: midpoint color, e.g. '#FFEB84' (yellow). Omit for 2-color scale."},"maxColor":{"type":"string","description":"For colorscale: highest-value color, e.g. '#63BE7B' (green)."},"barColor":{"type":"string","description":"For databar: bar color, e.g. '#638EC6'."}},"required":["filename","range","formatType"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.set_page_setup",
+            Description: "Configure print settings for a sheet: orientation, paper size, fit-to-page, print area, repeat header rows on each page, grid lines, and centering. Call before the user prints or exports to PDF. A well-configured page setup is expected in professional reports.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"orientation":{"type":"string","enum":["portrait","landscape"]},"paperSize":{"type":"string","enum":["A4","A3","A5","Letter","Legal"]},"fitToPages":{"type":"object","description":"Fit sheet to N pages wide × M pages tall. Set tall=0 for unlimited height.","properties":{"wide":{"type":"integer"},"tall":{"type":"integer"}}},"scale":{"type":"integer","description":"Zoom percentage 10-400. Ignored when fitToPages is set."},"printArea":{"type":"string","description":"Range to print, e.g. 'A1:H50'."},"repeatHeaderRows":{"type":"integer","description":"Number of rows from top repeated on every printed page (e.g. 1 repeats the header row)."},"repeatHeaderCols":{"type":"integer","description":"Number of columns from left repeated on every page."},"showGridLines":{"type":"boolean","description":"Print grid lines. Default false."},"centerHorizontally":{"type":"boolean"},"centerVertically":{"type":"boolean"}},"required":["filename"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.add_named_range",
+            Description: "Create a named range in the workbook so formulas can reference it by name (e.g. =SUM(Revenue) instead of =SUM(C2:C500)). Named ranges make formulas self-documenting and easier to maintain.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"name":{"type":"string","description":"Range name (no spaces), e.g. 'Revenue', 'TaxRate', 'StaffList'."},"range":{"type":"string","description":"Range address, optionally prefixed with sheet name, e.g. 'Data!$C$2:$C$500' or just 'A1:A50'."},"sheet":{"type":"string","description":"Sheet containing the range when range has no sheet prefix."}},"required":["filename","name","range"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.get_named_ranges",
+            Description: "List all named ranges defined in the workbook with their names and addresses.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"}},"required":["filename"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.protect_sheet",
+            Description: "Protect a sheet to prevent accidental edits to formulas and structure. Before protecting, use excel.format_range with locked=false on the data-entry cells so users can still type in those cells. Optionally allow sorting, filtering, or row insertion.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"password":{"type":"string","description":"Optional password. Omit for protection without password."},"allowSelectLocked":{"type":"boolean","description":"Allow selecting locked cells. Default true."},"allowSelectUnlocked":{"type":"boolean","description":"Allow selecting unlocked (data-entry) cells. Default true."},"allowSort":{"type":"boolean","description":"Allow sorting. Default false."},"allowFilter":{"type":"boolean","description":"Allow auto-filter. Default false."},"allowInsertRows":{"type":"boolean","description":"Allow inserting rows. Default false."},"allowDeleteRows":{"type":"boolean","description":"Allow deleting rows. Default false."}},"required":["filename"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.unprotect_sheet",
+            Description: "Remove protection from a sheet.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"password":{"type":"string","description":"Password used when protecting. Omit if no password was set."}},"required":["filename"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.copy_range",
+            Description: "Copy a range of cells (values, formulas, and formatting) to another location within the same sheet or to a different sheet. Relative formula references are adjusted automatically for the new position.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sourceRange":{"type":"string","description":"Source range, e.g. 'A1:D10'."},"sourceSheet":{"type":"string","description":"Source sheet name. Defaults to first sheet."},"destCell":{"type":"string","description":"Top-left cell of the destination, e.g. 'F1'."},"destSheet":{"type":"string","description":"Destination sheet name. Defaults to same sheet as source."}},"required":["filename","sourceRange","destCell"]}"""),
     };
 
     // ── Configure ─────────────────────────────────────────────────────────────
@@ -197,6 +242,15 @@ internal sealed class ExcelTool : ITool
                 "excel.delete_columns"  => DeleteColumns(root, ctx),
                 "excel.sort_range"      => SortRange(root, ctx),
                 "excel.find_replace"    => FindReplace(root, ctx),
+                "excel.summarize_range"        => SummarizeRange(root, ctx),
+                "excel.add_data_validation"    => AddDataValidation(root, ctx),
+                "excel.add_conditional_format" => AddConditionalFormat(root, ctx),
+                "excel.set_page_setup"         => SetPageSetup(root, ctx),
+                "excel.add_named_range"        => AddNamedRange(root, ctx),
+                "excel.get_named_ranges"       => GetNamedRanges(root, ctx),
+                "excel.protect_sheet"          => ProtectSheet(root, ctx),
+                "excel.unprotect_sheet"        => UnprotectSheet(root, ctx),
+                "excel.copy_range"             => CopyRange(root, ctx),
                 _                       => ToolResult.Error($"Unknown tool: {call.ToolName}"),
             };
         }
@@ -321,17 +375,36 @@ internal sealed class ExcelTool : ITool
         if (root.TryGetProperty("range", out var rp) && rp.GetString() is { Length: > 0 } addr)
             range = ws.Range(addr);
         else
-            range = ws.RangeUsed() ?? ws.Range("A1:A1");
+        {
+            var used = ws.RangeUsed();
+            if (used is null)
+                return ToolResult.Ok(JsonSerializer.Serialize(
+                    new { firstRow = 1, firstColumn = "A", rows = Array.Empty<object?[]>() }, s_json));
+            range = used;
+        }
 
+        int firstRow = range.FirstRow().RowNumber();
+        int firstCol = range.FirstColumn().ColumnNumber();
+        int lastRow  = range.LastRow().RowNumber();
+        int lastCol  = range.LastColumn().ColumnNumber();
+
+        // Iterate every cell in the declared range — not just "used" rows/cells.
+        // This preserves correct row/column alignment even when rows are empty.
         var rows = new List<List<object?>>();
-        foreach (var row in range.RowsUsed())
+        for (int r = firstRow; r <= lastRow; r++)
         {
             var cells = new List<object?>();
-            foreach (var cell in row.Cells())
-                cells.Add(cell.CachedValue.IsText ? cell.GetString() : (object?)cell.GetDouble());
+            for (int c = firstCol; c <= lastCol; c++)
+                cells.Add(GetCellValue(ws.Cell(r, c)));
             rows.Add(cells);
         }
-        return ToolResult.Ok(JsonSerializer.Serialize(rows, s_json));
+
+        return ToolResult.Ok(JsonSerializer.Serialize(new
+        {
+            firstRow,
+            firstColumn = XLHelper.GetColumnLetterFromNumber(firstCol),
+            rows,
+        }, s_json));
     }
 
     private static ToolResult ReadFormulas(JsonElement root, ToolContext ctx)
@@ -476,6 +549,28 @@ internal sealed class ExcelTool : ITool
         }
         if (root.TryGetProperty("numberFormat", out var nf2) && nf2.GetString() is { Length: > 0 } nfStr)
             range.Style.NumberFormat.Format = nfStr;
+        if (root.TryGetProperty("wrapText", out var wt))
+            range.Style.Alignment.WrapText = wt.GetBoolean();
+        if (root.TryGetProperty("verticalAlignment", out var va) && va.GetString() is { } vaStr)
+            range.Style.Alignment.Vertical = vaStr.ToLowerInvariant() switch
+            {
+                "top"    => XLAlignmentVerticalValues.Top,
+                "center" => XLAlignmentVerticalValues.Center,
+                _        => XLAlignmentVerticalValues.Bottom,
+            };
+        if (root.TryGetProperty("insideBorder", out var ib) && ib.GetString() is { } ibStr)
+        {
+            var insideStyle = ibStr.ToLowerInvariant() switch
+            {
+                "thin"   => XLBorderStyleValues.Thin,
+                "medium" => XLBorderStyleValues.Medium,
+                "thick"  => XLBorderStyleValues.Thick,
+                _        => XLBorderStyleValues.None,
+            };
+            range.Style.Border.InsideBorder = insideStyle;
+        }
+        if (root.TryGetProperty("locked", out var lk))
+            range.Style.Protection.Locked = lk.GetBoolean();
 
         wb.SaveAs(path);
         return ToolResult.Ok($"Applied formatting to {rangeAddr} in '{Path.GetFileName(path)}'.");
@@ -730,6 +825,460 @@ internal sealed class ExcelTool : ITool
         if (replaceWith is not null) wb.SaveAs(path);
         var action = replaceWith is not null ? $"Replaced {count} occurrence(s)" : $"Found {count} occurrence(s)";
         return ToolResult.Ok($"{action} of '{find}' in '{Path.GetFileName(path)}'.");
+    }
+
+    // ── New operations (v2.21) ────────────────────────────────────────────────
+
+    private static ToolResult SummarizeRange(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        if (!File.Exists(path)) return ToolResult.Error($"File not found: {Path.GetFileName(path)}");
+        using var wb = new XLWorkbook(path);
+        var ws = GetSheet(wb, root);
+
+        IXLRange range;
+        if (root.TryGetProperty("range", out var rp) && rp.GetString() is { Length: > 0 } addr)
+            range = ws.Range(addr);
+        else
+        {
+            var used = ws.RangeUsed();
+            if (used is null) return ToolResult.Ok("[]");
+            range = used;
+        }
+
+        int firstRow = range.FirstRow().RowNumber();
+        int firstCol = range.FirstColumn().ColumnNumber();
+        int lastRow  = range.LastRow().RowNumber();
+        int lastCol  = range.LastColumn().ColumnNumber();
+
+        // Headers from first row
+        var headers = new Dictionary<int, string>();
+        for (int c = firstCol; c <= lastCol; c++)
+            headers[c] = ws.Cell(firstRow, c).IsEmpty()
+                ? XLHelper.GetColumnLetterFromNumber(c)
+                : ws.Cell(firstRow, c).GetString();
+
+        // Optional column filter
+        HashSet<int>? filterCols = null;
+        if (root.TryGetProperty("columns", out var colsEl) && colsEl.ValueKind == JsonValueKind.Array)
+        {
+            filterCols = new HashSet<int>();
+            foreach (var col in colsEl.EnumerateArray())
+                if (col.GetString() is { } letter)
+                    filterCols.Add(XLHelper.GetColumnNumberFromLetter(letter));
+        }
+
+        var result = new List<Dictionary<string, object?>>();
+        for (int c = firstCol; c <= lastCol; c++)
+        {
+            if (filterCols is not null && !filterCols.Contains(c)) continue;
+            var nums = new List<double>();
+            int textCnt = 0, emptyCnt = 0;
+            for (int r = firstRow + 1; r <= lastRow; r++)
+            {
+                var cell = ws.Cell(r, c);
+                if (cell.IsEmpty()) { emptyCnt++; continue; }
+                if (cell.DataType == XLDataType.Number && !IsDateFormatted(cell))
+                    nums.Add(cell.GetDouble());
+                else if (cell.DataType == XLDataType.Boolean)
+                    nums.Add(cell.GetBoolean() ? 1 : 0);
+                else
+                    textCnt++;
+            }
+            var col_result = new Dictionary<string, object?>
+            {
+                ["column"]     = XLHelper.GetColumnLetterFromNumber(c),
+                ["header"]     = headers[c],
+                ["totalRows"]  = lastRow - firstRow,
+                ["emptyCount"] = emptyCnt,
+            };
+            if (nums.Count > 0)
+            {
+                col_result["count"]   = nums.Count;
+                col_result["sum"]     = Math.Round(nums.Sum(), 6);
+                col_result["min"]     = nums.Min();
+                col_result["max"]     = nums.Max();
+                col_result["average"] = Math.Round(nums.Average(), 6);
+            }
+            else
+            {
+                col_result["count"]    = textCnt;
+                col_result["dataType"] = textCnt > 0 ? "text" : "empty";
+            }
+            result.Add(col_result);
+        }
+        return ToolResult.Ok(JsonSerializer.Serialize(result, s_json));
+    }
+
+    private static ToolResult AddDataValidation(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var rangeAddr = root.GetProperty("range").GetString()
+            ?? throw new ArgumentException("range is required.");
+        var type = root.TryGetProperty("type", out var tp) ? tp.GetString() ?? "list" : "list";
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: true);
+        var dv = ws.Range(rangeAddr).CreateDataValidation();
+        dv.InCellDropdown = true;
+
+        switch (type.ToLowerInvariant())
+        {
+            case "list":
+                dv.AllowedValues = XLAllowedValues.List;
+                if (root.TryGetProperty("listRange", out var lr) && lr.GetString() is { Length: > 0 } lrStr)
+                {
+                    dv.MinValue = lrStr;
+                }
+                else if (root.TryGetProperty("values", out var vals) && vals.ValueKind == JsonValueKind.Array)
+                {
+                    var items = vals.EnumerateArray()
+                        .Select(v => v.GetString() ?? "")
+                        .Where(s => s.Length > 0)
+                        .ToList();
+                    // Excel list source: quoted comma-separated string
+                    dv.MinValue = $"\"{string.Join(",", items)}\"";
+                }
+                break;
+            case "whole":
+                dv.AllowedValues = XLAllowedValues.WholeNumber;
+                dv.Operator = XLOperator.Between;
+                dv.MinValue = root.TryGetProperty("min", out var wMin) ? wMin.GetRawText() : "0";
+                dv.MaxValue = root.TryGetProperty("max", out var wMax) ? wMax.GetRawText() : "9999999";
+                break;
+            case "decimal":
+                dv.AllowedValues = XLAllowedValues.Decimal;
+                dv.Operator = XLOperator.Between;
+                dv.MinValue = root.TryGetProperty("min", out var dMin) ? dMin.GetRawText() : "0";
+                dv.MaxValue = root.TryGetProperty("max", out var dMax) ? dMax.GetRawText() : "9999999";
+                break;
+            case "date":
+                dv.AllowedValues = XLAllowedValues.Date;
+                dv.Operator = XLOperator.Between;
+                if (root.TryGetProperty("min", out var dtMin)) dv.MinValue = dtMin.GetString() ?? "";
+                if (root.TryGetProperty("max", out var dtMax)) dv.MaxValue = dtMax.GetString() ?? "";
+                break;
+            case "textlength":
+                dv.AllowedValues = XLAllowedValues.TextLength;
+                dv.Operator = XLOperator.Between;
+                dv.MinValue = root.TryGetProperty("min", out var tlMin) ? tlMin.GetRawText() : "0";
+                dv.MaxValue = root.TryGetProperty("max", out var tlMax) ? tlMax.GetRawText() : "255";
+                break;
+        }
+
+        if (root.TryGetProperty("errorTitle", out var et) && et.GetString() is { Length: > 0 } etStr)
+            dv.ErrorTitle = etStr;
+        if (root.TryGetProperty("errorMessage", out var em) && em.GetString() is { Length: > 0 } emStr)
+        {
+            dv.ShowErrorMessage = true;
+            dv.ErrorMessage = emStr;
+        }
+        if (root.TryGetProperty("promptTitle", out var ptEl) && ptEl.GetString() is { Length: > 0 } ptStr)
+            dv.InputTitle = ptStr;
+        if (root.TryGetProperty("promptMessage", out var pmEl) && pmEl.GetString() is { Length: > 0 } pmStr)
+        {
+            dv.ShowInputMessage = true;
+            dv.InputMessage = pmStr;
+        }
+
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Added {type} validation to '{rangeAddr}' in '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult AddConditionalFormat(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var rangeAddr = root.GetProperty("range").GetString()
+            ?? throw new ArgumentException("range is required.");
+        var formatType = root.TryGetProperty("formatType", out var ft) ? ft.GetString() ?? "highlight" : "highlight";
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: true);
+        var cf = ws.Range(rangeAddr).AddConditionalFormat();
+
+        switch (formatType.ToLowerInvariant())
+        {
+            case "colorscale":
+            {
+                var minC = root.TryGetProperty("minColor", out var mc) && mc.GetString() is { } s1 ? s1 : "#F8696B";
+                var maxC = root.TryGetProperty("maxColor", out var xc) && xc.GetString() is { } s3 ? s3 : "#63BE7B";
+                if (root.TryGetProperty("midColor", out var mid) && mid.GetString() is { Length: > 0 } midC)
+                {
+                    var scale = cf.ColorScale();
+                    scale.LowestValue(XLColor.FromHtml(minC))
+                         .Midpoint(XLCFContentType.Percent, 50.0, XLColor.FromHtml(midC))
+                         .HighestValue(XLColor.FromHtml(maxC));
+                }
+                else
+                {
+                    var scale = cf.ColorScale();
+                    scale.LowestValue(XLColor.FromHtml(minC))
+                         .HighestValue(XLColor.FromHtml(maxC));
+                }
+                break;
+            }
+            case "databar":
+            {
+                var barC = root.TryGetProperty("barColor", out var bc) && bc.GetString() is { } s ? s : "#638EC6";
+                cf.DataBar(XLColor.FromHtml(barC), true);
+                break;
+            }
+            default: // "highlight"
+            {
+                var cond = root.TryGetProperty("condition", out var cv) ? cv.GetString() ?? "greaterThan" : "greaterThan";
+                var bgColor = root.TryGetProperty("backgroundColor", out var bg) && bg.GetString() is { Length: > 0 } bgs
+                    ? XLColor.FromHtml(bgs) : (XLColor?)null;
+                var fgColor = root.TryGetProperty("fontColor", out var fg) && fg.GetString() is { Length: > 0 } fgs
+                    ? XLColor.FromHtml(fgs) : (XLColor?)null;
+                bool bold = root.TryGetProperty("bold", out var boldEl) && boldEl.GetBoolean();
+                double val  = root.TryGetProperty("value",  out var v)  && v.TryGetDouble(out var vd)   ? vd  : 0;
+                double val2 = root.TryGetProperty("value2", out var v2) && v2.TryGetDouble(out var v2d) ? v2d : 0;
+                string valS = root.TryGetProperty("value",  out var vs)
+                    ? (vs.ValueKind == JsonValueKind.String ? vs.GetString()! : vs.GetDouble().ToString())
+                    : "0";
+
+                IXLStyle? cfc = cond.ToLowerInvariant() switch
+                {
+                    "greaterthan"        => cf.WhenGreaterThan(val),
+                    "greaterthanorequal" => cf.WhenEqualOrGreaterThan(val),
+                    "lessthan"           => cf.WhenLessThan(val),
+                    "lessthanorequal"    => cf.WhenEqualOrLessThan(val),
+                    "equalto"            => cf.WhenEquals(val),
+                    "between"            => cf.WhenBetween(val, val2),
+                    "notbetween"         => cf.WhenNotBetween(val, val2),
+                    "containstext"       => cf.WhenContains(valS),
+                    "notcontainstext"    => cf.WhenNotContains(valS),
+                    "top"                => cf.WhenIsTop((int)val, XLTopBottomType.Items),
+                    "bottom"             => cf.WhenIsBottom((int)val, XLTopBottomType.Items),
+                    "duplicates"         => cf.WhenIsDuplicate(),
+                    "unique"             => cf.WhenIsUnique(),
+                    _                    => cf.WhenGreaterThan(val),
+                };
+                if (cfc is not null)
+                {
+                    if (bgColor is not null) cfc.Fill.SetBackgroundColor(bgColor);
+                    if (fgColor is not null) cfc.Font.SetFontColor(fgColor);
+                    if (bold) cfc.Font.Bold = true;
+                }
+                break;
+            }
+        }
+
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Added '{formatType}' conditional format to '{rangeAddr}' in '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult SetPageSetup(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: false);
+        var ps = ws.PageSetup;
+
+        if (root.TryGetProperty("orientation", out var ori) && ori.GetString() is { } oriStr)
+            ps.PageOrientation = oriStr.ToLowerInvariant() == "landscape"
+                ? XLPageOrientation.Landscape
+                : XLPageOrientation.Portrait;
+
+        if (root.TryGetProperty("paperSize", out var paper) && paper.GetString() is { } paperStr)
+            ps.PaperSize = paperStr.ToUpperInvariant() switch
+            {
+                "A3"     => XLPaperSize.A3Paper,
+                "A5"     => XLPaperSize.A5Paper,
+                "LETTER" => XLPaperSize.LetterPaper,
+                "LEGAL"  => XLPaperSize.LegalPaper,
+                _        => XLPaperSize.A4Paper,
+            };
+
+        if (root.TryGetProperty("fitToPages", out var ftp) && ftp.ValueKind == JsonValueKind.Object)
+        {
+            int wide = ftp.TryGetProperty("wide", out var w) && w.TryGetInt32(out var wi) ? wi : 1;
+            int tall = ftp.TryGetProperty("tall", out var t) && t.TryGetInt32(out var ti) ? ti : 0;
+            ps.FitToPages(wide, tall);
+        }
+        else if (root.TryGetProperty("scale", out var sc) && sc.TryGetInt32(out var scv))
+        {
+            ps.Scale = scv;
+        }
+
+        if (root.TryGetProperty("printArea", out var pa) && pa.GetString() is { Length: > 0 } paStr)
+        {
+            ps.PrintAreas.Clear();
+            ps.PrintAreas.Add(paStr);
+        }
+
+        if (root.TryGetProperty("repeatHeaderRows", out var rhr) && rhr.TryGetInt32(out var rhrV) && rhrV > 0)
+            ps.SetRowsToRepeatAtTop(1, rhrV);
+
+        if (root.TryGetProperty("repeatHeaderCols", out var rhc) && rhc.TryGetInt32(out var rhcV) && rhcV > 0)
+            ps.SetColumnsToRepeatAtLeft(1, rhcV);
+
+        if (root.TryGetProperty("showGridLines", out var gl))
+            ps.ShowGridlines = gl.GetBoolean();
+
+        if (root.TryGetProperty("centerHorizontally", out var ch))
+            ps.CenterHorizontally = ch.GetBoolean();
+
+        if (root.TryGetProperty("centerVertically", out var cvert))
+            ps.CenterVertically = cvert.GetBoolean();
+
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Page setup configured for '{ws.Name}' in '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult AddNamedRange(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var name = root.GetProperty("name").GetString()
+            ?? throw new ArgumentException("name is required.");
+        var rangeStr = root.GetProperty("range").GetString()
+            ?? throw new ArgumentException("range is required.");
+        using var wb = OpenOrCreate(path);
+
+        string fullRange;
+        if (rangeStr.Contains('!'))
+        {
+            fullRange = rangeStr;
+        }
+        else
+        {
+            var ws = GetSheet(wb, root, createIfMissing: false);
+            fullRange = $"'{ws.Name}'!{rangeStr}";
+        }
+
+        // Remove existing named range with same name if present
+        var existing = wb.NamedRanges.FirstOrDefault(nr =>
+            string.Equals(nr.Name, name, StringComparison.OrdinalIgnoreCase));
+        if (existing is not null) wb.NamedRanges.Delete(name);
+
+        wb.NamedRanges.Add(name, fullRange);
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Named range '{name}' → '{fullRange}' added to '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult GetNamedRanges(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        if (!File.Exists(path)) return ToolResult.Error($"File not found: {Path.GetFileName(path)}");
+        using var wb = new XLWorkbook(path);
+        var result = wb.NamedRanges
+            .Select(nr => new { name = nr.Name, refersTo = nr.RefersTo })
+            .ToList();
+        return ToolResult.Ok(JsonSerializer.Serialize(result, s_json));
+    }
+
+    private static ToolResult ProtectSheet(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: false);
+
+        // Default: allow selecting both locked and unlocked cells
+        bool asl  = !root.TryGetProperty("allowSelectLocked",   out var aslEl)  || aslEl.GetBoolean();
+        bool asu  = !root.TryGetProperty("allowSelectUnlocked", out var asuEl)  || asuEl.GetBoolean();
+        bool asrt = root.TryGetProperty("allowSort",            out var asrtEl) && asrtEl.GetBoolean();
+        bool af   = root.TryGetProperty("allowFilter",          out var afEl)   && afEl.GetBoolean();
+        bool air  = root.TryGetProperty("allowInsertRows",      out var airEl)  && airEl.GetBoolean();
+        bool adr  = root.TryGetProperty("allowDeleteRows",      out var adrEl)  && adrEl.GetBoolean();
+
+        var allowed = XLSheetProtectionElements.None;
+        if (asl)  allowed |= XLSheetProtectionElements.SelectLockedCells;
+        if (asu)  allowed |= XLSheetProtectionElements.SelectUnlockedCells;
+        if (asrt) allowed |= XLSheetProtectionElements.Sort;
+        if (af)   allowed |= XLSheetProtectionElements.AutoFilter;
+        if (air)  allowed |= XLSheetProtectionElements.InsertRows;
+        if (adr)  allowed |= XLSheetProtectionElements.DeleteRows;
+
+        var password = root.TryGetProperty("password", out var pw) ? pw.GetString() : null;
+        if (!string.IsNullOrEmpty(password))
+            ws.Protect(password, XLProtectionAlgorithm.Algorithm.SimpleHash, allowed);
+        else
+            ws.Protect(allowed);
+
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Sheet '{ws.Name}' is now protected in '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult UnprotectSheet(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: false);
+        var password = root.TryGetProperty("password", out var pw) ? pw.GetString() : null;
+        ws.Unprotect(password ?? string.Empty);
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Sheet '{ws.Name}' is now unprotected in '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult CopyRange(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var sourceRangeAddr = root.GetProperty("sourceRange").GetString()
+            ?? throw new ArgumentException("sourceRange is required.");
+        var destCellAddr = root.GetProperty("destCell").GetString()
+            ?? throw new ArgumentException("destCell is required.");
+        using var wb = OpenOrCreate(path);
+
+        IXLWorksheet srcWs;
+        if (root.TryGetProperty("sourceSheet", out var ss) && ss.GetString() is { Length: > 0 } ssName)
+        {
+            if (!wb.TryGetWorksheet(ssName, out srcWs!))
+                return ToolResult.Error($"Source sheet '{ssName}' not found.");
+        }
+        else srcWs = wb.Worksheets.First();
+
+        IXLWorksheet dstWs;
+        if (root.TryGetProperty("destSheet", out var ds) && ds.GetString() is { Length: > 0 } dsName)
+        {
+            if (!wb.TryGetWorksheet(dsName, out dstWs!))
+                return ToolResult.Error($"Destination sheet '{dsName}' not found.");
+        }
+        else dstWs = srcWs;
+
+        srcWs.Range(sourceRangeAddr).CopyTo(dstWs.Cell(destCellAddr));
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Copied '{sourceRangeAddr}' → '{destCellAddr}' in '{Path.GetFileName(path)}'.");
+    }
+
+    // ── Value helpers ─────────────────────────────────────────────────────────
+
+    private static object? GetCellValue(IXLCell cell)
+    {
+        if (cell.IsEmpty()) return null;
+        try
+        {
+            if (cell.HasFormula)
+            {
+                var cv = cell.CachedValue;
+                if (cv.IsBlank) return null;
+                if (cv.IsBoolean) return cv.GetBoolean();
+                if (cv.IsError) return $"#{cv.GetError()}";
+                if (cv.IsNumber)
+                    return IsDateFormatted(cell) ? (object?)cell.GetDateTime().ToString("yyyy-MM-dd") : cv.GetNumber();
+                return cv.GetText();
+            }
+            return cell.DataType switch
+            {
+                XLDataType.Boolean  => (object?)cell.GetBoolean(),
+                XLDataType.Number   => IsDateFormatted(cell)
+                                         ? cell.GetDateTime().ToString("yyyy-MM-dd")
+                                         : (object?)cell.GetDouble(),
+                XLDataType.Text     => cell.GetString(),
+                XLDataType.DateTime => cell.GetDateTime().ToString("yyyy-MM-dd"),
+                XLDataType.TimeSpan => cell.GetTimeSpan().ToString(@"hh\:mm\:ss"),
+                XLDataType.Error    => "#ERROR",
+                _                   => cell.GetString(),
+            };
+        }
+        catch { return cell.GetString(); }
+    }
+
+    private static bool IsDateFormatted(IXLCell cell)
+    {
+        if (cell.DataType != XLDataType.Number) return false;
+        var fmt = cell.Style.NumberFormat.Format;
+        if (string.IsNullOrEmpty(fmt)) return false;
+        // Excel date formats contain 'd' or 'y'; 'm' is ambiguous (months vs minutes)
+        // so only treat 'm' as date when 'd' or 'y' also appear
+        return fmt.IndexOfAny(['d', 'y']) >= 0;
     }
 
     // ── Value helper ──────────────────────────────────────────────────────────

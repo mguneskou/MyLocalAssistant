@@ -7,6 +7,23 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.0
+        ───────────────────────────────────────────────────────────
+        • Excel tools: 9 new tools added — excel.summarize_range (per-column
+          stats for large datasets), excel.add_data_validation (dropdown lists,
+          numeric/date/text-length rules), excel.add_conditional_format
+          (highlight rules, color-scale heat-maps, data bars),
+          excel.set_page_setup (orientation, paper, fit-to-page, print area,
+          repeat headers), excel.add_named_range, excel.get_named_ranges,
+          excel.protect_sheet, excel.unprotect_sheet, excel.copy_range.
+        • Excel tools: Fixed excel.read_range — now returns position metadata
+          (firstRow, firstColumn) and preserves correct row/column alignment even
+          when rows or cells are blank. Booleans and dates are now returned with
+          correct types instead of being coerced to numbers.
+        • Excel tools: excel.format_range now supports wrapText, verticalAlignment
+          (top/center/bottom), insideBorder (thin/medium/thick), and locked (for
+          cell-level sheet protection).
+
         v2.20.2
         ───────────────────────────────────────────────────────────
         • Fixed: The browser client no longer keeps you logged in after closing
