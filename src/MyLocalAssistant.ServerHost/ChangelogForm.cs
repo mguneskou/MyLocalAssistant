@@ -7,6 +7,12 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.15.1
+        ───────────────────────────────────────────────────────────
+        • New: "Deactivate" button in admin Models tab — unloads the active
+          model from memory and clears the default, so no model runs until
+          the admin explicitly activates one again.
+
         v2.15.0
         ───────────────────────────────────────────────────────────
         • Improved: Complete chat window redesign — compact top bar with
