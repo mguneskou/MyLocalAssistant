@@ -7,6 +7,20 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.20.1
+        ───────────────────────────────────────────────────────────
+        • Fixed: Saving the work folder in the browser client settings showed
+          "Failed to execute 'json' on 'Response': Unexpected end of JSON input".
+          The server correctly returns 204 No Content on success, but the client
+          was trying to parse a JSON body that doesn't exist. Fixed.
+        • Fixed: After a server restart (or token expiry), the browser client
+          showed the chat page but nothing worked — no agents, no conversations
+          loaded. Root cause: when the stored refresh token became invalid, the
+          client cleared the auth token but kept the user record in localStorage,
+          so the app believed the user was still authenticated. Now both the auth
+          token and user record are cleared together, and any 401 response from
+          the server immediately redirects to the login page.
+
         v2.20.0
         ───────────────────────────────────────────────────────────
         • Fixed: In the browser client, user messages appeared briefly on the

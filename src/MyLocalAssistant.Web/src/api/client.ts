@@ -34,7 +34,7 @@ async function getToken(): Promise<string | null> {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ refreshToken: auth.refreshToken }),
       })
-      if (!res.ok) { clearAuth(); return null }
+      if (!res.ok) { clearAuth(); clearUser(); return null }
       const data: LoginResponse = await res.json()
       saveAuth({ accessToken: data.accessToken, refreshToken: data.refreshToken, expiresAt: data.expiresAt })
       return data.accessToken
@@ -49,7 +49,16 @@ async function authHeaders(): Promise<HeadersInit> {
 }
 
 async function json<T>(res: Response): Promise<T> {
+  if (res.status === 204) return undefined as T
   if (!res.ok) {
+    // 401 with a stored token means the session is invalid (server restart / key rotation).
+    // Clear all local auth state and send the user back to login.
+    if (res.status === 401 && loadAuth() !== null) {
+      clearAuth()
+      clearUser()
+      window.location.replace('/login')
+      throw new Error('Session expired')
+    }
     let detail = res.statusText
     try { const body = await res.json(); detail = body.detail ?? body.title ?? detail } catch { /* ignore */ }
     throw new Error(detail)
