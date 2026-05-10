@@ -113,6 +113,46 @@ internal sealed class ExcelTool : ITool
             Name: "excel.freeze_panes",
             Description: "Freeze rows and/or columns (set freeze pane).",
             ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"rows":{"type":"integer","description":"Number of rows to freeze from top."},"columns":{"type":"integer","description":"Number of columns to freeze from left."}},"required":["filename"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.rename_sheet",
+            Description: "Rename a sheet in an existing workbook.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string","description":"Current sheet name."},"newName":{"type":"string","description":"New sheet name."}},"required":["filename","sheet","newName"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.copy_sheet",
+            Description: "Duplicate an existing sheet within the same workbook.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string","description":"Sheet to copy."},"newName":{"type":"string","description":"Name for the copy."}},"required":["filename","sheet","newName"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.insert_rows",
+            Description: "Insert blank rows into a sheet. Existing rows shift down.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"row":{"type":"integer","description":"1-based row number to insert before."},"count":{"type":"integer","description":"Number of rows to insert. Default 1."}},"required":["filename","row"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.delete_rows",
+            Description: "Delete a range of rows from a sheet.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"row":{"type":"integer","description":"1-based first row to delete."},"count":{"type":"integer","description":"Number of rows to delete. Default 1."}},"required":["filename","row"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.insert_columns",
+            Description: "Insert blank columns into a sheet. Existing columns shift right.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"column":{"type":"string","description":"Column letter to insert before, e.g. 'C'."},"count":{"type":"integer","description":"Number of columns to insert. Default 1."}},"required":["filename","column"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.delete_columns",
+            Description: "Delete a range of columns from a sheet.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"column":{"type":"string","description":"Column letter of first column to delete, e.g. 'C'."},"count":{"type":"integer","description":"Number of columns to delete. Default 1."}},"required":["filename","column"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.sort_range",
+            Description: "Sort rows within a range by one or more key columns.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"range":{"type":"string","description":"Range to sort, e.g. 'A2:E100' (exclude header row)."},"keys":{"type":"array","description":"Sort key columns.","items":{"type":"object","properties":{"column":{"type":"string","description":"Column letter, e.g. 'B'."},"descending":{"type":"boolean","description":"Sort descending. Default false."}},"required":["column"]}}},"required":["filename","range","keys"]}"""),
+
+        new ToolFunctionDto(
+            Name: "excel.find_replace",
+            Description: "Find all occurrences of a value in a sheet and optionally replace them. Returns the count of cells affected.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"find":{"type":"string","description":"Value to search for."},"replace":{"type":"string","description":"Replacement value. Omit to report matches without replacing."},"matchCase":{"type":"boolean","description":"Case-sensitive search. Default false."}},"required":["filename","find"]}"""),
     };
 
     // ── Configure ─────────────────────────────────────────────────────────────
@@ -149,6 +189,14 @@ internal sealed class ExcelTool : ITool
                 "excel.merge_cells"     => MergeCells(root, ctx),
                 "excel.unmerge_cells"   => UnmergeCells(root, ctx),
                 "excel.freeze_panes"    => FreezePanes(root, ctx),
+                "excel.rename_sheet"    => RenameSheet(root, ctx),
+                "excel.copy_sheet"      => CopySheet(root, ctx),
+                "excel.insert_rows"     => InsertRows(root, ctx),
+                "excel.delete_rows"     => DeleteRows(root, ctx),
+                "excel.insert_columns"  => InsertColumns(root, ctx),
+                "excel.delete_columns"  => DeleteColumns(root, ctx),
+                "excel.sort_range"      => SortRange(root, ctx),
+                "excel.find_replace"    => FindReplace(root, ctx),
                 _                       => ToolResult.Error($"Unknown tool: {call.ToolName}"),
             };
         }
@@ -546,6 +594,142 @@ internal sealed class ExcelTool : ITool
         ws.SheetView.FreezeColumns(cols);
         wb.SaveAs(path);
         return ToolResult.Ok($"Froze {rows} row(s) and {cols} column(s) in '{Path.GetFileName(path)}'.");
+    }
+
+    // ── New operations ────────────────────────────────────────────────────────
+
+    private static ToolResult RenameSheet(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var sheetName = root.GetProperty("sheet").GetString()
+            ?? throw new ArgumentException("sheet is required.");
+        var newName = root.GetProperty("newName").GetString()
+            ?? throw new ArgumentException("newName is required.");
+        using var wb = new XLWorkbook(path);
+        if (!wb.TryGetWorksheet(sheetName, out var ws))
+            return ToolResult.Error($"Sheet '{sheetName}' not found.");
+        ws.Name = newName;
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Renamed sheet '{sheetName}' to '{newName}'.");
+    }
+
+    private static ToolResult CopySheet(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var sheetName = root.GetProperty("sheet").GetString()
+            ?? throw new ArgumentException("sheet is required.");
+        var newName = root.GetProperty("newName").GetString()
+            ?? throw new ArgumentException("newName is required.");
+        using var wb = new XLWorkbook(path);
+        if (!wb.TryGetWorksheet(sheetName, out var ws))
+            return ToolResult.Error($"Sheet '{sheetName}' not found.");
+        if (wb.TryGetWorksheet(newName, out _))
+            return ToolResult.Error($"A sheet named '{newName}' already exists.");
+        ws.CopyTo(newName);
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Copied sheet '{sheetName}' to '{newName}'.");
+    }
+
+    private static ToolResult InsertRows(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var row = root.GetProperty("row").GetInt32();
+        var count = root.TryGetProperty("count", out var cEl) && cEl.TryGetInt32(out var c) ? c : 1;
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: true);
+        ws.Row(row).InsertRowsAbove(count);
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Inserted {count} row(s) before row {row} in '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult DeleteRows(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var row = root.GetProperty("row").GetInt32();
+        var count = root.TryGetProperty("count", out var cEl) && cEl.TryGetInt32(out var c) ? c : 1;
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: false);
+        ws.Rows(row, row + count - 1).Delete();
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Deleted {count} row(s) starting at row {row} in '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult InsertColumns(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var colLetter = root.GetProperty("column").GetString()
+            ?? throw new ArgumentException("column is required.");
+        var count = root.TryGetProperty("count", out var cEl) && cEl.TryGetInt32(out var c) ? c : 1;
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: true);
+        ws.Column(colLetter).InsertColumnsBefore(count);
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Inserted {count} column(s) before '{colLetter}' in '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult DeleteColumns(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var colLetter = root.GetProperty("column").GetString()
+            ?? throw new ArgumentException("column is required.");
+        var count = root.TryGetProperty("count", out var cEl) && cEl.TryGetInt32(out var c) ? c : 1;
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: false);
+        int colNum = XLHelper.GetColumnNumberFromLetter(colLetter);
+        ws.Columns(colNum, colNum + count - 1).Delete();
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Deleted {count} column(s) starting at '{colLetter}' in '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult SortRange(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var rangeAddr = root.GetProperty("range").GetString()
+            ?? throw new ArgumentException("range is required.");
+        var keysEl = root.GetProperty("keys");
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: false);
+        var range = ws.Range(rangeAddr);
+        var sortEl = range.SortRows;
+        foreach (var key in keysEl.EnumerateArray())
+        {
+            var col = key.GetProperty("column").GetString()
+                ?? throw new ArgumentException("keys[].column is required.");
+            var desc = key.TryGetProperty("descending", out var dEl) && dEl.GetBoolean();
+            int colNum = XLHelper.GetColumnNumberFromLetter(col);
+            // sortEl is fluent — column index is relative to range start
+            int relCol = colNum - range.FirstCell().Address.ColumnNumber + 1;
+            if (desc) sortEl.Add(relCol, XLSortOrder.Descending);
+            else       sortEl.Add(relCol, XLSortOrder.Ascending);
+        }
+        range.Sort();
+        wb.SaveAs(path);
+        return ToolResult.Ok($"Sorted range {rangeAddr} in '{Path.GetFileName(path)}'.");
+    }
+
+    private static ToolResult FindReplace(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        var find = root.GetProperty("find").GetString() ?? "";
+        var replaceWith = root.TryGetProperty("replace", out var rEl) ? rEl.GetString() : null;
+        var matchCase = root.TryGetProperty("matchCase", out var mcEl) && mcEl.GetBoolean();
+        using var wb = OpenOrCreate(path);
+        var ws = GetSheet(wb, root, createIfMissing: false);
+        var comp = matchCase ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+        int count = 0;
+        foreach (var cell in ws.CellsUsed())
+        {
+            var val = cell.GetString();
+            if (val.Contains(find, comp))
+            {
+                count++;
+                if (replaceWith is not null)
+                    cell.Value = val.Replace(find, replaceWith, comp);
+            }
+        }
+        if (replaceWith is not null) wb.SaveAs(path);
+        var action = replaceWith is not null ? $"Replaced {count} occurrence(s)" : $"Found {count} occurrence(s)";
+        return ToolResult.Ok($"{action} of '{find}' in '{Path.GetFileName(path)}'.");
     }
 
     // ── Value helper ──────────────────────────────────────────────────────────

@@ -7,6 +7,29 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.16.0
+        ───────────────────────────────────────────────────────────
+        • New: Excel tool expanded with 8 new functions — rename_sheet,
+          copy_sheet, insert_rows, delete_rows, insert_columns, delete_columns,
+          sort_range, and find_replace. Agents can now fully manipulate
+          worksheet structure and data without leaving the assistant.
+        • Improved: Word tool overhauled with 6 functions — word.read now
+          returns structured JSON (paragraphs with styles + tables), word.write
+          supports inline run formatting (bold, italic, underline, color,
+          font size), bullet and numbered lists, tables with borders, and
+          horizontal rules. New functions: word.append, word.find_replace,
+          word.set_properties, and word.get_properties.
+        • New: PowerPoint tool (8 functions) — agents can create .pptx
+          presentations from scratch, read slide text, add/write/delete/
+          reorder slides, insert tables, and get presentation info.
+        • New: PDF tool (4 functions) — pdf.read extracts text per page
+          (with optional page range), pdf.merge combines multiple PDFs into
+          one, pdf.split separates each page into its own file, and
+          pdf.extract_pages copies a page range into a new file.
+        • New: PowerPoint files (.pptx) can now be indexed for RAG search
+          and read via the client filesystem tool, with one document page
+          per slide of extracted text.
+
         v2.15.1
         ───────────────────────────────────────────────────────────
         • New: "Deactivate" button in admin Models tab — unloads the active

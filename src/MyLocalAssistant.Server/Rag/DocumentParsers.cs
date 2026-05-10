@@ -16,7 +16,7 @@ public static class DocumentParsers
     public static bool IsSupported(string fileName)
     {
         var ext = Path.GetExtension(fileName).ToLowerInvariant();
-        return ext is ".txt" or ".md" or ".markdown" or ".pdf" or ".docx" or ".html" or ".htm" or ".xlsx" or ".xls";
+        return ext is ".txt" or ".md" or ".markdown" or ".pdf" or ".docx" or ".pptx" or ".html" or ".htm" or ".xlsx" or ".xls";
     }
 
     public static IReadOnlyList<DocumentPage> Parse(Stream content, string fileName)
@@ -29,6 +29,7 @@ public static class DocumentParsers
             ".docx" => ParseDocx(content),
             ".html" or ".htm" => ParseHtml(content),
             ".xlsx" or ".xls" => ParseExcel(content),
+            ".pptx" => ParsePptx(content),
             _ => throw new NotSupportedException($"Unsupported file extension: {ext}"),
         };
     }
@@ -94,6 +95,31 @@ public static class DocumentParsers
                 sb.AppendLine(string.Join("\t", cells));
             }
             pages.Add(new DocumentPage(pageNum++, sb.ToString()));
+        }
+        return pages.Count > 0 ? pages : new[] { new DocumentPage(1, "") };
+    }
+
+    private static IReadOnlyList<DocumentPage> ParsePptx(Stream s)
+    {
+        using var pres = PresentationDocument.Open(s, false);
+        var slideIdList = pres.PresentationPart?.Presentation.SlideIdList;
+        if (slideIdList is null) return Array.Empty<DocumentPage>();
+        var pages = new List<DocumentPage>();
+        int slideNum = 1;
+        foreach (var slideId in slideIdList.Elements<DocumentFormat.OpenXml.Presentation.SlideId>())
+        {
+            var slidePart = (DocumentFormat.OpenXml.Packaging.SlidePart)
+                pres.PresentationPart!.GetPartById(slideId.RelationshipId!.Value!);
+            var sb = new StringBuilder();
+            foreach (var para in slidePart.Slide.Descendants<DocumentFormat.OpenXml.Drawing.Paragraph>())
+            {
+                var line = para.InnerText;
+                if (!string.IsNullOrWhiteSpace(line)) sb.AppendLine(line);
+            }
+            var text = sb.ToString();
+            if (!string.IsNullOrWhiteSpace(text))
+                pages.Add(new DocumentPage(slideNum, text));
+            slideNum++;
         }
         return pages.Count > 0 ? pages : new[] { new DocumentPage(1, "") };
     }
