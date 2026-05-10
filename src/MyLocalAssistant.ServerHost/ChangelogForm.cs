@@ -7,6 +7,13 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.17.1
+        ───────────────────────────────────────────────────────────
+        • Fixed: Browser client (http://127.0.0.1:8080) failed to load on
+          the portable/installed build because the React SPA files were not
+          included in the publish output. The SPA is now correctly bundled
+          into the server's wwwroot on every build and publish.
+
         v2.17.0
         ───────────────────────────────────────────────────────────
         • New: Browser-based chat client replaces the WinForms client window.
