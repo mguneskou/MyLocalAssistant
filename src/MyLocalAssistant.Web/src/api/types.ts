@@ -16,6 +16,7 @@ export interface UserDto {
   mustChangePassword: boolean
   isAdmin: boolean
   isGlobalAdmin: boolean
+  workRoot: string | null
 }
 
 export interface AgentDto {

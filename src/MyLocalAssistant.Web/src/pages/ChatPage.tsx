@@ -52,7 +52,7 @@ export default function ChatPage() {
         .filter(m => m.body)
         .map(m => ({
           id: m.id,
-          role: m.role as 'user' | 'assistant',
+          role: m.role.toLowerCase() as 'user' | 'assistant',
           content: m.body!,
           createdAt: m.createdAt,
         })))

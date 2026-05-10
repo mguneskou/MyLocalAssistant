@@ -232,7 +232,28 @@ public sealed class UserService(
         user.Roles.Select(r => r.Role?.Name ?? "").Where(n => n.Length > 0).ToList(),
         user.MustChangePassword,
         user.IsAdmin,
-        user.IsGlobalAdmin);
+        user.IsGlobalAdmin,
+        user.WorkRoot);
+
+    public async Task<string?> UpdateWorkRootAsync(Guid userId, string? workRoot, CancellationToken ct)
+    {
+        var (normalized, error) = NormalizeWorkRoot(workRoot);
+        if (error is not null) return error;
+        var user = await db.Users.FindAsync(new object[] { userId }, ct);
+        if (user is null) return ProblemCodes.NotFound;
+        user.WorkRoot = normalized;
+        await db.SaveChangesAsync(ct);
+        return null;
+    }
+
+    public async Task<UserDto?> GetProfileAsync(Guid userId, CancellationToken ct)
+    {
+        var user = await db.Users
+            .Include(u => u.Roles).ThenInclude(r => r.Role)
+            .Include(u => u.Departments).ThenInclude(d => d.Department)
+            .FirstOrDefaultAsync(u => u.Id == userId, ct);
+        return user is null ? null : ToDto(user);
+    }
 
     // ---------- Admin operations ----------
 

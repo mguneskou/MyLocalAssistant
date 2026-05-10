@@ -20,4 +20,7 @@ public sealed record UserDto(
     IReadOnlyList<string> Roles,
     bool MustChangePassword,
     bool IsAdmin,
-    bool IsGlobalAdmin = false);
+    bool IsGlobalAdmin = false,
+    string? WorkRoot = null);
+
+public sealed record UpdateWorkRootRequest(string? WorkRoot);

@@ -63,6 +63,34 @@ public static class AuthEndpoints
             };
         }).RequireAuthorization();
 
+        group.MapGet("/me", async (ClaimsPrincipal principal, UserService svc, CancellationToken ct) =>
+        {
+            var sub = principal.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
+                      ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(sub, out var userId)) return Results.Unauthorized();
+            var dto = await svc.GetProfileAsync(userId, ct);
+            if (dto is null) return Results.Unauthorized();
+            return Results.Ok(dto);
+        }).RequireAuthorization();
+
+        group.MapPatch("/me", async (
+            [FromBody] UpdateWorkRootRequest req,
+            ClaimsPrincipal principal,
+            UserService svc,
+            CancellationToken ct) =>
+        {
+            var sub = principal.FindFirstValue(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub)
+                      ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (!Guid.TryParse(sub, out var userId)) return Results.Unauthorized();
+            var code = await svc.UpdateWorkRootAsync(userId, req.WorkRoot, ct);
+            if (code is null) return Results.NoContent();
+            return code switch
+            {
+                ProblemCodes.ValidationFailed => Problem(code, "Invalid path: must be an absolute path without wildcards or '..'.", StatusCodes.Status400BadRequest),
+                _ => Problem(code, "Not found.", StatusCodes.Status404NotFound),
+            };
+        }).RequireAuthorization();
+
         return app;
     }
 

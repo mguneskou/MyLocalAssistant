@@ -7,6 +7,26 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.20.0
+        ───────────────────────────────────────────────────────────
+        • Fixed: In the browser client, user messages appeared briefly on the
+          left (AI) side of the chat then jumped to the correct right side.
+          Root cause: the server returned message roles as "User"/"Assistant"
+          (enum names, capitalized) while the client compared against lowercase
+          "user"/"assistant". Roles are now normalised to lowercase on load.
+        • Fixed: When a local model's context window filled up, the raw C++
+          error "llama_decode failed: NoKvSlot" was shown to the user. The
+          error is now caught and shown as: "The model's context window is full
+          — the conversation is too long for this model. Start a new
+          conversation or switch to a model with a larger context window."
+        • New: Work folder setting in the browser client. A gear icon next to
+          your username (bottom of the sidebar) opens a settings panel where
+          you can set a custom work folder path. When set, agent file
+          operations land in <your path>\<conversation-id>\ instead of the
+          default state\output\<conversation-id>\. Leave blank to use the
+          default. The server validates the path (must be absolute, no
+          wildcards or '..').
+
         v2.19.0
         ───────────────────────────────────────────────────────────
         • New: Agents now have a "Scenario notes" field (Admin → Agents →

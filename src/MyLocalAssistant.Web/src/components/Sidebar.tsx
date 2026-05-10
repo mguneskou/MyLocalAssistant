@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { ConversationSummaryDto, UserDto } from '../api/types'
+import * as api from '../api/client'
 
 interface Props {
   conversations: ConversationSummaryDto[]
@@ -37,7 +38,24 @@ function groupByDate(convs: ConversationSummaryDto[]) {
 
 export default function Sidebar({ conversations, activeConvId, onNewChat, onSelect, onDelete, user, onSignOut }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
+  const [showSettings, setShowSettings] = useState(false)
+  const [workRoot, setWorkRoot] = useState<string>(user?.workRoot ?? '')
+  const [settingsSaving, setSettingsSaving] = useState(false)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
   const groups = groupByDate(conversations)
+
+  async function saveWorkRoot() {
+    setSettingsSaving(true)
+    setSettingsError(null)
+    try {
+      await api.updateWorkRoot(workRoot.trim() || null)
+      setShowSettings(false)
+    } catch (e) {
+      setSettingsError(e instanceof Error ? e.message : 'Failed to save.')
+    } finally {
+      setSettingsSaving(false)
+    }
+  }
 
   return (
     <aside className="flex flex-col w-64 shrink-0 bg-zinc-900 border-r border-zinc-800">
@@ -118,11 +136,51 @@ export default function Sidebar({ conversations, activeConvId, onNewChat, onSele
 
       {/* User footer */}
       <div className="px-3 py-3 border-t border-zinc-800">
+        {showSettings && (
+          <div className="mb-3 p-3 bg-zinc-800 rounded-lg space-y-2">
+            <p className="text-xs font-medium text-zinc-300">Work folder</p>
+            <input
+              type="text"
+              value={workRoot}
+              onChange={e => setWorkRoot(e.target.value)}
+              placeholder="e.g. C:\Users\you\ai-output (leave blank for default)"
+              className="w-full px-2 py-1.5 rounded bg-zinc-900 border border-zinc-700 text-xs text-zinc-200
+                         placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
+            />
+            {settingsError && <p className="text-xs text-red-400">{settingsError}</p>}
+            <div className="flex gap-2">
+              <button
+                onClick={saveWorkRoot}
+                disabled={settingsSaving}
+                className="flex-1 px-2 py-1 rounded text-xs bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-colors"
+              >
+                {settingsSaving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                onClick={() => { setShowSettings(false); setSettingsError(null); setWorkRoot(user?.workRoot ?? '') }}
+                className="flex-1 px-2 py-1 rounded text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-200 transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <div className="flex items-center justify-center w-7 h-7 rounded-full bg-blue-700 shrink-0 text-xs font-semibold text-white">
             {(user?.displayName ?? user?.username ?? '?')[0].toUpperCase()}
           </div>
           <span className="flex-1 text-sm text-zinc-300 truncate">{user?.displayName ?? user?.username}</span>
+          <button
+            onClick={() => { setShowSettings(s => !s); setSettingsError(null); setWorkRoot(user?.workRoot ?? '') }}
+            title="Settings"
+            className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </button>
           <button
             onClick={onSignOut}
             title="Sign out"

@@ -115,9 +115,35 @@ public sealed class LLamaSharpProvider : ILlmProvider
             SamplingPipeline = new DefaultSamplingPipeline(),
         };
 
-        await foreach (var token in executor.InferAsync(prompt, inferenceParams, ct).ConfigureAwait(false))
+        var enumerator = executor.InferAsync(prompt, inferenceParams, ct).GetAsyncEnumerator(ct);
+        try
         {
-            yield return token;
+            while (true)
+            {
+                bool hasNext;
+                try
+                {
+                    hasNext = await enumerator.MoveNextAsync().ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (ct.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex)
+                {
+                    if (ex.Message.Contains("NoKvSlot", StringComparison.OrdinalIgnoreCase))
+                        throw new InvalidOperationException(
+                            "The model's context window is full — the conversation is too long for this model. " +
+                            "Start a new conversation or switch to a model with a larger context window.", ex);
+                    throw;
+                }
+                if (!hasNext) break;
+                yield return enumerator.Current;
+            }
+        }
+        finally
+        {
+            await enumerator.DisposeAsync().ConfigureAwait(false);
         }
     }
 

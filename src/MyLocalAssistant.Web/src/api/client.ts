@@ -1,5 +1,6 @@
 import type {
   LoginResponse,
+  UserDto,
   AgentDto,
   ConversationSummaryDto,
   ConversationDetailDto,
@@ -74,6 +75,20 @@ export async function changePassword(currentPassword: string, newPassword: strin
     method: 'POST',
     headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify({ currentPassword, newPassword }),
+  })
+  await json<unknown>(res)
+}
+
+export async function getProfile(): Promise<UserDto> {
+  const res = await fetch('/api/auth/me', { headers: await authHeaders() })
+  return json<UserDto>(res)
+}
+
+export async function updateWorkRoot(workRoot: string | null): Promise<void> {
+  const res = await fetch('/api/auth/me', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
+    body: JSON.stringify({ workRoot }),
   })
   await json<unknown>(res)
 }
