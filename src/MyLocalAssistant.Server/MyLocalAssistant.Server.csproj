@@ -48,4 +48,24 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
+  <!-- Build the React SPA and copy its output to wwwroot on publish -->
+  <PropertyGroup>
+    <WebDir>$(MSBuildProjectDirectory)\..\MyLocalAssistant.Web</WebDir>
+  </PropertyGroup>
+
+  <Target Name="NpmInstall" BeforeTargets="BuildWebFrontend"
+          Condition="!Exists('$(WebDir)\node_modules')">
+    <Exec Command="npm ci" WorkingDirectory="$(WebDir)" />
+  </Target>
+
+  <Target Name="BuildWebFrontend" BeforeTargets="PrepareForPublish"
+          Condition="'$(PublishDir)' != ''">
+    <Exec Command="npm run build" WorkingDirectory="$(WebDir)" />
+    <ItemGroup>
+      <WebFrontendFiles Include="$(WebDir)\dist\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(WebFrontendFiles)"
+          DestinationFiles="@(WebFrontendFiles->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" />
+  </Target>
+
 </Project>

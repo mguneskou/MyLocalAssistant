@@ -40,8 +40,8 @@ internal sealed class TrayContext : ApplicationContext
 {
     private const string ServerExeName = "MyLocalAssistant.Server.exe";
     private const string AdminExeName = "MyLocalAssistant.Admin.exe";
-    private const string ClientExeName = "MyLocalAssistant.Client.exe";
     private const string HealthUrl = "http://127.0.0.1:8080/healthz";
+    private const string ClientUrl = "http://127.0.0.1:8080";
 
     private readonly NotifyIcon _icon;
     private readonly ToolStripMenuItem _statusItem;
@@ -66,7 +66,7 @@ internal sealed class TrayContext : ApplicationContext
     {
         _statusItem = new ToolStripMenuItem("Server: starting…") { Enabled = false };
         _openAdminItem = new ToolStripMenuItem("Open Admin", null, (_, _) => LaunchSibling(AdminExeName));
-        _openClientItem = new ToolStripMenuItem("Open Client", null, (_, _) => LaunchSibling(ClientExeName));
+        _openClientItem = new ToolStripMenuItem("Open Client", null, (_, _) => OpenClientInBrowser());
 
         var menu = new ContextMenuStrip();
         menu.Items.Add(_statusItem);
@@ -221,6 +221,15 @@ internal sealed class TrayContext : ApplicationContext
         _icon.Dispose();
         _http.Dispose();
         ExitThread();
+    }
+
+    private static void OpenClientInBrowser()
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = ClientUrl,
+            UseShellExecute = true,
+        });
     }
 
     private static void LaunchSibling(string exeName)

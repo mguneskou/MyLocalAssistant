@@ -23,8 +23,7 @@ Remove-Item -Recurse -Force "$out\*" -ErrorAction SilentlyContinue
 $projects = @(
     "src\MyLocalAssistant.Server\MyLocalAssistant.Server.csproj",
     "src\MyLocalAssistant.ServerHost\MyLocalAssistant.ServerHost.csproj",
-    "src\MyLocalAssistant.Admin\MyLocalAssistant.Admin.csproj",
-    "src\MyLocalAssistant.Client\MyLocalAssistant.Client.csproj"
+    "src\MyLocalAssistant.Admin\MyLocalAssistant.Admin.csproj"
 )
 
 foreach ($proj in $projects) {

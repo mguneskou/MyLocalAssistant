@@ -7,6 +7,22 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.17.0
+        ───────────────────────────────────────────────────────────
+        • New: Browser-based chat client replaces the WinForms client window.
+          The server now serves a React + TypeScript SPA at http://127.0.0.1:8080.
+          "Open Client" in the tray menu opens your default browser — no separate
+          app to install or update.
+        • Improved: Chat UI redesigned with a professional dark theme (zinc/blue
+          palette matching Claude/ChatGPT aesthetics), full Markdown rendering
+          with syntax-highlighted code blocks, and streaming token display.
+        • Improved: Conversations grouped by date in the sidebar (Today, Yesterday,
+          This Week, Older); delete individual conversations inline.
+        • New: File attachment support — attach any file via the paperclip button;
+          the server extracts text and inlines it into your message automatically.
+        • Improved: Messages render tables, lists, bold/italic, and fenced code
+          blocks with language-specific highlighting.
+
         v2.16.2
         ───────────────────────────────────────────────────────────
         • Fixed: Window titles (login, chat, admin) were showing an old

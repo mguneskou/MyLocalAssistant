@@ -154,6 +154,8 @@ try
 
     app.UseSerilogRequestLogging();
     app.UseWebSockets(new WebSocketOptions { KeepAliveInterval = TimeSpan.FromSeconds(30) });
+    app.UseDefaultFiles();  // serves index.html for /
+    app.UseStaticFiles();   // serves wwwroot (the React SPA build output)
     app.UseAuthentication();
     app.UseAuthorization();
 
@@ -173,6 +175,9 @@ try
     app.MapAttachmentEndpoints();
     app.MapToolEndpoints();
     app.MapClientBridgeEndpoints();
+    // SPA fallback: any path not matched by an API route returns index.html so
+    // React Router handles client-side navigation.
+    app.MapFallbackToFile("index.html");
     Log.Information("MyLocalAssistant.Server starting. Listening on {Url}. AppDir={Dir}",
         settings.ListenUrl, ServerPaths.AppDirectory);
 
