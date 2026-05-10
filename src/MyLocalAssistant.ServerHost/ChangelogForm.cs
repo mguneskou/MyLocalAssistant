@@ -7,6 +7,20 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.18.0
+        ───────────────────────────────────────────────────────────
+        • Fixed: Excel and Word files on the client PC can now be processed by
+          the agent. Two new tools — client.fs.copyToWorkDir and
+          client.fs.copyFromWorkDir — transfer binary files between the client
+          shared folder and the server work directory. Tell the agent to "copy
+          Deneme.xlsx to the work directory" before asking it to read or edit it.
+        • Improved: Three Groq models added — Llama 3.1 8B Instant and Gemma 2 9B
+          both offer 14 400 requests/day (highest free limit on Groq), and
+          DeepSeek R1 70B distill for reasoning tasks. All use your existing Groq key.
+        • Removed: Five Cerebras models (Llama 3.1 70B, Qwen3 32B, Scout 17B,
+          GPT-OSS 120B, Z.ai GLM-4.7) and Gemini 1.5 Flash-8B removed from the
+          catalog — these were returning errors in testing.
+
         v2.17.1
         ───────────────────────────────────────────────────────────
         • Fixed: Browser client (http://127.0.0.1:8080) failed to load on

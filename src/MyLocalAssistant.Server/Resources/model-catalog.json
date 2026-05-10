@@ -471,18 +471,6 @@
     "description": "Google Gemini 2.0 Flash-Lite. Fastest and cheapest Gemini model, 1M context. Free tier: 30 req/min, 1 500 req/day. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
   },
   {
-    "id": "gemini-1.5-flash-8b",
-    "displayName": "Gemini 1.5 Flash-8B — Google (free cloud)",
-    "tier": "lightweight",
-    "source": "gemini",
-    "remoteModel": "gemini-1.5-flash-8b",
-    "license": "Google Terms of Service",
-    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
-    "recommendedContextSize": 1000000,
-    "minRamGb": 0,
-    "description": "Google Gemini 1.5 Flash-8B. Lightweight variant optimised for speed, 1M context. Free tier: 15 req/min, 4 000 req/day. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
-  },
-  {
     "id": "mistral-nemo",
     "displayName": "Mistral NeMo — Mistral AI (free cloud)",
     "tier": "mid",
@@ -543,42 +531,6 @@
     "description": "Meta Llama 3.1 8B on Cerebras CS-3 wafer-scale chips. Extremely fast (~2000 tokens/sec). Free tier ~20 req/min. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
   },
   {
-    "id": "cerebras-llama3.1-70b",
-    "displayName": "Llama 3.1 70B — Cerebras (free cloud)",
-    "tier": "heavy",
-    "source": "cerebras",
-    "remoteModel": "llama3.1-70b",
-    "license": "Llama 3.1 Community",
-    "licenseUrl": "https://www.llama.com/llama3_1/license/",
-    "recommendedContextSize": 8192,
-    "minRamGb": 0,
-    "description": "Meta Llama 3.1 70B on Cerebras CS-3 chips. Frontier-class quality at ~500 tokens/sec. Free tier ~10 req/min. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
-  },
-  {
-    "id": "cerebras-qwen3-32b",
-    "displayName": "Qwen3 32B — Cerebras (free cloud)",
-    "tier": "workstation",
-    "source": "cerebras",
-    "remoteModel": "qwen-3-32b",
-    "license": "Apache-2.0",
-    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-32B",
-    "recommendedContextSize": 32768,
-    "minRamGb": 0,
-    "description": "Alibaba Qwen3 32B on Cerebras CS-3 chips. Outstanding reasoning and coding. Free tier. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
-  },
-  {
-    "id": "cerebras-scout-17b",
-    "displayName": "Llama 4 Scout 17B — Cerebras (free cloud)",
-    "tier": "mid",
-    "source": "cerebras",
-    "remoteModel": "llama-4-scout-17b-16e-instruct",
-    "license": "Llama 4 Community",
-    "licenseUrl": "https://www.llama.com/llama4/license/",
-    "recommendedContextSize": 128000,
-    "minRamGb": 0,
-    "description": "Meta Llama 4 Scout 17B (MoE, 16 experts) on Cerebras. 128k context, multimodal capable (text via API). Free tier. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
-  },
-  {
     "id": "cerebras-qwen3-235b",
     "displayName": "Qwen3 235B A22B — Cerebras (preview cloud)",
     "tier": "workstation",
@@ -591,27 +543,39 @@
     "description": "Alibaba Qwen3 235B MoE (22B active) on Cerebras CS-3 chips. Frontier reasoning and coding at extreme speed. Preview tier. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
   },
   {
-    "id": "cerebras-gpt-oss-120b",
-    "displayName": "OpenAI GPT-OSS 120B — Cerebras (cloud)",
-    "tier": "workstation",
-    "source": "cerebras",
-    "remoteModel": "gpt-oss-120b",
-    "license": "Apache-2.0",
-    "licenseUrl": "https://huggingface.co/openai/gpt-oss-120b",
-    "recommendedContextSize": 32768,
+    "id": "groq-llama-3.1-8b-instant",
+    "displayName": "Llama 3.1 8B Instant — Groq (free cloud)",
+    "tier": "lightweight",
+    "source": "groq",
+    "remoteModel": "llama-3.1-8b-instant",
+    "license": "Llama 3.1 Community",
+    "licenseUrl": "https://www.llama.com/llama3_1/license/",
+    "recommendedContextSize": 131072,
     "minRamGb": 0,
-    "description": "OpenAI's open-weight 120B flagship served on Cerebras CS-3 chips. Supports reasoning effort control (low/medium/high). Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
+    "description": "Meta Llama 3.1 8B on Groq LPUs. Highest free tier of any Groq model: 30 req/min, 14 400 req/day. Great for high-volume tasks. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
   },
   {
-    "id": "cerebras-zai-glm-4.7",
-    "displayName": "Z.ai GLM-4.7 — Cerebras (preview cloud)",
-    "tier": "mid",
-    "source": "cerebras",
-    "remoteModel": "zai-glm-4.7",
-    "license": "Z.ai Terms",
-    "licenseUrl": "https://docs.z.ai",
-    "recommendedContextSize": 32768,
+    "id": "groq-gemma-2-9b",
+    "displayName": "Gemma 2 9B — Groq (free cloud)",
+    "tier": "lightweight",
+    "source": "groq",
+    "remoteModel": "gemma2-9b-it",
+    "license": "Gemma Terms of Use",
+    "licenseUrl": "https://ai.google.dev/gemma/terms",
+    "recommendedContextSize": 8192,
     "minRamGb": 0,
-    "description": "Z.ai GLM-4.7 on Cerebras CS-3 chips. Built-in reasoning mode, strong multilingual ability. Preview tier. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
+    "description": "Google Gemma 2 9B on Groq LPUs. High quality for its size with strong multilingual support. Free tier: 30 req/min, 14 400 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
+  },
+  {
+    "id": "groq-deepseek-r1-70b",
+    "displayName": "DeepSeek R1 70B (distill) — Groq (free cloud)",
+    "tier": "workstation",
+    "source": "groq",
+    "remoteModel": "deepseek-r1-distill-llama-70b",
+    "license": "MIT",
+    "licenseUrl": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+    "recommendedContextSize": 128000,
+    "minRamGb": 0,
+    "description": "DeepSeek R1 reasoning model distilled into Llama 3.3 70B, served on Groq LPUs. Excellent for step-by-step reasoning and math. Free tier: 30 req/min, 1 000 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
   }
 ]

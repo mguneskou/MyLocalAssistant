@@ -91,6 +91,22 @@ internal sealed class ClientFsTool : ITool
             """
             { "type": "object", "properties": {}, "additionalProperties": false }
             """),
+        new ToolFunctionDto("client.fs.copyToWorkDir",
+            "Copy a file from the user's client PC into the server's work directory so that tools like excel.*, word.*, pdf.* can operate on it. Returns the filename to use with those tools. ALWAYS use this before calling excel.* or word.* on a file that exists on the client.",
+            """
+            { "type": "object", "properties": {
+                "path": { "type": "string", "description": "Path to the file on the client (as returned by client.fs.list)." },
+                "saveas": { "type": "string", "description": "Optional filename to use on the server. Defaults to the source filename." }
+              }, "required": ["path"], "additionalProperties": false }
+            """),
+        new ToolFunctionDto("client.fs.copyFromWorkDir",
+            "Copy a file from the server's work directory back to the user's client PC. Use this after modifying a file with excel.*, word.*, pdf.* to save it to the client.",
+            """
+            { "type": "object", "properties": {
+                "filename": { "type": "string", "description": "Filename in the server work directory (as returned by excel.create, excel.save_as, etc.)." },
+                "path": { "type": "string", "description": "Destination path on the client. Defaults to the filename in the client shared root." }
+              }, "required": ["filename"], "additionalProperties": false }
+            """),
     };
 
     public ToolRequirementsDto Requirements { get; } = new(ToolCallProtocols.Tags, MinContextK: 4);
@@ -136,6 +152,12 @@ internal sealed class ClientFsTool : ITool
         {
             return await ReadWordFromClientAsync(bridge, docFilePath, ctx.CancellationToken);
         }
+
+        // Intercept copyToWorkDir/copyFromWorkDir before forwarding to bridge.
+        if (call.ToolName == "client.fs.copyToWorkDir" && @params is JsonElement cpToEl)
+            return await CopyToWorkDirAsync(bridge, cpToEl, ctx);
+        if (call.ToolName == "client.fs.copyFromWorkDir" && @params is JsonElement cpFromEl)
+            return await CopyFromWorkDirAsync(bridge, cpFromEl, ctx);
 
         // Map LLM-facing tool name to wire method ("client.fs.read" -> "fs.read").
         var method = call.ToolName.StartsWith("client.fs.", StringComparison.Ordinal)
@@ -249,5 +271,104 @@ internal sealed class ClientFsTool : ITool
         {
             return ToolResult.Error($"Failed to parse Word document: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// Downloads a file from the client's shared folder and saves it to the server WorkDirectory
+    /// so that excel.*, word.*, pdf.* tools can operate on it.
+    /// </summary>
+    private static async Task<ToolResult> CopyToWorkDirAsync(
+        IClientBridge bridge, JsonElement args, ToolContext ctx)
+    {
+        if (!args.TryGetProperty("path", out var pathEl) || pathEl.GetString() is not string clientPath)
+            return ToolResult.Error("'path' is required.");
+
+        var serverFilename = args.TryGetProperty("saveas", out var saEl) && saEl.GetString() is { Length: > 0 } sa
+            ? sa
+            : System.IO.Path.GetFileName(clientPath);
+
+        // Prevent path traversal
+        if (serverFilename.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
+            return ToolResult.Error($"Invalid filename: {serverFilename}");
+
+        const int ChunkSize = 4 * 1024 * 1024;
+        var chunks = new List<byte[]>();
+        int offset = 0;
+
+        while (true)
+        {
+            JsonElement? raw;
+            try
+            {
+                raw = await bridge.InvokeAsync(
+                    "fs.read", new { path = clientPath, offset, length = ChunkSize },
+                    TimeSpan.FromSeconds(60), ctx.CancellationToken);
+            }
+            catch (ClientBridgeException ex) { return ToolResult.Error($"{ex.Code}: {ex.Message}"); }
+            catch (TimeoutException) { return ToolResult.Error("Client did not respond in time."); }
+
+            if (raw is null || !raw.Value.TryGetProperty("bytesB64", out var b64))
+                return ToolResult.Error("Unexpected response from client bridge.");
+
+            byte[] chunk;
+            try { chunk = Convert.FromBase64String(b64.GetString() ?? ""); }
+            catch { return ToolResult.Error("Invalid base64 data from client bridge."); }
+
+            if (chunk.Length > 0) chunks.Add(chunk);
+
+            bool eof = !raw.Value.TryGetProperty("eof", out var eofProp) || eofProp.GetBoolean();
+            if (eof || chunk.Length == 0) break;
+            offset += chunk.Length;
+
+            if (offset > 32 * 1024 * 1024)
+                return ToolResult.Error("File exceeds 32 MB limit for server transfer.");
+        }
+
+        Directory.CreateDirectory(ctx.WorkDirectory);
+        var serverPath = System.IO.Path.Combine(ctx.WorkDirectory, serverFilename);
+        await using var fs = File.Create(serverPath);
+        foreach (var chunk in chunks) await fs.WriteAsync(chunk, ctx.CancellationToken);
+
+        var totalKb = chunks.Sum(c => c.Length) / 1024;
+        return ToolResult.Ok(
+            JsonSerializer.Serialize(new { filename = serverFilename, sizeKb = totalKb }),
+            $"Copied '{clientPath}' to server work directory as '{serverFilename}' ({totalKb} KB). You can now use it with excel.*, word.*, or pdf.* tools.");
+    }
+
+    /// <summary>
+    /// Reads a file from the server WorkDirectory and writes it back to the client's shared folder.
+    /// </summary>
+    private static async Task<ToolResult> CopyFromWorkDirAsync(
+        IClientBridge bridge, JsonElement args, ToolContext ctx)
+    {
+        if (!args.TryGetProperty("filename", out var fnEl) || fnEl.GetString() is not string filename)
+            return ToolResult.Error("'filename' is required.");
+
+        if (filename.IndexOfAny(System.IO.Path.GetInvalidFileNameChars()) >= 0)
+            return ToolResult.Error($"Invalid filename: {filename}");
+
+        var serverPath = System.IO.Path.Combine(ctx.WorkDirectory, filename);
+        if (!File.Exists(serverPath))
+            return ToolResult.Error($"File '{filename}' not found in server work directory.");
+
+        var clientPath = args.TryGetProperty("path", out var cpEl) && cpEl.GetString() is { Length: > 0 } cp
+            ? cp
+            : filename;
+
+        byte[] bytes = await File.ReadAllBytesAsync(serverPath, ctx.CancellationToken);
+        var bytesB64 = Convert.ToBase64String(bytes);
+
+        try
+        {
+            await bridge.InvokeAsync(
+                "fs.write", new { path = clientPath, bytesB64, append = false },
+                TimeSpan.FromSeconds(60), ctx.CancellationToken);
+        }
+        catch (ClientBridgeException ex) { return ToolResult.Error($"{ex.Code}: {ex.Message}"); }
+        catch (TimeoutException) { return ToolResult.Error("Client did not respond in time."); }
+
+        return ToolResult.Ok(
+            JsonSerializer.Serialize(new { clientPath, sizeKb = bytes.Length / 1024 }),
+            $"Saved '{filename}' ({bytes.Length / 1024} KB) to client at '{clientPath}'.");
     }
 }
