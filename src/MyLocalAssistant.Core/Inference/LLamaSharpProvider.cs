@@ -47,12 +47,38 @@ public sealed class LLamaSharpProvider : ILlmProvider
         catch (Exception ex) when (_params.GpuLayerCount > 0)
         {
             // GPU path failed — either during file load or during the inference probe.
-            // Reload with CPU-only so the model still works on low-end / integrated GPU hardware.
+            // Retry CPU-only, and if RAM is tight also try a smaller context window so the
+            // KV-cache allocation doesn't push the machine over its memory limit.
             _logger.LogWarning(ex, "GPU load/probe failed for {Id} — retrying with CPU-only.", modelId);
             _weights?.Dispose();
             _weights = null;
-            _params = new ModelParams(modelPath) { ContextSize = (uint)contextSize, GpuLayerCount = 0 };
-            _weights = await LLamaWeights.LoadFromFileAsync(_params, ct).ConfigureAwait(false);
+
+            Exception? cpuEx = null;
+            foreach (var ctx in CpuContextFallbacks(contextSize))
+            {
+                if (ct.IsCancellationRequested) throw new OperationCanceledException(ct);
+                try
+                {
+                    _params = new ModelParams(modelPath) { ContextSize = (uint)ctx, GpuLayerCount = 0 };
+                    _weights = await LLamaWeights.LoadFromFileAsync(_params, ct).ConfigureAwait(false);
+                    if (ctx < contextSize)
+                        _logger.LogWarning("Model {Id}: context window reduced from {Orig} to {Ctx} to fit available memory.",
+                            modelId, contextSize, ctx);
+                    cpuEx = null;
+                    break;
+                }
+                catch (OperationCanceledException) { throw; }
+                catch (Exception retryEx)
+                {
+                    _logger.LogWarning("CPU load with ctx={Ctx} failed for {Id}: {Msg}", ctx, modelId, retryEx.Message);
+                    cpuEx = retryEx;
+                    _weights?.Dispose();
+                    _weights = null;
+                }
+            }
+            if (cpuEx is not null)
+                throw new InvalidOperationException(
+                    $"Model could not be loaded (GPU or CPU, tried context sizes down to 2048). Last error: {cpuEx.Message}", cpuEx);
         }
         _modelId = modelId;
         _logger.LogInformation("Model {Id} loaded (gpu={Gpu}).", modelId,
@@ -111,6 +137,18 @@ public sealed class LLamaSharpProvider : ILlmProvider
     public async ValueTask DisposeAsync()
     {
         await UnloadAsync().ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Yields the context sizes to attempt for CPU-only loading: the requested size first,
+    /// then 4096 and 2048 as fallbacks. Reducing context shrinks the KV-cache allocation,
+    /// which is often what pushes a marginal machine over its memory limit.
+    /// </summary>
+    private static IEnumerable<int> CpuContextFallbacks(int requested)
+    {
+        yield return requested;
+        if (requested > 4096) yield return 4096;
+        if (requested > 2048) yield return 2048;
     }
 
     /// <summary>

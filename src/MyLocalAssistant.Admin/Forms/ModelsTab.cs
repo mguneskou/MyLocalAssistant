@@ -100,7 +100,10 @@ internal sealed class ModelsTab : UserControl
         // Cloud entries have no local files: no download, no delete; Activate routes through the cloud provider.
         _downloadBtn.Enabled = sel is { IsCloud: false, IsInstalled: false, IsDownloading: false };
         _cancelBtn.Enabled = dlActive;
-        var canActivate = sel is { IsActive: false, IsActiveEmbedding: false } &&
+        // Allow re-activation when the model is active but its last load failed, so the user
+        // can retry without having to download and switch to a different model first.
+        var canActivate = sel is { IsActiveEmbedding: false } &&
+                          (!sel.IsActive || sel.IsActiveFailed) &&
                           (sel.IsCloud ? sel.IsCloudConfigured : sel.IsInstalled);
         _activateBtn.Enabled = canActivate;
         _deleteBtn.Enabled = sel is { IsCloud: false, IsInstalled: true, IsActive: false, IsActiveEmbedding: false, IsDownloading: false };
@@ -233,8 +236,7 @@ internal sealed class ModelsTab : UserControl
         public bool IsDownloading { get; set; }
         public string Source { get; set; } = "Local";
         public bool IsCloud { get; set; }
-        public bool IsCloudConfigured { get; set; }
-        public string SourceText { get; set; } = "Local";
+        public bool IsCloudConfigured { get; set; }        public bool IsActiveFailed { get; set; }        public string SourceText { get; set; } = "Local";
         public string StatusText { get; set; } = "";
 
         public static ModelRow From(ModelDto m)
@@ -255,6 +257,7 @@ internal sealed class ModelsTab : UserControl
                 Source = m.Source,
                 IsCloud = m.IsCloud,
                 IsCloudConfigured = m.IsCloudConfigured,
+                IsActiveFailed = m.IsActiveFailed,
                 SourceText = m.IsCloud ? $"\uD83C\uDF10 {m.Source}" : "Local",
             };
             // Best-effort host name from any HuggingFace URL pattern.
@@ -281,6 +284,8 @@ internal sealed class ModelsTab : UserControl
                 else
                     row.StatusText = d.Stage;
             }
+            else if (m.IsActive && m.IsActiveFailed)
+                row.StatusText = "Active (load failed \u2014 click Activate to retry)";
             else if (m.IsActive)
                 row.StatusText = "Installed (active chat)";
             else if (m.IsActiveEmbedding)

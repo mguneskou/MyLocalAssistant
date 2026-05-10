@@ -89,7 +89,8 @@ public sealed class ModelManager(
                 Download: dlDto,
                 Source: e.Source.ToString(),
                 IsCloud: e.IsCloud,
-                IsCloudConfigured: cloudConfigured));
+                IsCloudConfigured: cloudConfigured,
+                IsActiveFailed: string.Equals(e.Id, active, StringComparison.OrdinalIgnoreCase) && _status == ModelStatus.Failed));
         }
         return result;
     }

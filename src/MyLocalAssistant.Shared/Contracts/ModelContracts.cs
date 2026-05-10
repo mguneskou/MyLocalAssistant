@@ -21,7 +21,9 @@ public sealed record ModelDto(
     /// <summary>True for cloud entries that need a configured API key. False for local GGUFs.</summary>
     bool IsCloud = false,
     /// <summary>True for cloud entries when the matching provider key is set on the server. Always false for local.</summary>
-    bool IsCloudConfigured = false);
+    bool IsCloudConfigured = false,
+    /// <summary>True when this is the active model but its last load attempt failed (allows re-activation).</summary>
+    bool IsActiveFailed = false);
 
 public sealed record DownloadStatusDto(
     string Stage,

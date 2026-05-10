@@ -7,6 +7,25 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.15.0
+        ───────────────────────────────────────────────────────────
+        • Improved: Complete chat window redesign — compact top bar with
+          icon-only actions, single-card input area with paperclip and send
+          button, cleaner chat header showing title and agent selector.
+        • Fixed: After a local model fails to load, the Activate button was
+          permanently disabled in the admin panel, leaving the machine stuck
+          with no way to retry without switching to a different model.
+          The button is now re-enabled on failure so admins can retry directly.
+        • Improved: Admin panel Models tab now shows "Active (load failed —
+          click Activate to retry)" in the Status column for failed active
+          models, making the problem and remedy immediately visible.
+        • Fixed: On machines with limited available RAM (e.g. 8 GB), a model
+          could fail to load even though the weights would fit, because the
+          KV-cache for the full 8 192-token context window consumed the
+          remaining memory. The loader now automatically retries with a
+          reduced context size (4 096 → 2 048) before giving up, so the model
+          loads successfully at the cost of a shorter context window.
+
         v2.14.0
         ───────────────────────────────────────────────────────────
         • Fixed: Input panel was partially hidden on first load (regression
