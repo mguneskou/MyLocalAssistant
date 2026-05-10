@@ -95,6 +95,8 @@ public sealed class Agent
     public string? ToolIds { get; set; }
     /// <summary>Maximum tool calls per chat turn. Null = use the server default (3).</summary>
     public int? MaxToolCalls { get; set; }
+    /// <summary>Admin-defined scenario notes injected into the prompt after the tool list. Guides consistent tool-use patterns (e.g. always copy client files before using excel.*). Max 4 KB.</summary>
+    public string? ScenarioNotes { get; set; }
 }
 
 public sealed class Conversation

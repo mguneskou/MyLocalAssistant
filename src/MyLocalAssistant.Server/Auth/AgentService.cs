@@ -653,6 +653,12 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
             if (mtc < 1 || mtc > 20) throw new ArgumentException("MaxToolCalls must be between 1 and 20.");
             a.MaxToolCalls = mtc;
         }
+        if (req.ScenarioNotes is not null)
+        {
+            var sn = req.ScenarioNotes.Trim();
+            if (sn.Length > 4096) throw new ArgumentException("ScenarioNotes exceeds 4 KB.");
+            a.ScenarioNotes = sn.Length == 0 ? null : sn;
+        }
         await db.SaveChangesAsync(ct);
         log.LogInformation("Agent {Id} updated: enabled={Enabled}, model={Model}, rag={Rag}, collections={Coll}, promptChars={Prompt}.",
             id, a.Enabled, a.DefaultModelId, a.RagEnabled, a.RagCollectionIds, a.SystemPrompt.Length);
@@ -662,5 +668,6 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
     private static AgentDto ToDto(Agent a) => new(
         a.Id, a.Name, a.Description, a.Category, a.IsGeneric, a.Enabled, a.DefaultModelId,
         a.RagEnabled, RagService.ParseCollectionIds(a.RagCollectionIds), a.SystemPrompt,
-        MyLocalAssistant.Server.Tools.ToolRegistry.ParseToolIds(a.ToolIds), a.MaxToolCalls);
+        MyLocalAssistant.Server.Tools.ToolRegistry.ParseToolIds(a.ToolIds), a.MaxToolCalls,
+        a.ScenarioNotes);
 }

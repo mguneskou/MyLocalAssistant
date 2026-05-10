@@ -12,7 +12,8 @@ public sealed record AgentDto(
     IReadOnlyList<Guid> RagCollectionIds,
     string SystemPrompt = "",
     IReadOnlyList<string>? ToolIds = null,
-    int? MaxToolCalls = null);
+    int? MaxToolCalls = null,
+    string? ScenarioNotes = null);
 
 public sealed record AgentUpdateRequest(
     bool Enabled,
@@ -22,7 +23,8 @@ public sealed record AgentUpdateRequest(
     string? SystemPrompt = null,
     string? Description = null,
     IReadOnlyList<string>? ToolIds = null,
-    int? MaxToolCalls = null);
+    int? MaxToolCalls = null,
+    string? ScenarioNotes = null);
 
 public sealed record ChatTurnRequest(
     string AgentId,

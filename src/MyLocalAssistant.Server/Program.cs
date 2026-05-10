@@ -141,6 +141,8 @@ try
         await EnsureAgentToolIdsColumnAsync(db);
         // v2.8.0: AuditEntries.IsAdminAction column added.
         await EnsureAuditIsAdminActionColumnAsync(db);
+        // v2.19.0: Agent.ScenarioNotes column added.
+        await EnsureAgentScenarioNotesColumnAsync(db);
         var userSvc = scope.ServiceProvider.GetRequiredService<UserService>();
         await userSvc.EnsureAdminBootstrapAsync();
         await userSvc.EnsureGlobalAdminAsync();
@@ -343,5 +345,27 @@ static async Task EnsureAuditIsAdminActionColumnAsync(AppDbContext db)
     catch (Exception ex)
     {
         Log.Warning(ex, "Could not add IsAdminAction column to AuditEntries.");
+    }
+}
+
+static async Task EnsureAgentScenarioNotesColumnAsync(AppDbContext db)
+{
+    try
+    {
+        await using var conn = db.Database.GetDbConnection();
+        await conn.OpenAsync();
+        await using (var probe = conn.CreateCommand())
+        {
+            probe.CommandText = "SELECT 1 FROM pragma_table_info('Agents') WHERE name = 'ScenarioNotes' LIMIT 1";
+            if (await probe.ExecuteScalarAsync() is not null) return;
+        }
+        await using var alter = conn.CreateCommand();
+        alter.CommandText = "ALTER TABLE Agents ADD COLUMN ScenarioNotes TEXT NULL";
+        await alter.ExecuteNonQueryAsync();
+        Log.Information("Added Agents.ScenarioNotes column to existing database.");
+    }
+    catch (Exception ex)
+    {
+        Log.Warning(ex, "Could not add ScenarioNotes column to Agents.");
     }
 }

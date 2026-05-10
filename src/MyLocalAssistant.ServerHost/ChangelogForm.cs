@@ -7,6 +7,19 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.19.0
+        ───────────────────────────────────────────────────────────
+        • New: Agents now have a "Scenario notes" field (Admin → Agents →
+          Scenario notes button). Free-text rules the admin writes here are
+          injected into every prompt right after the tool list, guiding the
+          model to use tools consistently and in the correct order.
+        • New: Automatic tool-chaining hints. When an agent has both
+          client.fs.* and excel.*/word.*/pdf.* tools enabled, the server
+          automatically injects a chaining rule into every prompt: the model
+          must call client.fs.copyToWorkDir before reading a client file with
+          those tools, and client.fs.copyFromWorkDir to return results. No
+          manual configuration needed.
+
         v2.18.0
         ───────────────────────────────────────────────────────────
         • Fixed: Excel and Word files on the client PC can now be processed by

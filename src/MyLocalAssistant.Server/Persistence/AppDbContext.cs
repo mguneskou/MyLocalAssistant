@@ -92,6 +92,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> options) : DbCon
             e.Property(x => x.Category).HasMaxLength(32);
             e.Property(x => x.SystemPrompt).HasMaxLength(8192);
             e.Property(x => x.RagCollectionIds).HasMaxLength(2048);
+            e.Property(x => x.ScenarioNotes).HasMaxLength(4096);
             e.HasIndex(x => x.Name).IsUnique();
         });
 

@@ -105,6 +105,7 @@ public sealed class ChatService(
         var basePrompt = BuildPrompt(
             settings.GlobalSystemPrompt,
             agent.SystemPrompt,
+            agent.ScenarioNotes,
             userMessage,
             retrieval.Chunks,
             history,
@@ -427,6 +428,7 @@ public sealed class ChatService(
     private static string BuildPrompt(
         string? globalSystemPrompt,
         string systemPrompt,
+        string? scenarioNotes,
         string userMessage,
         IReadOnlyList<RagContextChunk> chunks,
         IReadOnlyList<HistoryTurn> history,
@@ -472,6 +474,14 @@ public sealed class ChatService(
                     }
                 }
             }
+            var chainingHints = BuildToolChainingHints(tools);
+            if (chainingHints.Length > 0) sb.Append(chainingHints);
+        }
+        if (!string.IsNullOrWhiteSpace(scenarioNotes))
+        {
+            sb.Append("\n\nScenario notes for this agent:\n");
+            sb.Append(scenarioNotes.Trim());
+            sb.Append('\n');
         }
         sb.Append('\n');
         foreach (var turn in history)
@@ -482,5 +492,31 @@ public sealed class ChatService(
         }
         sb.Append("User: ").Append(userMessage.Trim()).Append("\nAssistant:");
         return sb.ToString();
+    }
+
+    /// <summary>
+    /// Returns a "Tool chaining rules" block when the active tool set contains both
+    /// <c>client.fs.*</c> bridge tools AND any of <c>excel.*</c>, <c>word.*</c>, <c>pdf.*</c>.
+    /// The injected text prevents the agent from calling server-side file tools directly
+    /// on client-side paths without first copying the file into the server work directory.
+    /// </summary>
+    private static string BuildToolChainingHints(IReadOnlyList<ITool> tools)
+    {
+        bool hasClientFs = false, hasFileWork = false;
+        foreach (var skill in tools)
+        {
+            foreach (var fn in skill.Tools)
+            {
+                if (fn.Name.StartsWith("client.fs.", StringComparison.Ordinal)) hasClientFs = true;
+                if (fn.Name.StartsWith("excel.", StringComparison.Ordinal) ||
+                    fn.Name.StartsWith("word.", StringComparison.Ordinal) ||
+                    fn.Name.StartsWith("pdf.", StringComparison.Ordinal)) hasFileWork = true;
+            }
+            if (hasClientFs && hasFileWork) break;
+        }
+        if (!hasClientFs || !hasFileWork) return string.Empty;
+        return "\n\nTool chaining rules:\n" +
+               "• Files on the client PC (listed via client.fs.list): ALWAYS call client.fs.copyToWorkDir first to copy the file to the server work directory, then use excel.*, word.*, or pdf.* tools on the returned filename. Never pass a client-side path directly to those tools.\n" +
+               "• To send a result file back to the client after creating or editing it: call client.fs.copyFromWorkDir with the server filename and the desired client destination path.\n";
     }
 }

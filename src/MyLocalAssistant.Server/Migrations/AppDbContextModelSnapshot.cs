@@ -61,6 +61,10 @@ namespace MyLocalAssistant.Server.Migrations
                     b.Property<string>("ToolIds")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ScenarioNotes")
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Name")

@@ -20,6 +20,7 @@ internal sealed class AgentsTab : UserControl
     private DataGridViewButtonColumn _collectionsCol = null!;
     private DataGridViewButtonColumn _promptCol = null!;
     private DataGridViewButtonColumn _toolsCol = null!;
+    private DataGridViewButtonColumn _scenarioNotesCol = null!;
     private readonly ToolStripButton _globalPromptBtn;
     private readonly ToolStripButton _testBtn;
     private List<RagCollectionDto> _allCollections = new();
@@ -85,6 +86,14 @@ internal sealed class AgentsTab : UserControl
             UseColumnTextForButtonValue = false,
             FlatStyle = FlatStyle.Standard,
         };
+        _scenarioNotesCol = new DataGridViewButtonColumn
+        {
+            HeaderText = "Scenario notes",
+            Text = "Edit…",
+            UseColumnTextForButtonValue = true,
+            Width = 100,
+            FlatStyle = FlatStyle.Standard,
+        };
         _grid.Columns.AddRange(new DataGridViewColumn[]
         {
             new DataGridViewTextBoxColumn { HeaderText = "Agent", DataPropertyName = nameof(AgentRow.Name), Width = 180, ReadOnly = true },
@@ -96,6 +105,7 @@ internal sealed class AgentsTab : UserControl
             _collectionsCol,
             _toolsCol,
             _promptCol,
+            _scenarioNotesCol,
             new DataGridViewTextBoxColumn { HeaderText = "Max tools", DataPropertyName = nameof(AgentRow.MaxToolCalls), Width = 70, ToolTipText = "Max tool calls per turn (1-20, blank = default 3)" },
             new DataGridViewTextBoxColumn { HeaderText = "Description", DataPropertyName = nameof(AgentRow.Description), AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill, ReadOnly = true },
         });
@@ -220,6 +230,16 @@ internal sealed class AgentsTab : UserControl
             _grid.InvalidateRow(e.RowIndex);
             return;
         }
+        if (e.ColumnIndex == _scenarioNotesCol.Index)
+        {
+            using var dlg = new PromptEditorForm($"Scenario notes \u2014 {row.Name}",
+                "Step-by-step tool-use rules for this agent. Injected into every prompt after the tool list. Max 4 KB.\n\nExample: \"Always call client.fs.copyToWorkDir before reading an Excel file.\"",
+                row.ScenarioNotes, 4096);
+            if (dlg.ShowDialog(this) != DialogResult.OK) return;
+            row.ScenarioNotes = dlg.PromptText;
+            _ = SaveRowAsync(row);
+            return;
+        }
     }
 
     private async Task SaveRowAsync(AgentRow row)
@@ -228,7 +248,7 @@ internal sealed class AgentsTab : UserControl
         {
             var defaultModelId = row.DefaultModelDisplay == NoModelOverride ? null : row.DefaultModelDisplay;
             var updated = await _client.UpdateAgentAsync(row.Id,
-                new AgentUpdateRequest(row.Enabled, defaultModelId, row.RagEnabled, row.RagCollectionIds, row.SystemPrompt, Description: null, ToolIds: row.ToolIds, MaxToolCalls: row.MaxToolCalls));
+                new AgentUpdateRequest(row.Enabled, defaultModelId, row.RagEnabled, row.RagCollectionIds, row.SystemPrompt, Description: null, ToolIds: row.ToolIds, MaxToolCalls: row.MaxToolCalls, ScenarioNotes: row.ScenarioNotes));
             _statusLabel.Text = $"Saved {updated.Name} (rag={updated.RagEnabled}, collections={updated.RagCollectionIds.Count}, tools={updated.ToolIds?.Count ?? 0}, maxTools={updated.MaxToolCalls ?? 3}).";
         }
         catch (Exception ex) { ShowError("Save failed", ex); await ReloadAsync(); }
@@ -270,6 +290,7 @@ internal sealed class AgentsTab : UserControl
         public IReadOnlyList<string> ToolIds { get; set; } = Array.Empty<string>();
         public string ToolsDisplay { get; set; } = "(choose\u2026)";
         public int? MaxToolCalls { get; set; }
+        public string ScenarioNotes { get; set; } = "";
 
         public static AgentRow From(AgentDto a, IReadOnlyList<string> modelChoices, IReadOnlyList<RagCollectionDto> allCollections, IReadOnlyList<ToolDto> allSkills)
         {
@@ -290,6 +311,7 @@ internal sealed class AgentsTab : UserControl
                 SystemPrompt = a.SystemPrompt,
                 ToolIds = a.ToolIds ?? Array.Empty<string>(),
                 MaxToolCalls = a.MaxToolCalls,
+                ScenarioNotes = a.ScenarioNotes ?? "",
             };
             row.RecomputeCollectionsDisplay(allCollections);
             row.RecomputeToolsDisplay(allSkills);
