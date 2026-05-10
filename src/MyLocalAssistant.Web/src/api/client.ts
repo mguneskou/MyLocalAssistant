@@ -17,10 +17,10 @@ interface StoredAuth {
 }
 
 function loadAuth(): StoredAuth | null {
-  try { return JSON.parse(localStorage.getItem(AUTH_KEY) ?? 'null') } catch { return null }
+  try { return JSON.parse(sessionStorage.getItem(AUTH_KEY) ?? 'null') } catch { return null }
 }
-function saveAuth(a: StoredAuth) { localStorage.setItem(AUTH_KEY, JSON.stringify(a)) }
-function clearAuth() { localStorage.removeItem(AUTH_KEY) }
+function saveAuth(a: StoredAuth) { sessionStorage.setItem(AUTH_KEY, JSON.stringify(a)) }
+function clearAuth() { sessionStorage.removeItem(AUTH_KEY) }
 
 async function getToken(): Promise<string | null> {
   const auth = loadAuth()
@@ -105,11 +105,10 @@ export async function updateWorkRoot(workRoot: string | null): Promise<void> {
 export function logout() { clearAuth() }
 
 export function getStoredUser(): LoginResponse['user'] | null {
-  // User is stored as part of the login response in AuthContext; this is the fallback
-  try { return JSON.parse(localStorage.getItem('mla_user') ?? 'null') } catch { return null }
+  try { return JSON.parse(sessionStorage.getItem('mla_user') ?? 'null') } catch { return null }
 }
-export function saveUser(u: LoginResponse['user']) { localStorage.setItem('mla_user', JSON.stringify(u)) }
-export function clearUser() { localStorage.removeItem('mla_user') }
+export function saveUser(u: LoginResponse['user']) { sessionStorage.setItem('mla_user', JSON.stringify(u)) }
+export function clearUser() { sessionStorage.removeItem('mla_user') }
 
 // ── Agents ──────────────────────────────────────────────────────────────────
 

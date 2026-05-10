@@ -7,6 +7,14 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.20.2
+        ───────────────────────────────────────────────────────────
+        • Fixed: The browser client no longer keeps you logged in after closing
+          and reopening the browser. Auth tokens and user state are now stored
+          in sessionStorage (cleared on browser close) instead of localStorage
+          (which persists indefinitely). Refreshing the page within the same
+          browser session still keeps you logged in.
+
         v2.20.1
         ───────────────────────────────────────────────────────────
         • Fixed: Saving the work folder in the browser client settings showed
