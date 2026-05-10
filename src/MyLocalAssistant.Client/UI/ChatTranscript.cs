@@ -373,9 +373,9 @@ internal sealed class ChatBubble : Panel
         BackColor = Color.Transparent;
         Margin    = new Padding(0, 0, 0, 8);
 
-        // Dots timer (streaming animation)
-        _dotsTimer = new System.Windows.Forms.Timer { Interval = 530 };
-        _dotsTimer.Tick += (_, _) => { _dotsPhase = (_dotsPhase + 1) % 2; Invalidate(); };
+        // Dots timer (streaming animation — 3 sequentially lit dots)
+        _dotsTimer = new System.Windows.Forms.Timer { Interval = 420 };
+        _dotsTimer.Tick += (_, _) => { _dotsPhase = (_dotsPhase + 1) % 3; Invalidate(); };
 
         // Main text control (always present; hidden when segments exist)
         _mainText = new TextBox
@@ -615,7 +615,9 @@ internal sealed class ChatBubble : Panel
             new Size(maxTextW, int.MaxValue),
             TextFormatFlags.WordBreak | TextFormatFlags.NoPadding | TextFormatFlags.TextBoxControl);
 
-        var textW = Math.Min(maxTextW, Math.Max(40, measured.Width + 4));
+        // Ensure enough width to display the three-dot animation when no text yet
+        int dotMinW = (IsStreaming && string.IsNullOrEmpty(_mainText.Text)) ? 64 : 0;
+        var textW = Math.Min(maxTextW, Math.Max(Math.Max(40, dotMinW), measured.Width + 4));
         var textH = Math.Max(_mainText.Font.Height, measured.Height) + 16; // +16 prevents last-line descender clipping
         var bW    = textW + InnerPadX * 2;
         var bH    = textH + InnerPadY * 2;
@@ -717,13 +719,19 @@ internal sealed class ChatBubble : Panel
             e.Graphics.DrawPath(p, path);
         }
 
-        // Blinking cursor while waiting for the first token
-        if (IsStreaming && string.IsNullOrEmpty(_fullText) && _dotsPhase == 0)
+        // Three sequentially-lit dots while waiting for first token
+        if (IsStreaming && string.IsNullOrEmpty(_fullText))
         {
-            int cy = _bubbleBounds.Y + (_bubbleBounds.Height - BodyFont.Height) / 2;
-            int cx = _bubbleBounds.X + InnerPadX + 2;
-            using var db = new SolidBrush(Color.FromArgb(210, GetTextColor(Kind)));
-            e.Graphics.FillRectangle(db, cx, cy, 2, BodyFont.Height);
+            e.Graphics.SmoothingMode = SmoothingMode.AntiAlias;
+            int cy  = _bubbleBounds.Y + _bubbleBounds.Height / 2;
+            int cx  = _bubbleBounds.X + InnerPadX + 6;
+            const int DotSz = 7, DotGap = 13;
+            for (int i = 0; i < 3; i++)
+            {
+                int alpha = _dotsPhase == i ? 210 : 80;
+                using var db = new SolidBrush(Color.FromArgb(alpha, GetTextColor(Kind)));
+                e.Graphics.FillEllipse(db, cx + i * DotGap, cy - DotSz / 2, DotSz, DotSz);
+            }
         }
     }
 
