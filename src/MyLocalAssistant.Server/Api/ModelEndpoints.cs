@@ -46,6 +46,9 @@ public static class ModelEndpoints
             }
         });
 
+        group.MapPost("/deactivate", async (ModelManager mgr) =>
+            Results.Ok(await mgr.DeactivateAsync()));
+
         group.MapGet("/embedding/status", (EmbeddingService es) => Results.Ok(es.GetStatus()));
 
         group.MapPost("/embedding/{id}/activate", (string id, EmbeddingService es) =>

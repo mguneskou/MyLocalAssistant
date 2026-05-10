@@ -153,6 +153,12 @@ public sealed class ServerClient : IDisposable
         await EnsureSuccessAsync(resp, ct);
     }
 
+    public async Task DeactivateModelAsync(CancellationToken ct = default)
+    {
+        var resp = await SendAuthorizedAsync(HttpMethod.Post, "api/admin/models/deactivate", null, ct);
+        await EnsureSuccessAsync(resp, ct);
+    }
+
     public async Task ActivateEmbeddingAsync(string modelId, CancellationToken ct = default)
     {
         var resp = await SendAuthorizedAsync(HttpMethod.Post, $"api/admin/models/embedding/{modelId}/activate", null, ct);

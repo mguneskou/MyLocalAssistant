@@ -12,6 +12,7 @@ internal sealed class ModelsTab : UserControl
     private readonly ToolStripButton _downloadBtn;
     private readonly ToolStripButton _cancelBtn;
     private readonly ToolStripButton _activateBtn;
+    private readonly ToolStripButton _deactivateBtn;
     private readonly ToolStripButton _deleteBtn;
     private readonly ToolStripLabel _statusLbl;
     private readonly ToolStripLabel _embeddingLbl;
@@ -31,12 +32,13 @@ internal sealed class ModelsTab : UserControl
         _downloadBtn = new ToolStripButton("Download") { Enabled = false };
         _cancelBtn = new ToolStripButton("Cancel download") { Enabled = false };
         _activateBtn = new ToolStripButton("Activate") { Enabled = false };
+        _deactivateBtn = new ToolStripButton("Deactivate") { Enabled = false };
         _deleteBtn = new ToolStripButton("Delete files") { Enabled = false };
         _statusLbl = new ToolStripLabel("  Chat: (none)") { ForeColor = SystemColors.GrayText };
         _embeddingLbl = new ToolStripLabel("  Embedding: (none)") { ForeColor = SystemColors.GrayText };
         _toolbar.Items.AddRange(new ToolStripItem[]
         {
-            _refreshBtn, new ToolStripSeparator(), _downloadBtn, _cancelBtn, _activateBtn, _deleteBtn,
+            _refreshBtn, new ToolStripSeparator(), _downloadBtn, _cancelBtn, _activateBtn, _deactivateBtn, _deleteBtn,
             new ToolStripSeparator(), _statusLbl, _embeddingLbl,
         });
 
@@ -80,6 +82,7 @@ internal sealed class ModelsTab : UserControl
         _downloadBtn.Click += async (_, _) => await OnDownloadAsync();
         _cancelBtn.Click += async (_, _) => await OnCancelAsync();
         _activateBtn.Click += async (_, _) => await OnActivateAsync();
+        _deactivateBtn.Click += async (_, _) => await OnDeactivateAsync();
         _deleteBtn.Click += async (_, _) => await OnDeleteAsync();
         _grid.SelectionChanged += (_, _) => UpdateButtonState();
 
@@ -106,6 +109,8 @@ internal sealed class ModelsTab : UserControl
                           (!sel.IsActive || sel.IsActiveFailed) &&
                           (sel.IsCloud ? sel.IsCloudConfigured : sel.IsInstalled);
         _activateBtn.Enabled = canActivate;
+        // Deactivate is only meaningful for the active chat model (not embedding, not a cloud-key-less entry).
+        _deactivateBtn.Enabled = sel is { IsActive: true };
         _deleteBtn.Enabled = sel is { IsCloud: false, IsInstalled: true, IsActive: false, IsActiveEmbedding: false, IsDownloading: false };
     }
 
@@ -192,6 +197,20 @@ internal sealed class ModelsTab : UserControl
             await ReloadAsync();
         }
         catch (Exception ex) { ShowError("Activate failed", ex); }
+    }
+
+    private async Task OnDeactivateAsync()
+    {
+        var sel = Selected; if (sel is null) return;
+        if (MessageBox.Show(this, $"Deactivate '{sel.DisplayName}'?\n\nThe model will be unloaded from memory and no model will be active until you activate another.",
+            "Deactivate model", MessageBoxButtons.OKCancel, MessageBoxIcon.Warning) != DialogResult.OK) return;
+        try
+        {
+            await _client.DeactivateModelAsync();
+            _statusLabel.Text = "Model deactivated.";
+            await ReloadAsync();
+        }
+        catch (Exception ex) { ShowError("Deactivate failed", ex); }
     }
 
     private async Task OnDeleteAsync()

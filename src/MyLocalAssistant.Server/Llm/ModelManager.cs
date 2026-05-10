@@ -165,6 +165,31 @@ public sealed class ModelManager(
         return GetStatus();
     }
 
+    /// <summary>
+    /// Unloads the currently active model and clears the persisted default so no model
+    /// is loaded on the next startup. Safe to call when already unloaded.
+    /// </summary>
+    public async Task<ActiveModelStatusDto> DeactivateAsync()
+    {
+        await _loadLock.WaitAsync();
+        try
+        {
+            settings.DefaultModelId = null;
+            settingsStore.Save(settings);
+            if (provider.LoadedModelId is not null)
+                await provider.UnloadAsync().ConfigureAwait(false);
+            _activeEntry = null;
+            _status = ModelStatus.Unloaded;
+            _lastError = null;
+            log.LogInformation("Active model deactivated.");
+        }
+        finally
+        {
+            _loadLock.Release();
+        }
+        return GetStatus();
+    }
+
     /// <summary>Best-effort eager load on startup if the active model is installed (or a cloud entry with key).</summary>
     public Task EnsureLoadedOnStartupAsync()
     {
