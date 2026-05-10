@@ -7,6 +7,19 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.16.2
+        ───────────────────────────────────────────────────────────
+        • Fixed: Window titles (login, chat, admin) were showing an old
+          version number instead of the current release version. Stale
+          AssemblyVersion, FileVersion, and InformationalVersion overrides
+          have been removed — all version surfaces now derive automatically
+          from the single Version property.
+        • Improved: All 16 built-in agent system prompts replaced with
+          detailed, structured prompts covering proactive tool use, domain
+          behaviour guidelines, and hard capability boundaries. Prompts are
+          reset to the shipped defaults on every server startup; the global
+          admin may override them via the Agents tab after startup.
+
         v2.16.0
         ───────────────────────────────────────────────────────────
         • New: Excel tool expanded with 8 new functions — rename_sheet,
