@@ -48,24 +48,35 @@
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
 
-  <!-- Build the React SPA and copy its output to wwwroot on publish -->
+  <!-- React SPA integration -->
   <PropertyGroup>
     <WebDir>$(MSBuildProjectDirectory)\..\MyLocalAssistant.Web</WebDir>
   </PropertyGroup>
 
+  <!-- Auto-install npm deps if missing -->
   <Target Name="NpmInstall" BeforeTargets="BuildWebFrontend"
           Condition="!Exists('$(WebDir)\node_modules')">
     <Exec Command="npm ci" WorkingDirectory="$(WebDir)" />
   </Target>
 
-  <Target Name="BuildWebFrontend" BeforeTargets="PrepareForPublish"
-          Condition="'$(PublishDir)' != ''">
+  <!-- Auto-build SPA on first build (or after clean) when dist is absent -->
+  <Target Name="BuildWebFrontend" BeforeTargets="Build"
+          Condition="!Exists('$(WebDir)\dist\index.html')">
     <Exec Command="npm run build" WorkingDirectory="$(WebDir)" />
-    <ItemGroup>
-      <WebFrontendFiles Include="$(WebDir)\dist\**\*" />
-    </ItemGroup>
-    <Copy SourceFiles="@(WebFrontendFiles)"
-          DestinationFiles="@(WebFrontendFiles->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" />
   </Target>
+
+  <!-- Always rebuild on dotnet publish so the release gets the latest SPA -->
+  <Target Name="RebuildWebFrontendOnPublish" BeforeTargets="PrepareForPublish"
+          DependsOnTargets="NpmInstall">
+    <Exec Command="npm run build" WorkingDirectory="$(WebDir)" />
+  </Target>
+
+  <!-- Copy dist → wwwroot for every build output (dev AND publish) -->
+  <ItemGroup Condition="Exists('$(WebDir)\dist')">
+    <Content Include="$(WebDir)\dist\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <TargetPath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
+    </Content>
+  </ItemGroup>
 
 </Project>
