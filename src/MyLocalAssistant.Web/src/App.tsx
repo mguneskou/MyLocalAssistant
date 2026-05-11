@@ -7,8 +7,10 @@ import type { ReactNode } from 'react'
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const { isAuthenticated, user } = useAuth()
-  if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (user?.mustChangePassword) return <Navigate to="/change-password" replace />
+  console.log('[MLA] RequireAuth — isAuthenticated:', isAuthenticated, '| mustChangePassword:', user?.mustChangePassword ?? 'n/a', '| user:', user ? user.username : 'null')
+  if (!isAuthenticated) { console.log('[MLA] Not authenticated → redirecting to /login'); return <Navigate to="/login" replace /> }
+  if (user?.mustChangePassword) { console.log('[MLA] mustChangePassword=true → redirecting to /change-password'); return <Navigate to="/change-password" replace /> }
+  console.log('[MLA] Auth OK → rendering chat page')
   return <>{children}</>
 }
 

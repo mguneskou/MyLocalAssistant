@@ -14,11 +14,16 @@ export default function LoginPage() {
     if (!username.trim() || !password) return
     setError('')
     setLoading(true)
+    console.log('[MLA] Login attempt for user:', username.trim())
     try {
       const resp = await api.login(username.trim(), password)
+      console.log('[MLA] Login API success. User:', JSON.stringify(resp.user))
       signIn(resp.user)
+      console.log('[MLA] signIn() called — expecting redirect to', resp.user.mustChangePassword ? '/change-password' : '/')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed')
+      const msg = err instanceof Error ? err.message : 'Login failed'
+      console.error('[MLA] Login error:', msg, err)
+      setError(msg)
     } finally {
       setLoading(false)
     }

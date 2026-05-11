@@ -7,6 +7,13 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.1
+        ───────────────────────────────────────────────────────────
+        • Debug: Added browser console logging to the login flow to help
+          diagnose sign-in issues. Open DevTools (F12 → Console) before
+          logging in to see [MLA] log entries showing the API response,
+          routing decisions, and agent loading.
+
         v2.21.0
         ───────────────────────────────────────────────────────────
         • Excel tools: 9 new tools added — excel.summarize_range (per-column

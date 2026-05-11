@@ -26,10 +26,12 @@ export default function ChatPage() {
 
   // Load agents on mount
   useEffect(() => {
+    console.log('[MLA] ChatPage mounted — loading agents...')
     api.listAgents().then(a => {
+      console.log('[MLA] Agents loaded:', a.length, a.map(x => x.name))
       setAgents(a)
       if (a.length > 0) setSelectedAgent(a[0])
-    }).catch(() => {/* handled by session expiry redirect */})
+    }).catch(err => { console.error('[MLA] Failed to load agents:', err) })
   }, [])
 
   // Load conversations when agent changes
