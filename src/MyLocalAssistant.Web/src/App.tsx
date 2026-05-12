@@ -16,7 +16,8 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 function RequireGuest({ children }: { children: ReactNode }) {
   const { isAuthenticated, user } = useAuth()
-  if (isAuthenticated && !user?.mustChangePassword) return <Navigate to="/" replace />
+  if (isAuthenticated && user?.mustChangePassword) return <Navigate to="/change-password" replace />
+  if (isAuthenticated) return <Navigate to="/" replace />
   return <>{children}</>
 }
 

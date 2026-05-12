@@ -7,6 +7,14 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.2
+        ───────────────────────────────────────────────────────────
+        • Fixed: After signing in with an account that requires a password
+          change (mustChangePassword=true), the browser stayed on the login
+          page instead of navigating to the Change Password screen.
+          The RequireGuest routing guard now correctly redirects to
+          /change-password in that case.
+
         v2.21.1
         ───────────────────────────────────────────────────────────
         • Debug: Added browser console logging to the login flow to help
