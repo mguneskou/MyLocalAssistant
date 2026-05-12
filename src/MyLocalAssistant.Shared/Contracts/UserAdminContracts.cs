@@ -25,6 +25,7 @@ public sealed record UpdateUserRequest(
     IReadOnlyList<string>? Departments,
     bool? IsAdmin,
     bool? IsDisabled,
-    string? WorkRoot);
+    string? WorkRoot,
+    bool? MustChangePassword = null);
 
 public sealed record ResetPasswordRequest(string NewPassword);

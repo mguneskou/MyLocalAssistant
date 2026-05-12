@@ -318,6 +318,7 @@ public sealed class UserService(
         }
         if (req.IsAdmin is not null) user.IsAdmin = req.IsAdmin.Value;
         if (req.IsDisabled is not null) user.IsDisabled = req.IsDisabled.Value;
+        if (req.MustChangePassword is not null) user.MustChangePassword = req.MustChangePassword.Value;
         if (req.WorkRoot is not null)
         {
             var (workRoot, workRootError) = NormalizeWorkRoot(req.WorkRoot);

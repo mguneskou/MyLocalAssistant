@@ -17,6 +17,7 @@ internal sealed class UserEditForm : Form
     private readonly Label _workRootHint;
     private readonly CheckBox _isAdmin;
     private readonly CheckBox _isDisabled;
+    private readonly CheckBox _mustChangePwd;
     private readonly Button _save;
     private readonly Button _cancel;
     private readonly Label _status;
@@ -34,7 +35,7 @@ internal sealed class UserEditForm : Form
         FormBorderStyle = FormBorderStyle.FixedDialog;
         MinimizeBox = false;
         MaximizeBox = false;
-        ClientSize = new Size(460, 620);
+        ClientSize = new Size(460, 648);
         Font = new Font("Segoe UI", 9F);
         Padding = new Padding(16, 16, 16, 8);
 
@@ -53,6 +54,7 @@ internal sealed class UserEditForm : Form
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); // workRoot hint
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28)); // isAdmin
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28)); // isDisabled
+        layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28)); // mustChangePwd
         layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 22)); // status
 
         int row = 0;
@@ -170,6 +172,16 @@ internal sealed class UserEditForm : Form
         layout.SetColumnSpan(_isDisabled, 2);
         layout.Controls.Add(_isDisabled, 0, row++);
 
+        _mustChangePwd = new CheckBox
+        {
+            Text = "Must change password on next login",
+            Checked = existing?.MustChangePassword ?? true,
+            Dock = DockStyle.Fill,
+            Margin = new Padding(0, 4, 0, 4),
+        };
+        layout.SetColumnSpan(_mustChangePwd, 2);
+        layout.Controls.Add(_mustChangePwd, 0, row++);
+
         _status = new Label { ForeColor = Color.Firebrick, Dock = DockStyle.Fill, AutoEllipsis = true };
         layout.SetColumnSpan(_status, 2);
         layout.Controls.Add(_status, 0, row++);
@@ -251,6 +263,7 @@ internal sealed class UserEditForm : Form
             var workRoot = _workRoot.Text.Trim();
             if (workRoot.Length > 0 && !Path.IsPathFullyQualified(workRoot)) { _status.Text = "Work folder must be an absolute path (e.g. D:\\Scratch or \\\\server\\share)."; return; }
 
+            // MustChangePassword is always true for new users (enforced server-side).
             CreateResult = new CreateUserRequest(username, displayName, _password.Text, depts, _isAdmin.Checked, workRoot.Length > 0 ? workRoot : null);
         }
         else
@@ -258,7 +271,7 @@ internal sealed class UserEditForm : Form
             if (string.IsNullOrEmpty(displayName)) { _status.Text = "Display name is required."; return; }
             var workRoot = _workRoot.Text.Trim();
             if (workRoot.Length > 0 && !Path.IsPathFullyQualified(workRoot)) { _status.Text = "Work folder must be an absolute path (e.g. D:\\Scratch or \\\\server\\share)."; return; }
-            UpdateResult = new UpdateUserRequest(displayName, depts, _isAdmin.Checked, _isDisabled.Checked, workRoot);
+            UpdateResult = new UpdateUserRequest(displayName, depts, _isAdmin.Checked, _isDisabled.Checked, workRoot, _mustChangePwd.Checked);
         }
 
         DialogResult = DialogResult.OK;

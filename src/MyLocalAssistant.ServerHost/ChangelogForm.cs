@@ -7,6 +7,13 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.3
+        ───────────────────────────────────────────────────────────
+        • Fixed: The Admin app's Edit User dialog now includes a
+          "Must change password on next login" checkbox. Admins can
+          untick it to let users sign in without being forced to set
+          a new password first.
+
         v2.21.2
         ───────────────────────────────────────────────────────────
         • Fixed: After signing in with an account that requires a password
