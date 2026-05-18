@@ -39,6 +39,12 @@ $root = (Resolve-Path (Join-Path $scriptDir "..")).Path
 if ([string]::IsNullOrWhiteSpace($StageDir))   { $StageDir   = Join-Path $root "dist\stage" }
 if ([string]::IsNullOrWhiteSpace($ReleaseDir)) { $ReleaseDir = Join-Path $root "dist\releases" }
 
+$tagVersion = $Version
+$packVersion = $Version
+if ($packVersion -match '^(\d+\.\d+\.\d+)(\.\d+)?$') {
+    $packVersion = $Matches[1]
+}
+
 # 1) Ensure vpk is installed.
 if (-not (Get-Command vpk -ErrorAction SilentlyContinue)) {
     Write-Host "vpk not found, installing as global .NET tool..." -ForegroundColor Yellow
@@ -48,7 +54,7 @@ if (-not (Get-Command vpk -ErrorAction SilentlyContinue)) {
 }
 
 # 2) Publish all four exes into the staging folder.
-Write-Host "Publishing $Version to $StageDir" -ForegroundColor Cyan
+Write-Host "Publishing $tagVersion to $StageDir" -ForegroundColor Cyan
 & (Join-Path $scriptDir "publish-all.ps1") -Configuration $Configuration -Runtime $Runtime -OutDir $StageDir
 if ($LASTEXITCODE -ne 0) { throw "publish-all failed." }
 
@@ -57,7 +63,7 @@ if (-not (Test-Path $ReleaseDir)) { New-Item -ItemType Directory -Force -Path $R
 $packArgs = @(
     "pack",
     "--packId",      $PackId,
-    "--packVersion", $Version,
+    "--packVersion", $packVersion,
     "--packDir",     $StageDir,
     "--mainExe",     "MyLocalAssistant.ServerHost.exe",
     "--packTitle",   $PackTitle,
@@ -81,8 +87,8 @@ if ($Upload) {
         --outputDir $ReleaseDir `
         --repoUrl   $RepoUrl `
         --token     $GitHubToken `
-        --tag       "v$Version" `
-        --releaseName "MyLocalAssistant $Version" `
+        --tag       "v$tagVersion" `
+        --releaseName "MyLocalAssistant $tagVersion" `
         --publish
     if ($LASTEXITCODE -ne 0) { throw "vpk upload failed." }
 }

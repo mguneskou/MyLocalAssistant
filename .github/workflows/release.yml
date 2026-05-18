@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version (e.g. 2.1.0). Leave blank to use the tag.'
+        description: 'Version (e.g. 2.21.7.0 or 2.21.7). Leave blank to use the tag.'
         required: false
 
 permissions:
@@ -30,16 +30,21 @@ jobs:
         id: ver
         shell: pwsh
         run: |
-          $v = '${{ github.event.inputs.version }}'
-          if ([string]::IsNullOrWhiteSpace($v)) {
-            $v = '${{ github.ref_name }}'.TrimStart('v')
+          $tagVersion = '${{ github.event.inputs.version }}'
+          if ([string]::IsNullOrWhiteSpace($tagVersion)) {
+            $tagVersion = '${{ github.ref_name }}'.TrimStart('v')
           }
-          if ([string]::IsNullOrWhiteSpace($v)) { throw 'Could not resolve version.' }
-          # Velopack requires SemVer 2.0 (3 parts). Tags can be X.Y.Z or X.Y.Z.W;
-          # collapse 4-part tags to their first three components for vpk.
-          if ($v -match '^(\d+\.\d+\.\d+)(\.\d+)?$') { $v = $Matches[1] }
-          "version=$v" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
-          Write-Host "Releasing version $v"
+          if ([string]::IsNullOrWhiteSpace($tagVersion)) { throw 'Could not resolve version.' }
+
+          $packVersion = $tagVersion
+          # Velopack requires SemVer 2.0 (3 parts). External release tags can stay
+          # on the full app version (X.Y.Z or X.Y.Z.W), but vpk must receive X.Y.Z.
+          if ($packVersion -match '^(\d+\.\d+\.\d+)(\.\d+)?$') { $packVersion = $Matches[1] }
+
+          "tag_version=$tagVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "pack_version=$packVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Release tag version: $tagVersion"
+          Write-Host "Velopack package version: $packVersion"
 
       - name: Restore + test
         shell: pwsh
@@ -68,7 +73,7 @@ jobs:
           if (-not (Test-Path dist\releases)) { New-Item -ItemType Directory -Force -Path dist\releases | Out-Null }
           vpk pack `
             --packId      MyLocalAssistant `
-            --packVersion '${{ steps.ver.outputs.version }}' `
+            --packVersion '${{ steps.ver.outputs.pack_version }}' `
             --packDir     "$PWD\dist\stage" `
             --mainExe     MyLocalAssistant.ServerHost.exe `
             --packTitle   MyLocalAssistant `
@@ -81,7 +86,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release delete 'v${{ steps.ver.outputs.version }}' --repo '${{ github.repository }}' --yes 2>$null || true
+          gh release delete 'v${{ steps.ver.outputs.tag_version }}' --repo '${{ github.repository }}' --yes 2>$null || true
 
       - name: vpk upload to GitHub Release
         shell: pwsh
@@ -92,14 +97,14 @@ jobs:
             --outputDir   "$PWD\dist\releases" `
             --repoUrl     'https://github.com/${{ github.repository }}' `
             --token       $env:GH_TOKEN `
-            --tag         'v${{ steps.ver.outputs.version }}' `
-            --releaseName 'MyLocalAssistant ${{ steps.ver.outputs.version }}' `
+            --tag         'v${{ steps.ver.outputs.tag_version }}' `
+            --releaseName 'MyLocalAssistant ${{ steps.ver.outputs.tag_version }}' `
             --publish
 
       - name: Upload artifacts (always, for diagnosis)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: MyLocalAssistant-${{ steps.ver.outputs.version }}-win
+          name: MyLocalAssistant-${{ steps.ver.outputs.tag_version }}-win
           path: dist/releases/*
           if-no-files-found: warn

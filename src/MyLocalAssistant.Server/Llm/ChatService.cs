@@ -513,17 +513,21 @@ public sealed class ChatService(
     }
 
     /// <summary>
-    /// Returns a repeatable office-workflow block when office-document tools are available.
-    /// This keeps recurring tasks on the same template family and makes tool usage mandatory
-    /// for deliverable-oriented requests instead of optional narrative advice.
+    /// Returns a repeatable office-workflow block when office-document, template, or SQL data
+    /// tools are available. This keeps recurring tasks on the same template family, makes
+    /// tool usage mandatory for deliverable-oriented requests, and keeps SQL-backed workflows
+    /// read-only and repeatable.
     /// </summary>
     private static string BuildOfficeWorkflowRules(IReadOnlyList<ITool> tools)
     {
         bool hasWord = false, hasExcel = false, hasPowerPoint = false, hasPdf = false, hasReport = false;
+        bool hasWorkDir = false, hasSqlServer = false;
         foreach (var skill in tools)
         {
             foreach (var fn in skill.Tools)
             {
+                if (fn.Name.StartsWith("workdir.", StringComparison.Ordinal)) hasWorkDir = true;
+                if (fn.Name.StartsWith("sqlserver.", StringComparison.Ordinal)) hasSqlServer = true;
                 if (fn.Name.StartsWith("word.", StringComparison.Ordinal)) hasWord = true;
                 if (fn.Name.StartsWith("excel.", StringComparison.Ordinal)) hasExcel = true;
                 if (fn.Name.StartsWith("powerpoint.", StringComparison.Ordinal)) hasPowerPoint = true;
@@ -532,7 +536,7 @@ public sealed class ChatService(
             }
         }
 
-        if (!hasWord && !hasExcel && !hasPowerPoint && !hasPdf && !hasReport)
+        if (!hasWord && !hasExcel && !hasPowerPoint && !hasPdf && !hasReport && !hasWorkDir && !hasSqlServer)
             return string.Empty;
 
         var sb = new StringBuilder();
@@ -543,21 +547,47 @@ public sealed class ChatService(
         sb.Append("• If no explicit template is available, use the built-in standard workflow below rather than inventing a new structure each time.\n");
         sb.Append("• Ask clarifying questions only when a missing input blocks a professional deliverable; otherwise proceed with the standard workflow and mark assumptions clearly.\n");
         sb.Append("• User-facing replies for office tasks must briefly confirm what file was created or updated, what sections/sheets/slides were added, and what assumptions still require review.\n");
+        if (hasWorkDir)
+        {
+            sb.Append("• Start by checking the work directory for user-supplied templates, prior examples, SQL scripts, or connection profiles. Use workdir.list_files to discover them, workdir.read_text for text assets, and workdir.copy_file to duplicate a template into a new output file before editing it. Never overwrite the original template.\n");
+        }
+        if (hasSqlServer)
+        {
+            sb.Append("• When the deliverable depends on SQL Server data, inspect the schema first if it is not already known, then fetch only the dataset needed and move it into the requested document, workbook, or presentation. Do not dump raw database output back to the user unless they explicitly ask for it.\n");
+        }
         sb.Append("Built-in standard workflows:\n");
         if (hasWord)
         {
             sb.Append("• Job advert / role profile (Word): Title, Role summary, Department / Reporting line, Key responsibilities, Essential requirements, Preferred requirements, Working pattern / location, What we offer, Application / next steps.\n");
             sb.Append("• Policy / procedure / formal document (Word): Purpose, Scope, Definitions, Responsibilities, Procedure, Exceptions, Review cycle, Document control.\n");
+            sb.Append("• When a copied Word template contains placeholders, prefer word.replace_tokens over rebuilding the document, especially when headers, footers, and repeated boilerplate are already designed.\n");
+            sb.Append("• Use word.insert_image for logos, signatures, exhibits, or screenshots, word.set_header_footer for polished running headers/footers, and word.set_section_layout when sections require landscape pages, custom margins, or multi-column layouts.\n");
         }
         if (hasExcel)
         {
             sb.Append("• KPI / operational / financial workbook (Excel): RawData sheet, Calculations sheet, Summary sheet, Charts or Dashboard sheet, Assumptions sheet; use explicit formulas, totals, variances, and clearly labelled units.\n");
             sb.Append("• Comparison / tracker workbook (Excel): input table, scoring or status columns, totals/subtotals, conditional formatting, filters, and print setup.\n");
+            sb.Append("• When an Excel template exposes named ranges, prefer excel.read_named_range and excel.write_named_range instead of hard-coded cell addresses so the same template remains reusable after layout changes.\n");
+            sb.Append("• Use excel.set_calculation_mode, excel.recalculate, and excel.evaluate_formula when workbook outputs depend on formula refresh, manual calculation templates, or a quick computed answer before writing back a final sheet.\n");
+            sb.Append("• Use excel.create_pivot_table for native refreshable PivotTables when the workbook should stay interactive for the user, and use excel.create_pivot_report when you need a fixed grouped summary sheet that is easy to restyle or chart.\n");
+            sb.Append("• Use excel.add_chart for native workbook visuals, including stacked column/bar, line, pie, doughnut, area, scatter, and combo charts with legend, data-label, axis-title, and per-series color controls; use excel.add_image, excel.add_text_box, excel.add_shape, excel.add_comment, and excel.add_hyperlink to finish the dashboard surface instead of leaving plain cells only.\n");
         }
         if (hasPowerPoint)
+        {
             sb.Append("• Presentation deck (PowerPoint): Title, Executive summary, Key facts or metrics, Detailed analysis, Risks/issues, Decisions required, Next steps.\n");
+            sb.Append("• When a PowerPoint template already has styled slides, duplicate the template slide and use powerpoint.replace_text or powerpoint.write_slide on the copy instead of recreating the layout manually; placeholder-aware updates preserve title/body targets even when template shape order varies.\n");
+            sb.Append("• Prefer powerpoint.add_slide_from_template when the deck already contains branded layouts; use powerpoint.add_image for logos/screenshots and powerpoint.add_chart for presentation-ready metric visuals on the duplicated slide, including line trends and pie-style composition views.\n");
+            sb.Append("• Use powerpoint.apply_branding when the deck needs a repeatable footer band, slide background, or text-color treatment across multiple slides, and use stacked chart variants when category totals must be shown by component instead of as separate grouped bars.\n");
+        }
         if (hasPdf || hasReport)
             sb.Append("• Distribution-ready report: create the working document first, then generate PDF when the user needs a shareable final version.\n");
+        if (hasSqlServer)
+        {
+            sb.Append("SQL Server execution rules:\n");
+            sb.Append("• Prefer connection files and .sql files already stored in the work directory when available so the same data workflow is reused across runs.\n");
+            sb.Append("• Use sqlserver.list_tables or sqlserver.describe_table before sqlserver.query when the schema is unfamiliar or when the user names a business concept rather than a table.\n");
+            sb.Append("• SQL Server access is read-only. Do not attempt write, DDL, admin, or multi-statement SQL.\n");
+        }
         return sb.ToString();
     }
 

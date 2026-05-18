@@ -90,11 +90,13 @@ try
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.CodeInterpreterTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.ImageGenTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.MemoryTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.WorkDirectoryTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.ReportGenTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.ExcelTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.WordTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.PowerPointTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.PdfTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.SqlServerTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.EmailTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.SchedulerTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ToolRegistry>();

@@ -7,6 +7,22 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.7
+        ───────────────────────────────────────────────────────────
+        • Improved: Excel workbook automation now covers calculation-mode
+          control, workbook recalculation, formula evaluation, native
+          refreshable PivotTables, and richer worksheet dashboard elements
+          including images, hyperlinks, comments, text boxes, and shapes.
+        • Improved: Native Excel chart authoring now supports stacked
+          column/bar, area, doughnut, scatter, and combo charts with legend,
+          data-label, axis-title, and per-series color controls.
+        • Improved: PowerPoint template authoring is now more robust when
+          branded slides reorder placeholders, and presentation charts now
+          include line and pie visuals alongside the existing chart modes.
+        • Improved: Office workflow prompts now guide agents more directly
+          toward recalculation, pivot-table/report selection, and template-
+          aware document/dashboard assembly.
+
         v2.21.6
         ───────────────────────────────────────────────────────────
         • Improved: Office-task prompts are now workflow-driven and repeatable.

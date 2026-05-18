@@ -607,10 +607,10 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
 
       private static IReadOnlyList<string> DefaultToolIdsFor(string agentId)
       {
-        var officePack = new[] { "word", "excel", "powerpoint", "pdf", "report.gen", "time.now", "math.eval" };
+        var officePack = new[] { "workdir", "sqlserver", "word", "excel", "powerpoint", "pdf", "report.gen", "time.now", "math.eval" };
         return agentId switch
         {
-          "it-code-helper" => new[] { "word", "excel", "powerpoint", "pdf", "report.gen", "time.now", "math.eval", "code.csharp" },
+          "it-code-helper" => new[] { "workdir", "sqlserver", "word", "excel", "powerpoint", "pdf", "report.gen", "time.now", "math.eval", "code.csharp" },
           _ => officePack,
         };
       }
