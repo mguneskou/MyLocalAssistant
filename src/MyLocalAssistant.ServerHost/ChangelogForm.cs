@@ -7,6 +7,20 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.6
+        ───────────────────────────────────────────────────────────
+        • Improved: Office-task prompts are now workflow-driven and repeatable.
+          The model is instructed to follow the same template family for
+          recurring tasks, use actual office tools to create deliverables, and
+          return consistent completion summaries instead of ad-hoc prose.
+        • Improved: Shipped agents now auto-bind the core office tool pack
+          (Word, Excel, PowerPoint, PDF, Report Generator, Time, Math) on
+          startup while preserving any additional custom tools already assigned.
+        • Improved: The default tool-call budget increased from 3 to 10 so
+          multi-step Word/Excel/PowerPoint work can complete in one turn.
+        • Improved: Client-file chaining guidance now includes PowerPoint files
+          as well as Word, Excel, and PDF workflows.
+
         v2.21.5
         ───────────────────────────────────────────────────────────
         • Improved: The model prompt now treats the per-conversation work

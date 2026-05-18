@@ -553,6 +553,7 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
         var refreshed = 0;
         foreach (var s in SeedList)
         {
+          var defaultToolIds = DefaultToolIdsFor(s.Id);
             if (!byId.TryGetValue(s.Id, out var a))
             {
                 db.Agents.Add(new Agent
@@ -565,6 +566,7 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
                     IsGeneric = s.IsGeneric,
                     Enabled = s.DefaultEnabled,
                     RagEnabled = s.DefaultRagEnabled,
+                    ToolIds = MyLocalAssistant.Server.Tools.ToolRegistry.FormatToolIds(defaultToolIds),
                 });
                 added++;
             }
@@ -587,6 +589,12 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
                     a.SystemPrompt = s.SystemPrompt;
                     dirty = true;
                 }
+                var mergedToolIds = MergeRequiredToolIds(a.ToolIds, defaultToolIds);
+                if (!string.Equals(a.ToolIds, mergedToolIds, StringComparison.Ordinal))
+                {
+                  a.ToolIds = mergedToolIds;
+                  dirty = true;
+                }
                 if (dirty) refreshed++;
             }
         }
@@ -596,6 +604,33 @@ public sealed class AgentService(AppDbContext db, ILogger<AgentService> log)
             log.LogInformation("Seeded agents: added={Added}, refreshed={Refreshed}.", added, refreshed);
         }
     }
+
+      private static IReadOnlyList<string> DefaultToolIdsFor(string agentId)
+      {
+        var officePack = new[] { "word", "excel", "powerpoint", "pdf", "report.gen", "time.now", "math.eval" };
+        return agentId switch
+        {
+          "it-code-helper" => new[] { "word", "excel", "powerpoint", "pdf", "report.gen", "time.now", "math.eval", "code.csharp" },
+          _ => officePack,
+        };
+      }
+
+      private static string? MergeRequiredToolIds(string? currentCsv, IReadOnlyList<string> requiredIds)
+      {
+        var merged = new List<string>();
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var id in MyLocalAssistant.Server.Tools.ToolRegistry.ParseToolIds(currentCsv))
+        {
+          if (seen.Add(id)) merged.Add(id);
+        }
+        foreach (var id in requiredIds)
+        {
+          if (seen.Add(id)) merged.Add(id);
+        }
+
+        return MyLocalAssistant.Server.Tools.ToolRegistry.FormatToolIds(merged);
+      }
 
     /// <summary>Admin-only: list every agent regardless of enabled flag.</summary>
     public async Task<List<AgentDto>> ListAllAsync(CancellationToken ct)

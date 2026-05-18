@@ -29,7 +29,7 @@ public sealed class ChatService(
     public sealed record VisibilityCheck(bool Allowed, string? Reason, Agent? Agent);
 
     /// <summary>Server-wide default cap on tool invocations per chat turn. Agents may lower or raise this (max 20).</summary>
-    private const int DefaultMaxToolCallsPerTurn = 3;
+    private const int DefaultMaxToolCallsPerTurn = 10;
 
     private const string ToolCallOpen = "<tool_call>";
     private const string ToolCallClose = "</tool_call>";
@@ -490,6 +490,8 @@ public sealed class ChatService(
                     }
                 }
             }
+            var officeRules = BuildOfficeWorkflowRules(tools);
+            if (officeRules.Length > 0) sb.Append(officeRules);
             var chainingHints = BuildToolChainingHints(tools);
             if (chainingHints.Length > 0) sb.Append(chainingHints);
         }
@@ -511,8 +513,57 @@ public sealed class ChatService(
     }
 
     /// <summary>
+    /// Returns a repeatable office-workflow block when office-document tools are available.
+    /// This keeps recurring tasks on the same template family and makes tool usage mandatory
+    /// for deliverable-oriented requests instead of optional narrative advice.
+    /// </summary>
+    private static string BuildOfficeWorkflowRules(IReadOnlyList<ITool> tools)
+    {
+        bool hasWord = false, hasExcel = false, hasPowerPoint = false, hasPdf = false, hasReport = false;
+        foreach (var skill in tools)
+        {
+            foreach (var fn in skill.Tools)
+            {
+                if (fn.Name.StartsWith("word.", StringComparison.Ordinal)) hasWord = true;
+                if (fn.Name.StartsWith("excel.", StringComparison.Ordinal)) hasExcel = true;
+                if (fn.Name.StartsWith("powerpoint.", StringComparison.Ordinal)) hasPowerPoint = true;
+                if (fn.Name.StartsWith("pdf.", StringComparison.Ordinal)) hasPdf = true;
+                if (fn.Name.StartsWith("report.", StringComparison.Ordinal)) hasReport = true;
+            }
+        }
+
+        if (!hasWord && !hasExcel && !hasPowerPoint && !hasPdf && !hasReport)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        sb.Append("\n\nOffice execution rules:\n");
+        sb.Append("• For office-work requests, create or update the actual deliverable with the office tools. Do not stop at advice, outlines, or sample text unless the user explicitly asks for discussion only.\n");
+        sb.Append("• Repeated task families must follow the same workflow and template family each time unless the user provides a different template or explicitly requests a different format.\n");
+        sb.Append("• If a template file or prior example is available, read it first and preserve the section order, worksheet structure, slide flow, naming pattern, and recurring boilerplate.\n");
+        sb.Append("• If no explicit template is available, use the built-in standard workflow below rather than inventing a new structure each time.\n");
+        sb.Append("• Ask clarifying questions only when a missing input blocks a professional deliverable; otherwise proceed with the standard workflow and mark assumptions clearly.\n");
+        sb.Append("• User-facing replies for office tasks must briefly confirm what file was created or updated, what sections/sheets/slides were added, and what assumptions still require review.\n");
+        sb.Append("Built-in standard workflows:\n");
+        if (hasWord)
+        {
+            sb.Append("• Job advert / role profile (Word): Title, Role summary, Department / Reporting line, Key responsibilities, Essential requirements, Preferred requirements, Working pattern / location, What we offer, Application / next steps.\n");
+            sb.Append("• Policy / procedure / formal document (Word): Purpose, Scope, Definitions, Responsibilities, Procedure, Exceptions, Review cycle, Document control.\n");
+        }
+        if (hasExcel)
+        {
+            sb.Append("• KPI / operational / financial workbook (Excel): RawData sheet, Calculations sheet, Summary sheet, Charts or Dashboard sheet, Assumptions sheet; use explicit formulas, totals, variances, and clearly labelled units.\n");
+            sb.Append("• Comparison / tracker workbook (Excel): input table, scoring or status columns, totals/subtotals, conditional formatting, filters, and print setup.\n");
+        }
+        if (hasPowerPoint)
+            sb.Append("• Presentation deck (PowerPoint): Title, Executive summary, Key facts or metrics, Detailed analysis, Risks/issues, Decisions required, Next steps.\n");
+        if (hasPdf || hasReport)
+            sb.Append("• Distribution-ready report: create the working document first, then generate PDF when the user needs a shareable final version.\n");
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Returns a "Tool chaining rules" block when the active tool set contains both
-    /// <c>client.fs.*</c> bridge tools AND any of <c>excel.*</c>, <c>word.*</c>, <c>pdf.*</c>.
+    /// <c>client.fs.*</c> bridge tools AND any of <c>excel.*</c>, <c>word.*</c>, <c>pdf.*</c>, or <c>powerpoint.*</c>.
     /// The injected text prevents the agent from calling server-side file tools directly
     /// on client-side paths without first copying the file into the server work directory.
     /// </summary>
@@ -526,13 +577,14 @@ public sealed class ChatService(
                 if (fn.Name.StartsWith("client.fs.", StringComparison.Ordinal)) hasClientFs = true;
                 if (fn.Name.StartsWith("excel.", StringComparison.Ordinal) ||
                     fn.Name.StartsWith("word.", StringComparison.Ordinal) ||
-                    fn.Name.StartsWith("pdf.", StringComparison.Ordinal)) hasFileWork = true;
+                    fn.Name.StartsWith("pdf.", StringComparison.Ordinal) ||
+                    fn.Name.StartsWith("powerpoint.", StringComparison.Ordinal)) hasFileWork = true;
             }
             if (hasClientFs && hasFileWork) break;
         }
         if (!hasClientFs || !hasFileWork) return string.Empty;
         return "\n\nTool chaining rules:\n" +
-               "• Files on the client PC (listed via client.fs.list): ALWAYS call client.fs.copyToWorkDir first to copy the file to the server work directory, then use excel.*, word.*, or pdf.* tools on the returned filename. Never pass a client-side path directly to those tools.\n" +
+               "• Files on the client PC (listed via client.fs.list): ALWAYS call client.fs.copyToWorkDir first to copy the file to the server work directory, then use excel.*, word.*, pdf.*, or powerpoint.* tools on the returned filename. Never pass a client-side path directly to those tools.\n" +
                "• To send a result file back to the client after creating or editing it: call client.fs.copyFromWorkDir with the server filename and the desired client destination path.\n";
     }
 }
