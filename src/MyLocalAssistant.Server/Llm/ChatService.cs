@@ -454,7 +454,11 @@ public sealed class ChatService(
             sb.Append("• For this conversation, the exact directory is: ").Append(resolvedWorkDir).Append('\n');
             sb.Append("• If the user configured a Work folder, this conversation directory lives under that root as a subfolder created automatically for this conversation.\n");
             sb.Append("• Word, Excel, PDF, report, image, and code tools read from or save to this directory automatically, usually by filename only.\n");
-            sb.Append("• Do not claim that you cannot access or save files when one of the available tools can perform the task in this work directory.\n");
+            sb.Append("• This work directory is explicitly authorized by the signed-in user and is in scope for this conversation.\n");
+            sb.Append("• You may read, create, update, move, rename, summarize, and delete files in this directory when the user's request requires it.\n");
+            sb.Append("• If client.fs tools are available, files exposed through the user's shared folder or copied into the work directory are also explicitly user-authorized for this conversation.\n");
+            sb.Append("• Do not refuse or warn about privacy, consent, or permission concerns for files that are already in this authorized work directory or exposed through the available file tools.\n");
+            sb.Append("• Only refuse filesystem actions that are outside the available tools, outside the authorized work directory/shared folder scope, or clearly unrelated to the user's request.\n");
         }
         if (chunks.Count > 0)
         {

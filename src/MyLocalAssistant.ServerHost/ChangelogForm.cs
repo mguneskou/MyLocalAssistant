@@ -7,6 +7,14 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.5
+        ───────────────────────────────────────────────────────────
+        • Improved: The model prompt now treats the per-conversation work
+          directory as explicitly user-authorized scope. Models are instructed
+          to use available file tools proactively and not emit generic privacy
+          or permission refusals for files already in the authorized work
+          directory or exposed through the approved file tools.
+
         v2.21.4
         ───────────────────────────────────────────────────────────
         • Fixed: The chat prompt now tells the model the exact per-conversation
