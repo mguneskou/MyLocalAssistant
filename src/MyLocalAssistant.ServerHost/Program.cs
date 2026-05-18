@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Reflection;
@@ -249,6 +250,17 @@ internal sealed class TrayContext : ApplicationContext
                 WorkingDirectory = AppContext.BaseDirectory,
                 UseShellExecute = true,
             });
+        }
+        catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            MessageBox.Show(
+                $"Windows canceled launching {exeName}. This usually means the portable EXE is still blocked because it was downloaded from the internet.\n\n"
+                + $"To fix it once on this PC:\n"
+                + $"1. Open the install folder\n"
+                + $"2. Right-click {exeName} -> Properties -> check 'Unblock' -> OK\n"
+                + $"3. Or double-click {exeName} directly once and click 'More info' -> 'Run anyway' if Windows asks\n\n"
+                + $"Install folder: {AppContext.BaseDirectory}",
+                "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Warning);
         }
         catch (Exception ex)
         {

@@ -100,12 +100,15 @@ public sealed class ChatService(
         var capability = capabilities.Get(activeModelId);
         var resolvedSkills = ResolveSkills(agent, capability, callbacks.OnToolUnavailable);
         var toolMode = resolvedSkills.Count > 0;
+        var workDir = await ResolveWorkDirectoryAsync(principal.UserId, callbacks.ConversationId, ct);
+        Directory.CreateDirectory(workDir);
 
         var maxToolCalls = Math.Clamp(agent.MaxToolCalls ?? DefaultMaxToolCallsPerTurn, 1, 20);
         var basePrompt = BuildPrompt(
             settings.GlobalSystemPrompt,
             agent.SystemPrompt,
             agent.ScenarioNotes,
+            workDir,
             userMessage,
             retrieval.Chunks,
             history,
@@ -127,8 +130,6 @@ public sealed class ChatService(
 
         var assistantSoFar = new StringBuilder();
         var stops = toolMode ? new[] { ToolCallClose } : Array.Empty<string>();
-        var workDir = await ResolveWorkDirectoryAsync(principal.UserId, callbacks.ConversationId, ct);
-        Directory.CreateDirectory(workDir);
         var skillCtx = new ToolContext(
             principal.UserId,
             principal.Username ?? string.Empty,
@@ -429,6 +430,7 @@ public sealed class ChatService(
         string? globalSystemPrompt,
         string systemPrompt,
         string? scenarioNotes,
+        string? workDirectory,
         string userMessage,
         IReadOnlyList<RagContextChunk> chunks,
         IReadOnlyList<HistoryTurn> history,
@@ -444,6 +446,16 @@ public sealed class ChatService(
             sb.Append("\n\n");
         }
         sb.Append(systemPrompt.Trim());
+        if (!string.IsNullOrWhiteSpace(workDirectory))
+        {
+            var resolvedWorkDir = workDirectory.Replace("\r", "").Replace("\n", " ");
+            sb.Append("\n\nFilesystem context:\n");
+            sb.Append("• You have a writable per-conversation work directory on the server.\n");
+            sb.Append("• For this conversation, the exact directory is: ").Append(resolvedWorkDir).Append('\n');
+            sb.Append("• If the user configured a Work folder, this conversation directory lives under that root as a subfolder created automatically for this conversation.\n");
+            sb.Append("• Word, Excel, PDF, report, image, and code tools read from or save to this directory automatically, usually by filename only.\n");
+            sb.Append("• Do not claim that you cannot access or save files when one of the available tools can perform the task in this work directory.\n");
+        }
         if (chunks.Count > 0)
         {
             sb.Append("\n\nUse the following context to answer the user. Cite sources inline as [source:page] when relevant. If the context does not contain the answer, say so.\n\nContext:\n");

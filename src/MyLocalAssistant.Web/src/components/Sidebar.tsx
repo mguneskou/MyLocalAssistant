@@ -147,6 +147,9 @@ export default function Sidebar({ conversations, activeConvId, onNewChat, onSele
               className="w-full px-2 py-1.5 rounded bg-zinc-900 border border-zinc-700 text-xs text-zinc-200
                          placeholder:text-zinc-600 focus:outline-none focus:ring-1 focus:ring-blue-500"
             />
+            <p className="text-[11px] leading-4 text-zinc-500">
+              Uses a per-conversation subfolder under this path on the server PC, not the root folder directly.
+            </p>
             {settingsError && <p className="text-xs text-red-400">{settingsError}</p>}
             <div className="flex gap-2">
               <button

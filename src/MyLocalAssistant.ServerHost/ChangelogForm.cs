@@ -7,6 +7,19 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.4
+        ───────────────────────────────────────────────────────────
+        • Fixed: The chat prompt now tells the model the exact per-conversation
+          work directory path and that Word, Excel, PDF, report, image, and
+          code tools save there automatically. This prevents models from
+          incorrectly claiming they cannot use the configured Work folder.
+        • Clarified: The browser client's Work folder setting now explains that
+          the configured path is a root and the app uses a per-conversation
+          subfolder underneath it.
+        • Improved: When Windows cancels launching the Admin or Client EXE from
+          a portable folder, the tray app now shows actionable guidance to
+          unblock the downloaded executable instead of only the raw shell error.
+
         v2.21.3
         ───────────────────────────────────────────────────────────
         • Fixed: The Admin app's Edit User dialog now includes a
