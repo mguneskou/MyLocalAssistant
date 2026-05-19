@@ -1,7 +1,7 @@
 # MyLocalAssistant
 
 A small-organization, fully-offline AI platform: a Windows-Service-hosted **server**
-runs LLMs, agents, and a RAG pipeline; **WinForms clients** on the LAN authenticate
+runs LLMs, agents, and a RAG pipeline; **browser-based chat/admin UIs** authenticate
 against it and chat with the agents they're allowed to see.
 
 Built on .NET 8 and [LLamaSharp](https://github.com/SciSharp/LLamaSharp) (CPU / CUDA 12
@@ -143,7 +143,7 @@ proper installer + auto-updater so testers can be onboarded with a single downlo
 ### Skills & plug-in runtime (new)
 
 - **Skill catalog** with three built-in skills: `math.eval`, `time.now`,
-  `rag.search_collection`. Per-agent capability binding from the Admin console.
+  `rag.search_collection`. Per-agent capability binding from the admin web UI.
 - **Tag-mode tool calling**: agents emit `<tool>{...}</tool>` blocks, the server runs the
   skill, and feeds the result back into the same turn — model-agnostic, no JSON-grammar
   required.
@@ -162,7 +162,7 @@ proper installer + auto-updater so testers can be onboarded with a single downlo
   log to `%LocalAppData%\MyLocalAssistant\client.log` + show a MessageBox; deferred
   `SplitContainer` sizing to `HandleCreated` to stop ctor-time `InvalidOperationException`.
 - **Telemetry & hot-reload** of agent config; **sandbox ACL + UI limits** in the Admin
-  console; minimum password length raised to 8 to match the server.
+  web UI; minimum password length raised to 8 to match the server.
 - **Modern WinForms theme**: rounded buttons, app icon, themed tool-strips and dialogs,
   branded login header.
 - **31 → expanded** xUnit test suite (now also covers plug-in manifest parsing,
@@ -193,11 +193,11 @@ proper installer + auto-updater so testers can be onboarded with a single downlo
   the server parses and inlines it (ephemeral — not ingested into RAG).
 - **Audit**: who / what / when, configurable retention (90 days default).
 
-### Admin GUI (`MyLocalAssistant.Admin`)
+### Admin Web UI (`MyLocalAssistant.Web`)
 
-WinForms admin console: Users, Departments, Roles, Models, RAG Collections,
-Audit, Server Settings — and (owner only) an Agents tab with a per-agent
-system-prompt editor and the global system prompt editor.
+Web admin route at `/admin`: Users, Departments, Roles, Models, RAG,
+Audit, Settings, Usage, and (owner only) Agents/Tools management including
+per-agent prompt testing and plug-in reload.
 
 ### Client (`MyLocalAssistant.Client`)
 
@@ -211,7 +211,7 @@ JWT auto-refresh, offline indicator.
 src/
   MyLocalAssistant.Server/      ASP.NET Core service (LLM, RAG, auth, audit, REST/SSE)
   MyLocalAssistant.ServerHost/  Tray-icon launcher + Velopack auto-updater
-  MyLocalAssistant.Admin/       WinForms admin console
+  MyLocalAssistant.Web/         React + Vite web UI (chat + admin)
   MyLocalAssistant.Client/      WinForms end-user chat client
   MyLocalAssistant.Shared/      DTOs / contracts shared by server + clients
   MyLocalAssistant.Core/        Catalog, downloader, hashing (shared with v1)
@@ -250,10 +250,12 @@ On first launch the server creates `./data`, `./models`, `./vectors`, `./ingesti
 .\scripts\uninstall-service.ps1
 ```
 
-### Admin GUI
+### Web UI (dev build)
 
 ```powershell
-dotnet run --project src\MyLocalAssistant.Admin -c Release
+Set-Location src\MyLocalAssistant.Web
+npm ci
+npm run build
 ```
 
 ### Client
@@ -275,7 +277,7 @@ dotnet test src\tests\MyLocalAssistant.Core.Tests
 Local end-to-end build of an installer:
 
 ```powershell
-.\scripts\publish-all.ps1                      # publishes 4 exes into dist\stage\
+.\scripts\publish-all.ps1                      # publishes Server + ServerHost into dist\stage\
 .\scripts\release.ps1 -Version 2.1.3           # publish + vpk pack -> dist\releases\
 .\scripts\release.ps1 -Version 2.1.3 -Upload `
     -GitHubToken $env:GH_PAT                   # also upload to GitHub Releases

@@ -1,7 +1,7 @@
 # Builds a Velopack release for MyLocalAssistant and (optionally) uploads it to GitHub.
 #
 # Workflow:
-#   1) Publish Server / ServerHost / Admin / Client into a single staging folder.
+#   1) Publish Server / ServerHost into a single staging folder.
 #   2) `vpk pack` that folder into Setup.exe + delta nupkg + RELEASES manifest.
 #   3) (optional) `vpk upload github` to attach them to a GitHub release matching the version.
 #
@@ -53,7 +53,7 @@ if (-not (Get-Command vpk -ErrorAction SilentlyContinue)) {
     $env:PATH += ";$env:USERPROFILE\.dotnet\tools"
 }
 
-# 2) Publish all four exes into the staging folder.
+# 2) Publish Server + ServerHost into the staging folder.
 Write-Host "Publishing $tagVersion to $StageDir" -ForegroundColor Cyan
 & (Join-Path $scriptDir "publish-all.ps1") -Configuration $Configuration -Runtime $Runtime -OutDir $StageDir
 if ($LASTEXITCODE -ne 0) { throw "publish-all failed." }

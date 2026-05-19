@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as api from '../../api/client'
 import { useAuth } from '../../contexts/AuthContext'
 import type { AgentDto, AgentUpdateRequest, ModelDto, RagCollectionDto, ToolDto } from '../../api/types'
+import AdminAgentPromptTestModal from './AdminAgentPromptTestModal'
 
 interface AgentDraft {
   enabled: boolean
@@ -43,6 +44,7 @@ export default function AdminAgentsTab() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState('')
+  const [showPromptTest, setShowPromptTest] = useState(false)
 
   const selected = useMemo(
     () => agents.find(a => a.id === selectedId) ?? null,
@@ -144,13 +146,22 @@ export default function AdminAgentsTab() {
           <h1 className="text-xl font-semibold">Agents</h1>
           <p className="text-sm text-zinc-500 mt-1">Agent prompt, model, tools, and RAG routing configuration.</p>
         </div>
-        <button
-          onClick={load}
-          disabled={loading || saving}
-          className="px-3 py-2 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
-        >
-          {loading ? 'Loading…' : 'Refresh'}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowPromptTest(true)}
+            disabled={!selected || loading}
+            className="px-3 py-2 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
+          >
+            Prompt test…
+          </button>
+          <button
+            onClick={load}
+            disabled={loading || saving}
+            className="px-3 py-2 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {loading ? 'Loading…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {!canEdit && (
@@ -323,6 +334,13 @@ export default function AdminAgentsTab() {
           )}
         </section>
       </div>
+
+      {showPromptTest && selected && (
+        <AdminAgentPromptTestModal
+          agent={selected}
+          onClose={() => setShowPromptTest(false)}
+        />
+      )}
     </div>
   )
 }

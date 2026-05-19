@@ -38,6 +38,13 @@ public static class ToolEndpoints
             }
         }).RequireAuthorization("GlobalAdmin");
 
+        // Re-apply persisted tool state and report currently loaded plug-ins.
+        admin.MapPost("/reload", async (ToolRegistry registry, CancellationToken ct) =>
+        {
+            var count = await registry.ReloadPluginsAsync(ct);
+            return Results.Ok(new { count });
+        }).RequireAuthorization("GlobalAdmin");
+
         // Lightweight in-memory tool-call counters (since server start or last reset).
         admin.MapGet("/stats", (ToolCallStats stats) => Results.Ok(stats.Snapshot()));
         admin.MapPost("/stats/reset", (ToolCallStats stats) =>

@@ -1,5 +1,5 @@
-# Publishes Server + ServerHost + Admin + Client into a single folder so they
-# can run side-by-side the way testers will see them after install.
+# Publishes Server + ServerHost into a single folder so they can run side-by-side
+# the way testers will see them after install.
 #
 # Usage:  pwsh .\scripts\publish-all.ps1 [-Configuration Release] [-Runtime win-x64] [-OutDir .\dist\MyLocalAssistant]
 
@@ -22,8 +22,7 @@ Remove-Item -Recurse -Force "$out\*" -ErrorAction SilentlyContinue
 
 $projects = @(
     "src\MyLocalAssistant.Server\MyLocalAssistant.Server.csproj",
-    "src\MyLocalAssistant.ServerHost\MyLocalAssistant.ServerHost.csproj",
-    "src\MyLocalAssistant.Admin\MyLocalAssistant.Admin.csproj"
+    "src\MyLocalAssistant.ServerHost\MyLocalAssistant.ServerHost.csproj"
 )
 
 $requiredOfficeRuntimeFiles = @(

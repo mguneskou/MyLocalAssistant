@@ -1,7 +1,8 @@
-import { useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useEffect, useMemo } from 'react'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import AdminOverviewTab from '../components/admin/AdminOverviewTab'
+import AdminUsageTab from '../components/admin/AdminUsageTab'
 import AdminModelsTab from '../components/admin/AdminModelsTab'
 import AdminSettingsTab from '../components/admin/AdminSettingsTab'
 import AdminUsersTab from '../components/admin/AdminUsersTab'
@@ -13,6 +14,7 @@ import AdminAuditTab from '../components/admin/AdminAuditTab'
 
 type AdminTab =
   | 'overview'
+  | 'usage'
   | 'models'
   | 'settings'
   | 'users'
@@ -22,20 +24,25 @@ type AdminTab =
   | 'rag'
   | 'audit'
 
-const TAB_ORDER: AdminTab[] = [
-  'overview',
-  'models',
-  'settings',
-  'users',
-  'departments',
-  'agents',
-  'tools',
-  'rag',
-  'audit',
-]
+const BASE_TABS: AdminTab[] = ['overview', 'usage', 'models', 'settings', 'users', 'departments', 'rag', 'audit']
+const GLOBAL_TABS: AdminTab[] = ['agents', 'tools']
+
+const TAB_TITLES: Record<AdminTab, string> = {
+  overview: 'Overview',
+  usage: 'Usage',
+  models: 'Models',
+  settings: 'Settings',
+  users: 'Users',
+  departments: 'Departments',
+  agents: 'Agents',
+  tools: 'Tools',
+  rag: 'RAG',
+  audit: 'Audit',
+}
 
 function normalizeTab(value: string | null): AdminTab {
   if (
+    value === 'usage' ||
     value === 'models' ||
     value === 'settings' ||
     value === 'users' ||
@@ -50,8 +57,22 @@ function normalizeTab(value: string | null): AdminTab {
 
 export default function AdminPage() {
   const { user, signOut } = useAuth()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
-  const activeTab = normalizeTab(searchParams.get('tab'))
+  const requestedTab = normalizeTab(searchParams.get('tab'))
+
+  const tabOrder = useMemo(
+    () => (user?.isGlobalAdmin ? [...BASE_TABS.slice(0, 6), ...GLOBAL_TABS, ...BASE_TABS.slice(6)] : BASE_TABS),
+    [user?.isGlobalAdmin],
+  )
+
+  const activeTab = tabOrder.includes(requestedTab) ? requestedTab : tabOrder[0]
+
+  useEffect(() => {
+    if (requestedTab !== activeTab) {
+      setSearchParams({ tab: activeTab }, { replace: true })
+    }
+  }, [activeTab, requestedTab, setSearchParams])
 
   const subtitle = useMemo(() => {
     if (!user) return ''
@@ -66,29 +87,35 @@ export default function AdminPage() {
     <div className="h-full flex bg-zinc-950 text-zinc-100">
       <aside className="w-72 shrink-0 border-r border-zinc-800 bg-zinc-900 flex flex-col">
         <div className="px-4 py-4 border-b border-zinc-800">
-          <div className="text-sm font-semibold tracking-wide">Admin Console</div>
+          <div className="text-sm font-semibold tracking-wide">Admin</div>
           <div className="text-xs text-zinc-500 mt-1">{subtitle}</div>
         </div>
 
         <nav className="p-2 space-y-1 flex-1">
-          {TAB_ORDER.map(tab => (
+          {tabOrder.map(tab => (
             <button
               key={tab}
               onClick={() => setTab(tab)}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm capitalize transition-colors ${
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                 activeTab === tab
                   ? 'bg-zinc-700 text-zinc-100'
                   : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
               }`}
             >
-              {tab}
+              {TAB_TITLES[tab]}
             </button>
           ))}
         </nav>
 
         <div className="p-3 border-t border-zinc-800 space-y-2">
           <button
-            onClick={() => { window.location.href = '/' }}
+            onClick={() => { navigate('/change-password') }}
+            className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 transition-colors"
+          >
+            Change Password
+          </button>
+          <button
+            onClick={() => { navigate('/') }}
             className="w-full px-3 py-2 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 transition-colors"
           >
             Back To Chat
@@ -104,6 +131,7 @@ export default function AdminPage() {
 
       <main className="flex-1 min-w-0 overflow-y-auto">
         {activeTab === 'overview' && <AdminOverviewTab />}
+        {activeTab === 'usage' && <AdminUsageTab />}
         {activeTab === 'models' && <AdminModelsTab />}
         {activeTab === 'settings' && <AdminSettingsTab />}
         {activeTab === 'users' && <AdminUsersTab />}

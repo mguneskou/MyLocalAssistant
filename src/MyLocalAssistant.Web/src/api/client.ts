@@ -364,6 +364,15 @@ export async function resetToolStats(): Promise<void> {
   await json<unknown>(res)
 }
 
+export async function reloadTools(): Promise<number> {
+  const res = await fetch('/api/admin/tools/reload', {
+    method: 'POST',
+    headers: await authHeaders(),
+  })
+  const body = await json<{ count?: number }>(res)
+  return typeof body?.count === 'number' ? body.count : 0
+}
+
 // ── Admin: RAG ──────────────────────────────────────────────────────────────
 
 export async function listCollections(): Promise<RagCollectionDto[]> {

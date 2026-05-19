@@ -61,7 +61,7 @@ jobs:
           $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
           vpk --help | Select-Object -First 3
 
-      - name: Publish all four exes into dist\stage
+      - name: Publish server and host into dist\stage
         shell: pwsh
         run: |
           .\scripts\publish-all.ps1 -Configuration Release -Runtime win-x64 -OutDir "$PWD\dist\stage"

@@ -7,6 +7,20 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.10
+        ───────────────────────────────────────────────────────────
+        • Breaking/Improved: Legacy desktop admin has been removed. Admin
+          operations are now fully web-based at /admin and launched from the
+          tray menu's Open Admin action.
+        • Improved: Web admin parity completed with dedicated Usage metrics,
+          tool plug-in reload, cloud-key clear semantics, and owner prompt-test
+          workbench for agent validation.
+        • Improved: Release packaging now ships only Server + ServerHost for
+          admin operations; no desktop admin executable is distributed.
+        • Fixed: Tray Open Admin/Open Client URLs now resolve from server
+          listen settings instead of a hard-coded port, so web UI launch works
+          reliably on configured host/port deployments.
+
         v2.21.9
         ───────────────────────────────────────────────────────────
         • New: Web Admin now includes the full operations surface and no longer

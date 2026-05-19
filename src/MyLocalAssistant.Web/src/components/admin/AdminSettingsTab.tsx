@@ -20,6 +20,15 @@ interface CloudDraft {
   cerebrasApiKey: string
 }
 
+interface CloudClearFlags {
+  openAiApiKey: boolean
+  anthropicApiKey: boolean
+  groqApiKey: boolean
+  geminiApiKey: boolean
+  mistralApiKey: boolean
+  cerebrasApiKey: boolean
+}
+
 const emptyCloudDraft: CloudDraft = {
   openAiApiKey: '',
   anthropicApiKey: '',
@@ -30,21 +39,36 @@ const emptyCloudDraft: CloudDraft = {
   cerebrasApiKey: '',
 }
 
-function toCloudRequest(draft: CloudDraft): UpdateCloudKeysRequest {
-  const mapValue = (value: string): string | null | undefined => {
+const emptyCloudClearFlags: CloudClearFlags = {
+  openAiApiKey: false,
+  anthropicApiKey: false,
+  groqApiKey: false,
+  geminiApiKey: false,
+  mistralApiKey: false,
+  cerebrasApiKey: false,
+}
+
+function toCloudRequest(draft: CloudDraft, clearFlags: CloudClearFlags): UpdateCloudKeysRequest {
+  const mapSecretValue = (value: string, clearRequested: boolean): string | null | undefined => {
+    if (clearRequested) return ''
     const trimmed = value.trim()
     if (trimmed.length === 0) return undefined
     return trimmed
   }
 
+  const mapUrlValue = (value: string): string | null | undefined => {
+    const trimmed = value.trim()
+    return trimmed
+  }
+
   return {
-    openAiApiKey: mapValue(draft.openAiApiKey),
-    anthropicApiKey: mapValue(draft.anthropicApiKey),
-    openAiBaseUrl: mapValue(draft.openAiBaseUrl),
-    groqApiKey: mapValue(draft.groqApiKey),
-    geminiApiKey: mapValue(draft.geminiApiKey),
-    mistralApiKey: mapValue(draft.mistralApiKey),
-    cerebrasApiKey: mapValue(draft.cerebrasApiKey),
+    openAiApiKey: mapSecretValue(draft.openAiApiKey, clearFlags.openAiApiKey),
+    anthropicApiKey: mapSecretValue(draft.anthropicApiKey, clearFlags.anthropicApiKey),
+    openAiBaseUrl: mapUrlValue(draft.openAiBaseUrl),
+    groqApiKey: mapSecretValue(draft.groqApiKey, clearFlags.groqApiKey),
+    geminiApiKey: mapSecretValue(draft.geminiApiKey, clearFlags.geminiApiKey),
+    mistralApiKey: mapSecretValue(draft.mistralApiKey, clearFlags.mistralApiKey),
+    cerebrasApiKey: mapSecretValue(draft.cerebrasApiKey, clearFlags.cerebrasApiKey),
   }
 }
 
@@ -58,6 +82,7 @@ export default function AdminSettingsTab() {
   const [globalPrompt, setGlobalPrompt] = useState('')
   const [cloudStatus, setCloudStatus] = useState<CloudKeysStatusDto | null>(null)
   const [cloudDraft, setCloudDraft] = useState<CloudDraft>(emptyCloudDraft)
+  const [cloudClearFlags, setCloudClearFlags] = useState<CloudClearFlags>(emptyCloudClearFlags)
   const [cloudTestResults, setCloudTestResults] = useState<Record<string, string>>({})
 
   const [loading, setLoading] = useState(true)
@@ -91,6 +116,7 @@ export default function AdminSettingsTab() {
         setGlobalPrompt(promptResp.systemPrompt)
         setCloudStatus(cloudResp)
         setCloudDraft({ ...emptyCloudDraft, openAiBaseUrl: cloudResp.openAiBaseUrl ?? '' })
+        setCloudClearFlags(emptyCloudClearFlags)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load settings.')
@@ -146,9 +172,10 @@ export default function AdminSettingsTab() {
     setError(null)
     setStatus('')
     try {
-      const updated = await api.setCloudKeys(toCloudRequest(cloudDraft))
+      const updated = await api.setCloudKeys(toCloudRequest(cloudDraft, cloudClearFlags))
       setCloudStatus(updated)
       setCloudDraft({ ...emptyCloudDraft, openAiBaseUrl: updated.openAiBaseUrl ?? '' })
+      setCloudClearFlags(emptyCloudClearFlags)
       setStatus('Cloud key settings saved.')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save cloud key settings.')
@@ -187,6 +214,16 @@ export default function AdminSettingsTab() {
       ...form,
       [key]: Number.isNaN(parsed) ? 0 : parsed,
     })
+  }
+
+  function setCloudSecretValue<K extends keyof CloudClearFlags>(key: K, value: string) {
+    setCloudDraft(prev => ({ ...prev, [key]: value }))
+    setCloudClearFlags(prev => ({ ...prev, [key]: false }))
+  }
+
+  function clearCloudSecret<K extends keyof CloudClearFlags>(key: K) {
+    setCloudDraft(prev => ({ ...prev, [key]: '' }))
+    setCloudClearFlags(prev => ({ ...prev, [key]: true }))
   }
 
   const cloudProviders = [
@@ -331,32 +368,44 @@ export default function AdminSettingsTab() {
               <PasswordField
                 label="OpenAI API key"
                 value={cloudDraft.openAiApiKey}
-                onChange={value => setCloudDraft(prev => ({ ...prev, openAiApiKey: value }))}
+                onChange={value => setCloudSecretValue('openAiApiKey', value)}
+                onClear={() => clearCloudSecret('openAiApiKey')}
+                clearRequested={cloudClearFlags.openAiApiKey}
               />
               <PasswordField
                 label="Anthropic API key"
                 value={cloudDraft.anthropicApiKey}
-                onChange={value => setCloudDraft(prev => ({ ...prev, anthropicApiKey: value }))}
+                onChange={value => setCloudSecretValue('anthropicApiKey', value)}
+                onClear={() => clearCloudSecret('anthropicApiKey')}
+                clearRequested={cloudClearFlags.anthropicApiKey}
               />
               <PasswordField
                 label="Groq API key"
                 value={cloudDraft.groqApiKey}
-                onChange={value => setCloudDraft(prev => ({ ...prev, groqApiKey: value }))}
+                onChange={value => setCloudSecretValue('groqApiKey', value)}
+                onClear={() => clearCloudSecret('groqApiKey')}
+                clearRequested={cloudClearFlags.groqApiKey}
               />
               <PasswordField
                 label="Gemini API key"
                 value={cloudDraft.geminiApiKey}
-                onChange={value => setCloudDraft(prev => ({ ...prev, geminiApiKey: value }))}
+                onChange={value => setCloudSecretValue('geminiApiKey', value)}
+                onClear={() => clearCloudSecret('geminiApiKey')}
+                clearRequested={cloudClearFlags.geminiApiKey}
               />
               <PasswordField
                 label="Mistral API key"
                 value={cloudDraft.mistralApiKey}
-                onChange={value => setCloudDraft(prev => ({ ...prev, mistralApiKey: value }))}
+                onChange={value => setCloudSecretValue('mistralApiKey', value)}
+                onClear={() => clearCloudSecret('mistralApiKey')}
+                clearRequested={cloudClearFlags.mistralApiKey}
               />
               <PasswordField
                 label="Cerebras API key"
                 value={cloudDraft.cerebrasApiKey}
-                onChange={value => setCloudDraft(prev => ({ ...prev, cerebrasApiKey: value }))}
+                onChange={value => setCloudSecretValue('cerebrasApiKey', value)}
+                onClear={() => clearCloudSecret('cerebrasApiKey')}
+                clearRequested={cloudClearFlags.cerebrasApiKey}
               />
               <label className="block text-sm md:col-span-2">
                 <span className="block text-zinc-400 mb-1">OpenAI base URL (optional)</span>
@@ -369,6 +418,12 @@ export default function AdminSettingsTab() {
                 />
               </label>
             </div>
+
+            {Object.values(cloudClearFlags).some(Boolean) && (
+              <div className="text-xs text-amber-400">
+                One or more keys are marked to be cleared when you click Save Cloud Keys.
+              </div>
+            )}
 
             <div className="flex justify-end">
               <button
@@ -434,14 +489,27 @@ function PasswordField({
   label,
   value,
   onChange,
+  onClear,
+  clearRequested,
 }: {
   label: string
   value: string
   onChange: (value: string) => void
+  onClear: () => void
+  clearRequested: boolean
 }) {
   return (
-    <label className="block text-sm">
-      <span className="block text-zinc-400 mb-1">{label}</span>
+    <div className="block text-sm">
+      <div className="flex items-center justify-between gap-2 mb-1">
+        <span className="text-zinc-400">{label}</span>
+        <button
+          type="button"
+          onClick={onClear}
+          className="px-2 py-1 rounded bg-zinc-800 hover:bg-zinc-700 text-xs"
+        >
+          Clear
+        </button>
+      </div>
       <input
         type="password"
         value={value}
@@ -449,6 +517,7 @@ function PasswordField({
         className="w-full px-3 py-2 rounded bg-zinc-950 border border-zinc-700"
         autoComplete="off"
       />
-    </label>
+      {clearRequested && <div className="text-xs text-amber-400 mt-1">Will clear on save.</div>}
+    </div>
   )
 }

@@ -50,8 +50,8 @@
 
 <div class="info">
   <strong>What you are testing.</strong> MyLocalAssistant is a fully offline AI platform for small organizations.
-  A local server hosts the LLM, agents, and a document-aware RAG pipeline; two desktop apps
-  (Admin console and Chat Client) talk to it over the LAN. Everything runs on your PC — no data leaves it.
+  A local server hosts the LLM, agents, and a document-aware RAG pipeline; browser-based admin and chat UIs
+  talk to it over loopback/LAN. Everything runs on your PC — no data leaves it.
 </div>
 
 <h2 id="toc">Table of contents</h2>
@@ -61,7 +61,7 @@
   <li><a href="#install">Installing the app</a></li>
   <li><a href="#firstrun">First run &amp; the system tray launcher</a></li>
   <li><a href="#accounts">Test accounts (usernames &amp; passwords)</a></li>
-  <li><a href="#admin">Using the Admin console</a></li>
+  <li><a href="#admin">Using the Admin web UI</a></li>
   <li><a href="#client">Using the Chat Client</a></li>
   <li><a href="#skills">Skills &amp; plug-ins (owner-only)</a></li>
   <li><a href="#updates">Automatic updates</a></li>
@@ -72,13 +72,12 @@
 </ol>
 
 <h2 id="overview">1 · What's in the box</h2>
-<p>The single installer drops four executables that work together:</p>
+<p>The single installer drops the core executables and serves the web UI from the local server:</p>
 <table>
   <tr><th style="width:38%">Executable</th><th>Role</th></tr>
   <tr><td><code>MyLocalAssistant.ServerHost.exe</code></td><td>Tray-icon launcher. Starts/stops the server, monitors health, and pulls auto-updates from GitHub. <strong>This is the only thing you need to launch.</strong></td></tr>
   <tr><td><code>MyLocalAssistant.Server.exe</code></td><td>The ASP.NET Core service that runs the LLM, the RAG pipeline, authentication, and the REST + streaming API on <code>http://127.0.0.1:8080</code>. Spawned automatically by the tray app.</td></tr>
-  <tr><td><code>MyLocalAssistant.Admin.exe</code></td><td>WinForms console for system admins: users, departments, roles, models, RAG collections, audit, settings. Owner can also edit agents and global system prompt.</td></tr>
-  <tr><td><code>MyLocalAssistant.Client.exe</code></td><td>WinForms end-user chat app: log in, pick an agent, chat, attach a file to a turn, browse history.</td></tr>
+  <tr><td><code>http://127.0.0.1:8080</code></td><td>Web UI entry points: chat at <code>/</code> and admin panel at <code>/admin</code>.</td></tr>
 </table>
 
 <h3>System requirements</h3>
@@ -113,9 +112,9 @@
 <h4>What gets created on disk</h4>
 <table>
   <tr><th>Path</th><th>Purpose</th></tr>
-  <tr><td><code>%LocalAppData%\MyLocalAssistant\current\</code></td><td>Program files (the four exes + native deps).</td></tr>
+  <tr><td><code>%LocalAppData%\MyLocalAssistant\current\</code></td><td>Program files (ServerHost + Server binaries and native deps).</td></tr>
   <tr><td><code>%LocalAppData%\MyLocalAssistant\current\data\</code></td><td>SQLite database <code>app.db</code> (users, conversations, audit).</td></tr>
-  <tr><td><code>%LocalAppData%\MyLocalAssistant\current\models\</code></td><td>GGUF model files you download from the Admin console.</td></tr>
+  <tr><td><code>%LocalAppData%\MyLocalAssistant\current\models\</code></td><td>GGUF model files you download from the Admin web UI.</td></tr>
   <tr><td><code>%LocalAppData%\MyLocalAssistant\current\vectors\</code></td><td>LanceDB vector index for RAG.</td></tr>
   <tr><td><code>%LocalAppData%\MyLocalAssistant\current\logs\</code></td><td>Server logs, rotated daily.</td></tr>
   <tr><td><code>%LocalAppData%\MyLocalAssistant\client.log</code></td><td>Client-side crash log.</td></tr>
@@ -128,8 +127,8 @@ in the Windows notification area (you may need to click the <code>^</code> chevr
 <p><strong>Right-click the tray icon</strong> to see:</p>
 <ul>
   <li><strong>Status: Running / Stopped / Starting…</strong> — live health-check (every 2 s) of the local server.</li>
-  <li><strong>Open Admin console</strong> — launches <code>MyLocalAssistant.Admin.exe</code>.</li>
-  <li><strong>Open Chat Client</strong> — launches <code>MyLocalAssistant.Client.exe</code>.</li>
+  <li><strong>Open Admin</strong> — opens the admin web UI at <code>/admin</code>.</li>
+  <li><strong>Open Client</strong> — opens the chat web UI at <code>/</code>.</li>
   <li><strong>Open logs folder</strong> · <strong>Open install folder</strong> — Explorer shortcuts.</li>
   <li><strong>Restart server</strong> — kills + respawns the server child process.</li>
   <li><strong>Check for updates…</strong> — manual update check (see §8).</li>
@@ -139,7 +138,7 @@ in the Windows notification area (you may need to click the <code>^</code> chevr
 
 <div class="ok">
   <strong>Tip.</strong> Leave the launcher running. As long as the tray icon is there, the server is alive
-  and the Admin / Client apps will connect instantly.
+  and the web admin/chat UIs will connect instantly.
 </div>
 
 <h2 id="accounts">5 · Test accounts (usernames &amp; passwords)</h2>
@@ -178,7 +177,7 @@ immediately if you ever expose the server beyond <code>127.0.0.1</code>.</strong
     <td colspan="2"><em>You create them.</em> Log in as <code>admin</code> → Users tab → New user.</td>
     <td>
       Chat with whichever agents their <strong>department</strong> and <strong>roles</strong> grant access to.
-      Cannot open the Admin console.
+      Cannot open the admin panel.
     </td>
   </tr>
 </table>
@@ -189,59 +188,56 @@ immediately if you ever expose the server beyond <code>127.0.0.1</code>.</strong
   scenarios, you <em>must</em> first rotate both passwords above and (ideally) put TLS in front.
 </div>
 
-<h2 id="admin">6 · Using the Admin console</h2>
+<h2 id="admin">6 · Using the Admin web UI</h2>
 
 <h3>6.1 Sign in for the first time</h3>
 <ol>
-  <li>Tray icon → <strong>Open Admin console</strong>.</li>
-  <li>The first time, the connection dialog appears. Server URL is pre-filled to
-      <code>http://127.0.0.1:8080</code>. Click <strong>Connect</strong>.</li>
+  <li>Tray icon → <strong>Open Admin</strong> (or browse to <code>http://127.0.0.1:8080/admin</code>).</li>
   <li>Log in as <code>admin</code> / <code>admin</code>.</li>
   <li>You will be forced to choose a new password (minimum 8 characters).
       Pick something memorable for testing — e.g. <code>Test1234!</code>.</li>
-  <li>Optionally, sign out and log back in as <code>owner</code> / <code>owner</code> to see the extra
-      <strong>Agents</strong> tab and the <strong>Global system prompt</strong> editor (Settings tab, owner-only section).</li>
+  <li>Optionally, sign out and log back in as <code>owner</code> / <code>owner</code> to see the owner-only
+      <strong>Agents</strong>, <strong>Tools</strong>, and global prompt controls.</li>
 </ol>
 
 <h3>6.2 The tabs</h3>
 <table>
   <tr><th>Tab</th><th>What to do here</th></tr>
+  <tr><td><strong>Overview</strong></td><td>Quick operational summary of model, user, and system status.</td></tr>
+  <tr><td><strong>Usage</strong></td><td>7/30/90-day usage metrics with daily trend and per-agent breakdown.</td></tr>
   <tr><td><strong>Users</strong></td><td>Create / edit / disable user accounts. Reset passwords. Assign roles + department.</td></tr>
   <tr><td><strong>Departments</strong></td><td>Logical groups (e.g. <em>HR</em>, <em>Engineering</em>). Each user belongs to one. Used by RAG ACL.</td></tr>
   <tr><td><strong>Roles</strong></td><td>Tags users can hold (multiple per user). Used to grant per-collection RAG read access.</td></tr>
-  <tr><td><strong>Models</strong></td><td>Browse the catalog, download a GGUF model, mark one as <em>active</em>. The active model is what every agent uses by default.</td></tr>
-  <tr><td><strong>RAG Collections</strong></td><td>Create a collection, ingest PDF / DOCX / XLSX / HTML / TXT / MD files, then expose it to a department + selected roles.</td></tr>
-  <tr><td><strong>Agents</strong> <span class="small">(owner only)</span></td><td>Enable/disable agents, edit per-agent system prompts, pick a default model, bind which <em>skills</em> each agent is allowed to call.</td></tr>
-  <tr><td><strong>Skills</strong> <span class="small">(owner only)</span></td><td>The skill catalog: built-in skills + installed plug-ins. Toggle Enabled, edit per-skill JSON config, hot-reload plug-ins. See §8.</td></tr>
-  <tr><td><strong>Audit</strong></td><td>Searchable log of every admin action and every chat turn (90-day retention by default).</td></tr>
-  <tr><td><strong>Settings</strong></td><td>Server bind address, JWT lifetimes, audit retention, LDAP config, ingestion limits, and (owner) the global system prompt.</td></tr>
+  <tr><td><strong>Models</strong></td><td>Browse catalog, download model binaries, and set active/default routing.</td></tr>
+  <tr><td><strong>RAG</strong></td><td>Create collections, ingest docs, and configure department/role grants.</td></tr>
+  <tr><td><strong>Agents</strong> <span class="small">(owner only)</span></td><td>Enable/disable agents, edit prompts, set model defaults, bind tools, and run prompt tests.</td></tr>
+  <tr><td><strong>Tools</strong> <span class="small">(owner only)</span></td><td>Tool catalog (built-ins + plug-ins): enable/disable, edit JSON config, and reload plug-ins.</td></tr>
+  <tr><td><strong>Audit</strong></td><td>Searchable log of admin actions and chat events (retention configurable).</td></tr>
+  <tr><td><strong>Settings</strong></td><td>Token lifetimes, retention, global prompt, cloud providers, and API key management.</td></tr>
 </table>
 
-<h3>6.3 The minimum setup to be able to chat</h3>
+<h3>6.3 Minimum setup to start chatting</h3>
 <ol>
-  <li><strong>Models</strong> tab → pick a small model (e.g. <em>Phi-3-mini-4k-instruct Q4</em>, ~2.4 GB) → <strong>Download</strong> → <strong>Set active</strong>.</li>
+  <li><strong>Models</strong> tab → pick a model → <strong>Download</strong> → <strong>Set active</strong>.</li>
   <li><strong>Departments</strong> tab → create <em>"Default"</em>.</li>
   <li><strong>Users</strong> tab → create a user, e.g. <code>tester1</code>, password <code>Test1234!</code>, department <em>Default</em>, role <em>(none)</em>.</li>
-  <li>(Optional) <strong>RAG Collections</strong> → <em>New</em> → upload a PDF/DOCX → grant <em>Default</em> department read.</li>
-  <li>(Owner only — optional) <strong>Agents</strong> tab → make sure at least the <em>General</em> and <em>Documentation</em> agents are <em>Enabled</em>.</li>
+  <li>(Optional) <strong>RAG</strong> tab → create collection, upload doc, grant <em>Default</em> department read.</li>
+  <li>(Owner optional) <strong>Agents</strong> tab → ensure at least one agent is <em>Enabled</em>.</li>
 </ol>
 
-<h2 id="client">7 · Using the Chat Client</h2>
+<h2 id="client">7 · Using the Chat web UI</h2>
 <ol>
-  <li>Tray → <strong>Open Chat Client</strong>.</li>
-  <li>First launch: confirm server URL <code>http://127.0.0.1:8080</code>, click <strong>Connect</strong>.</li>
-  <li>Log in as <code>tester1</code> (or whatever non-admin you created).</li>
-  <li>Left pane: list of agents you are allowed to use. Pick one.</li>
-  <li>Bottom pane: type your message, optionally attach a single file (📎) for that turn only,
-      press <kbd>Ctrl</kbd>+<kbd>Enter</kbd> or click <strong>Send</strong>.</li>
-  <li>Replies stream in token-by-token. Use the toolbar to <em>Copy</em>, <em>Export</em>, or start a new conversation.</li>
-  <li>The left "History" pane keeps every conversation, grouped per agent.</li>
+  <li>Tray menu → <strong>Open Client</strong> (or browse to <code>http://127.0.0.1:8080/</code>).</li>
+  <li>Log in as <code>tester1</code> (or any non-admin user you created).</li>
+  <li>Pick an available agent from the left panel.</li>
+  <li>Enter a message, optionally attach a single file for that turn, and send.</li>
+  <li>Replies stream token-by-token; conversation history is retained per account.</li>
 </ol>
 
 <div class="info">
   <strong>Per-turn attachments are ephemeral.</strong> They are parsed and inlined into that one prompt and
   then discarded — they do <em>not</em> become part of any RAG collection. To make a document
-  permanently searchable, ingest it from the Admin console.
+  permanently searchable, ingest it from the Admin web UI.
 </div>
 
 <h2 id="skills">8 · Skills &amp; plug-ins (owner-only)</h2>
@@ -383,7 +379,7 @@ plus once on startup (after a 5-second delay).</p>
 
 <h3>11.4 Owner overrides (10 min)</h3>
 <ol>
-  <li>Log in as <code>owner</code>/<code>owner</code> in the Admin console.</li>
+  <li>Log in as <code>owner</code>/<code>owner</code> in the Admin web UI.</li>
   <li>Agents tab → disable the <em>General</em> agent. Verify it disappears from the Client's agent list within ~5 s after a refresh.</li>
   <li>Edit a per-agent system prompt to "Always reply in Yoda voice." Send a chat turn → confirm the style change.</li>
   <li>Settings → Global system prompt → set "Be concise, max 3 sentences." Verify every agent now obeys it.</li>

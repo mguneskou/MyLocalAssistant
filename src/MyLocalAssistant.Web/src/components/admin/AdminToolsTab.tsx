@@ -26,6 +26,7 @@ export default function AdminToolsTab() {
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [reloading, setReloading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState('')
 
@@ -101,6 +102,22 @@ export default function AdminToolsTab() {
     }
   }
 
+  async function onReloadTools() {
+    if (!canEdit) return
+    setReloading(true)
+    setError(null)
+    setStatus('')
+    try {
+      const count = await api.reloadTools()
+      setStatus(`Reload completed. Registered plug-in tools: ${count}.`)
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to reload tools.')
+    } finally {
+      setReloading(false)
+    }
+  }
+
   return (
     <div className="p-6 h-full flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
@@ -111,10 +128,17 @@ export default function AdminToolsTab() {
         <div className="flex items-center gap-2">
           <button
             onClick={load}
-            disabled={loading || saving}
+            disabled={loading || saving || reloading}
             className="px-3 py-2 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
           >
             {loading ? 'Loading…' : 'Refresh'}
+          </button>
+          <button
+            onClick={onReloadTools}
+            disabled={!canEdit || reloading}
+            className="px-3 py-2 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50"
+          >
+            {reloading ? 'Reloading…' : 'Reload plug-ins'}
           </button>
           <button
             onClick={onResetStats}

@@ -1,7 +1,7 @@
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Net.Http;
 using System.Reflection;
+using System.Text.Json;
 using Velopack;
 using Velopack.Sources;
 
@@ -14,8 +14,7 @@ namespace MyLocalAssistant.ServerHost;
 /// Layout it expects (Velopack / xcopy install):
 ///     &lt;install&gt;\MyLocalAssistant.ServerHost.exe   ← this app
 ///     &lt;install&gt;\MyLocalAssistant.Server.exe       ← spawned as child process
-///     &lt;install&gt;\MyLocalAssistant.Admin.exe        ← launched from menu (optional)
-///     &lt;install&gt;\MyLocalAssistant.Client.exe       ← launched from menu (optional)
+///     Web UI served by MyLocalAssistant.Server.exe and opened from tray menu
 ///
 /// The server's working directory is set to its own folder, so its config / data /
 /// logs subdirs land alongside it (same layout as `dotnet run`).
@@ -40,9 +39,7 @@ internal static class Program
 internal sealed class TrayContext : ApplicationContext
 {
     private const string ServerExeName = "MyLocalAssistant.Server.exe";
-    private const string AdminExeName = "MyLocalAssistant.Admin.exe";
-    private const string HealthUrl = "http://127.0.0.1:8080/healthz";
-    private const string ClientUrl = "http://127.0.0.1:8080";
+    private const string DefaultListenUrl = "http://127.0.0.1:8080";
 
     private readonly NotifyIcon _icon;
     private readonly ToolStripMenuItem _statusItem;
@@ -52,6 +49,9 @@ internal sealed class TrayContext : ApplicationContext
     private readonly System.Windows.Forms.Timer _healthTimer;
     private readonly System.Windows.Forms.Timer _updateTimer;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(2) };
+    private readonly string _clientUrl;
+    private readonly string _adminUrl;
+    private readonly string _healthUrl;
     private Process? _server;
     private bool _shuttingDown;
     private UpdateManager? _updater;
@@ -65,8 +65,10 @@ internal sealed class TrayContext : ApplicationContext
 
     public TrayContext(Mutex singleInstanceMutex)
     {
+        (_clientUrl, _adminUrl, _healthUrl) = ResolveWebUrls();
+
         _statusItem = new ToolStripMenuItem("Server: starting…") { Enabled = false };
-        _openAdminItem = new ToolStripMenuItem("Open Admin", null, (_, _) => LaunchSibling(AdminExeName));
+        _openAdminItem = new ToolStripMenuItem("Open Admin", null, (_, _) => OpenAdminInBrowser());
         _openClientItem = new ToolStripMenuItem("Open Client", null, (_, _) => OpenClientInBrowser());
 
         var menu = new ContextMenuStrip();
@@ -82,9 +84,11 @@ internal sealed class TrayContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Check for updates\u2026", null, async (_, _) => await CheckForUpdatesAsync(interactive: true)));
         _pauseUpdatesItem = new ToolStripMenuItem("Pause auto-updates", null, (_, _) => TogglePauseUpdates()) { CheckOnClick = false };
-        menu.Items.Add(_pauseUpdatesItem);        menu.Items.Add(new ToolStripMenuItem("What’s New…", null, (_, _) => ShowChangelog()));
+        menu.Items.Add(_pauseUpdatesItem);
+        menu.Items.Add(new ToolStripMenuItem("What’s New…", null, (_, _) => ShowChangelog()));
         menu.Items.Add(new ToolStripSeparator());
-        menu.Items.Add(new ToolStripMenuItem("Submit Feedback…", null, (_, _) => ShowFeedback()));        menu.Items.Add(new ToolStripMenuItem("About", null, (_, _) => ShowAbout()));
+        menu.Items.Add(new ToolStripMenuItem("Submit Feedback…", null, (_, _) => ShowFeedback()));
+        menu.Items.Add(new ToolStripMenuItem("About", null, (_, _) => ShowAbout()));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Quit (stop server)", null, (_, _) => Quit()));
 
@@ -97,7 +101,7 @@ internal sealed class TrayContext : ApplicationContext
             Text = "MyLocalAssistant — starting…",
             ContextMenuStrip = menu,
         };
-        _icon.DoubleClick += (_, _) => LaunchSibling(AdminExeName);
+        _icon.DoubleClick += (_, _) => OpenAdminInBrowser();
         TryLoadCustomIcon();
 
         StartServer();
@@ -170,7 +174,7 @@ internal sealed class TrayContext : ApplicationContext
         bool up = false;
         try
         {
-            using var resp = await _http.GetAsync(HealthUrl);
+            using var resp = await _http.GetAsync(_healthUrl);
             up = resp.IsSuccessStatusCode;
         }
         catch { up = false; }
@@ -224,47 +228,28 @@ internal sealed class TrayContext : ApplicationContext
         ExitThread();
     }
 
-    private static void OpenClientInBrowser()
+    private void OpenClientInBrowser()
     {
         Process.Start(new ProcessStartInfo
         {
-            FileName = ClientUrl,
+            FileName = _clientUrl,
             UseShellExecute = true,
         });
     }
 
-    private static void LaunchSibling(string exeName)
+    private void OpenAdminInBrowser()
     {
-        var path = Path.Combine(AppContext.BaseDirectory, exeName);
-        if (!File.Exists(path))
-        {
-            MessageBox.Show($"{exeName} is not installed alongside ServerHost.",
-                "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            return;
-        }
         try
         {
             Process.Start(new ProcessStartInfo
             {
-                FileName = path,
-                WorkingDirectory = AppContext.BaseDirectory,
+                FileName = _adminUrl,
                 UseShellExecute = true,
             });
         }
-        catch (Win32Exception ex) when (ex.NativeErrorCode == 1223)
-        {
-            MessageBox.Show(
-                $"Windows canceled launching {exeName}. This usually means the portable EXE is still blocked because it was downloaded from the internet.\n\n"
-                + $"To fix it once on this PC:\n"
-                + $"1. Open the install folder\n"
-                + $"2. Right-click {exeName} -> Properties -> check 'Unblock' -> OK\n"
-                + $"3. Or double-click {exeName} directly once and click 'More info' -> 'Run anyway' if Windows asks\n\n"
-                + $"Install folder: {AppContext.BaseDirectory}",
-                "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-        }
         catch (Exception ex)
         {
-            MessageBox.Show($"Failed to launch {exeName}:\n{ex.Message}",
+            MessageBox.Show($"Failed to launch web admin:\n{ex.Message}",
                 "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Error);
         }
     }
@@ -280,6 +265,69 @@ internal sealed class TrayContext : ApplicationContext
     {
         try { Directory.CreateDirectory(path); } catch { }
         Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
+    }
+
+    private static (string clientUrl, string adminUrl, string healthUrl) ResolveWebUrls()
+    {
+        var listenUrl = TryReadListenUrl() ?? DefaultListenUrl;
+        if (!Uri.TryCreate(listenUrl, UriKind.Absolute, out var listenUri))
+            listenUri = new Uri(DefaultListenUrl);
+
+        var builder = new UriBuilder(listenUri)
+        {
+            Host = NormalizeLoopbackHost(listenUri.Host),
+            Path = string.Empty,
+            Query = string.Empty,
+            Fragment = string.Empty,
+        };
+
+        if (builder.Port <= 0)
+            builder.Port = string.Equals(builder.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ? 443 : 80;
+
+        var client = builder.Uri.ToString().TrimEnd('/');
+        return (client, $"{client}/admin", $"{client}/healthz");
+    }
+
+    private static string NormalizeLoopbackHost(string host)
+    {
+        if (string.IsNullOrWhiteSpace(host)) return "127.0.0.1";
+        return host switch
+        {
+            "0.0.0.0" or "*" or "+" or "::" or "[::]" => "127.0.0.1",
+            _ => host,
+        };
+    }
+
+    private static string? TryReadListenUrl()
+    {
+        try
+        {
+            var settingsPath = ResolveSettingsPath();
+            if (!File.Exists(settingsPath)) return null;
+
+            using var stream = File.OpenRead(settingsPath);
+            using var doc = JsonDocument.Parse(stream);
+            if (doc.RootElement.TryGetProperty("listenUrl", out var value) && value.ValueKind == JsonValueKind.String)
+            {
+                return value.GetString();
+            }
+        }
+        catch
+        {
+            // best-effort fallback to defaults
+        }
+
+        return null;
+    }
+
+    private static string ResolveSettingsPath()
+    {
+        var appDir = AppContext.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var isVelopack = string.Equals(Path.GetFileName(appDir), "current", StringComparison.OrdinalIgnoreCase);
+        var stateDir = isVelopack
+            ? Path.Combine(Directory.GetParent(appDir)?.FullName ?? appDir, "state")
+            : appDir;
+        return Path.Combine(stateDir, "config", "server.json");
     }
 
     /// <summary>

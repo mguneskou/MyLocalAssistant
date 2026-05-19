@@ -191,6 +191,21 @@ public sealed class ToolRegistry(
         }
     }
 
+    /// <summary>
+    /// Reloads tool state from persistence and returns the currently registered
+    /// plug-in tool count. Plug-in discovery/loading is currently startup-time,
+    /// so this endpoint primarily refreshes config-enabled state without restart.
+    /// </summary>
+    public async Task<int> ReloadPluginsAsync(CancellationToken ct = default)
+    {
+        await SeedAsync(ct);
+        lock (_lock)
+        {
+            return _tools.Values.Count(t =>
+                string.Equals(t.Source, ToolSources.Plugin, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
     private static ToolDto ToDto(ITool skill, ToolState? state) => new(
         Id: skill.Id,
         Name: skill.Name,
