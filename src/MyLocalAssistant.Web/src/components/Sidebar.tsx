@@ -184,6 +184,18 @@ export default function Sidebar({ conversations, activeConvId, onNewChat, onSele
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </button>
+          {user?.isAdmin && (
+            <button
+              onClick={() => { window.location.href = '/admin' }}
+              title="Admin"
+              className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                  d="M12 3l2.2 4.46 4.92.72-3.56 3.47.84 4.9L12 14.77 7.6 16.55l.84-4.9-3.56-3.47 4.92-.72L12 3z" />
+              </svg>
+            </button>
+          )}
           <button
             onClick={onSignOut}
             title="Sign out"

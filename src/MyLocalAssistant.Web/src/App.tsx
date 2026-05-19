@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from './contexts/AuthContext'
 import LoginPage from './pages/LoginPage'
 import ChangePasswordPage from './pages/ChangePasswordPage'
 import ChatPage from './pages/ChatPage'
+import AdminPage from './pages/AdminPage'
 import type { ReactNode } from 'react'
 
 function RequireAuth({ children }: { children: ReactNode }) {
@@ -21,6 +22,14 @@ function RequireGuest({ children }: { children: ReactNode }) {
   return <>{children}</>
 }
 
+function RequireAdmin({ children }: { children: ReactNode }) {
+  const { isAuthenticated, user } = useAuth()
+  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (user?.mustChangePassword) return <Navigate to="/change-password" replace />
+  if (!user?.isAdmin) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
 export default function App() {
   return (
     <AuthProvider>
@@ -28,7 +37,9 @@ export default function App() {
         <Routes>
           <Route path="/login" element={<RequireGuest><LoginPage /></RequireGuest>} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
-          <Route path="/*" element={<RequireAuth><ChatPage /></RequireAuth>} />
+          <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
+          <Route path="/" element={<RequireAuth><ChatPage /></RequireAuth>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

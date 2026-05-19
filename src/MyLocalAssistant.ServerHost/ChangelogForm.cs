@@ -7,6 +7,20 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.9
+        ───────────────────────────────────────────────────────────
+        • New: Web Admin now includes the full operations surface and no longer
+          stops at Overview/Models/Settings. Added users, departments, agents,
+          tools, RAG, and audit tabs under /admin.
+        • Improved: Global owner controls are now in the web UI, including the
+          global system prompt editor plus cloud-key status, update, and
+          per-provider connectivity tests.
+        • Improved: Admin workflows now support user create/edit/reset/disable,
+          tool enable/config/stats reset, RAG collection/doc/grant management,
+          and audit filtering with CSV export.
+        • Note: Tool plug-in reload is still not exposed by server API in this
+          release, so web admin includes tool stats reset but not plug-in reload.
+
         v2.21.8
         ───────────────────────────────────────────────────────────
         • Fixed: Installed and auto-updated builds no longer lose the browser
