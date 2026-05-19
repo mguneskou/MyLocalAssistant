@@ -7,6 +7,13 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.8
+        ───────────────────────────────────────────────────────────
+        • Fixed: Installed and auto-updated builds no longer lose the browser
+          client. The server publish now copies the React SPA files back into
+          `wwwroot`, and publish validation now fails if `wwwroot\index.html`
+          is missing so this cannot silently ship again.
+
         v2.21.7
         ───────────────────────────────────────────────────────────
         • Improved: Excel workbook automation now covers calculation-mode

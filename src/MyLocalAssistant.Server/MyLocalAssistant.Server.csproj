@@ -80,21 +80,33 @@
     <Exec Command="npm run build" WorkingDirectory="$(WebDir)" />
   </Target>
 
-  <!-- Refresh dist → wwwroot items after the frontend build so publish uses the current hashed asset names. -->
-  <Target Name="RefreshWebDistContent"
-          BeforeTargets="GetCopyToOutputDirectoryItems;GetCopyToPublishDirectoryItems"
-          Condition="Exists('$(WebDir)\dist\index.html')">
+  <Target Name="CopyWebDistToBuildOutput"
+          AfterTargets="Build"
+          Condition="Exists('$(WebDir)\dist\index.html') and '$(OutDir)' != ''">
     <ItemGroup>
-      <Content Remove="$(WebDir)\dist\**\*" />
-      <Content Include="$(WebDir)\dist\**\*">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
-        <TargetPath>wwwroot\%(RecursiveDir)%(Filename)%(Extension)</TargetPath>
-      </Content>
+      <WebDistBuildFile Include="$(WebDir)\dist\**\*" />
     </ItemGroup>
+    <MakeDir Directories="$(OutDir)wwwroot" />
+    <Copy SourceFiles="@(WebDistBuildFile)"
+          DestinationFiles="@(WebDistBuildFile->'$(OutDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="VerifyOfficeToolPublishDependencies" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+  <Target Name="CopyWebDistToPublishOutput"
+          AfterTargets="Publish"
+          DependsOnTargets="RebuildWebFrontendOnPublish"
+          Condition="Exists('$(WebDir)\dist\index.html') and '$(PublishDir)' != ''">
+    <ItemGroup>
+      <WebDistPublishFile Include="$(WebDir)\dist\**\*" />
+    </ItemGroup>
+    <MakeDir Directories="$(PublishDir)wwwroot" />
+    <Copy SourceFiles="@(WebDistPublishFile)"
+          DestinationFiles="@(WebDistPublishFile->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="VerifyOfficeToolPublishDependencies" AfterTargets="Publish" DependsOnTargets="CopyWebDistToPublishOutput" Condition="'$(PublishDir)' != ''">
+    <Error Text="Missing browser client publish asset: wwwroot\index.html" Condition="!Exists('$(PublishDir)wwwroot\index.html')" />
     <Error Text="Missing required office-tool publish dependency: %(OfficeToolPublishDependency.Identity)" Condition="!Exists('$(PublishDir)%(OfficeToolPublishDependency.Identity)')" />
     <Error Text="Missing required office-tool publish dependency: Microsoft.Data.SqlClient.SNI.dll" Condition="'$(RuntimeIdentifier)' != '' and !Exists('$(PublishDir)Microsoft.Data.SqlClient.SNI.dll') and !Exists('$(PublishDir)runtimes\$(RuntimeIdentifier)\native\Microsoft.Data.SqlClient.SNI.dll')" />
     <Error Text="Missing required office-tool publish dependency: QuestPdfSkia.dll" Condition="'$(RuntimeIdentifier)' != '' and !Exists('$(PublishDir)QuestPdfSkia.dll') and !Exists('$(PublishDir)runtimes\$(RuntimeIdentifier)\native\QuestPdfSkia.dll')" />
