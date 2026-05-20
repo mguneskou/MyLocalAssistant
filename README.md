@@ -299,4 +299,5 @@ uninstall walkthrough aimed at non-developer testers.
 
 ## License
 
-TBD.
+This repository currently has no public open-source license assigned.
+All rights reserved unless explicitly stated otherwise by the owner.

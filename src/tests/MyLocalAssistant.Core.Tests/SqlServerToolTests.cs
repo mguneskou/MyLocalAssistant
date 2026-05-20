@@ -19,7 +19,7 @@ public sealed class SqlServerToolTests
     [Fact]
     public void Read_only_validator_ignores_keywords_inside_comments_and_literals()
     {
-        const string sql = "-- delete later\nSELECT 'update', [drop] AS label";
+        const string sql = "-- delete keyword in comment\nSELECT 'update', [drop] AS label";
 
         var ok = SqlServerTool.TryValidateReadOnlySql(sql, out var error);
 

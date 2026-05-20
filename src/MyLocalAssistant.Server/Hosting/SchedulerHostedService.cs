@@ -244,7 +244,7 @@ public sealed class SchedulerHostedService(
     private static DateTimeOffset? ComputeNextCron(string cronExpr)
     {
         // We include Cronos in the server to avoid duplicating logic.
-        // If the package is not present this falls back to null (one-year deferral above).
+        // If parsing fails, this returns null and the one-year fallback above is used.
         try
         {
             var cron = Cronos.CronExpression.Parse(cronExpr, Cronos.CronFormat.Standard);

@@ -75,7 +75,7 @@ public sealed class WeatherTool : ITool
     /// </summary>
     private static async Task<string> FetchWeatherAsync(string city, CancellationToken ct)
     {
-        // TODO: call a real weather API here.
+        // Replace with a real weather API call.
         // Example using wttr.in (no API key required):
         //   using var http = new HttpClient();
         //   return await http.GetStringAsync($"https://wttr.in/{Uri.EscapeDataString(city)}?format=3", ct);

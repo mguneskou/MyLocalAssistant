@@ -86,7 +86,7 @@ public sealed class WeatherTool : ITool
 
     private static async Task<string> FetchWeatherAsync(string city, CancellationToken ct)
     {
-        // TODO: call a real weather API.
+        // Replace with a real weather API call.
         await Task.Delay(50, ct);
         return $"Weather in {city}: 22 °C, partly cloudy.";
     }
