@@ -7,6 +7,15 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.12
+        ───────────────────────────────────────────────────────────
+        • Fixed: The login redirect flow now preserves the requested path via
+          query and state fallback, so opening /admin returns owner/admin users
+          to /admin consistently after authentication.
+        • Fixed: Session-expiry (401) handling now redirects to login while
+          preserving the current destination, preventing admin navigation from
+          falling back to the chat root after re-authentication.
+
         v2.21.11
         ───────────────────────────────────────────────────────────
         • Fixed: Opening /admin now preserves admin intent through login.
