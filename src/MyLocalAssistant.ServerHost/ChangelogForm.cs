@@ -7,6 +7,15 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.11
+        ───────────────────────────────────────────────────────────
+        • Fixed: Opening /admin now preserves admin intent through login.
+          Admin accounts are returned to /admin after authentication instead
+          of being redirected to the chat page.
+        • Fixed: Non-admin accounts are now routed to an explicit access-
+          required screen when they attempt /admin, instead of silently
+          falling back to the chat interface.
+
         v2.21.10
         ───────────────────────────────────────────────────────────
         • Breaking/Improved: Legacy desktop admin has been removed. Admin
