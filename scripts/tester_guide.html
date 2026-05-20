@@ -117,7 +117,6 @@
   <tr><td><code>%LocalAppData%\MyLocalAssistant\current\models\</code></td><td>GGUF model files you download from the Admin web UI.</td></tr>
   <tr><td><code>%LocalAppData%\MyLocalAssistant\current\vectors\</code></td><td>LanceDB vector index for RAG.</td></tr>
   <tr><td><code>%LocalAppData%\MyLocalAssistant\current\logs\</code></td><td>Server logs, rotated daily.</td></tr>
-  <tr><td><code>%LocalAppData%\MyLocalAssistant\client.log</code></td><td>Client-side crash log.</td></tr>
 </table>
 
 <h2 id="firstrun">4 · First run &amp; the system tray launcher</h2>
@@ -128,7 +127,7 @@ in the Windows notification area (you may need to click the <code>^</code> chevr
 <ul>
   <li><strong>Status: Running / Stopped / Starting…</strong> — live health-check (every 2 s) of the local server.</li>
   <li><strong>Open Admin</strong> — opens the admin web UI at <code>/admin</code>.</li>
-  <li><strong>Open Client</strong> — opens the chat web UI at <code>/</code>.</li>
+  <li><strong>Open Chat</strong> — opens the chat web UI at <code>/</code>.</li>
   <li><strong>Open logs folder</strong> · <strong>Open install folder</strong> — Explorer shortcuts.</li>
   <li><strong>Restart server</strong> — kills + respawns the server child process.</li>
   <li><strong>Check for updates…</strong> — manual update check (see §8).</li>
@@ -227,7 +226,7 @@ immediately if you ever expose the server beyond <code>127.0.0.1</code>.</strong
 
 <h2 id="client">7 · Using the Chat web UI</h2>
 <ol>
-  <li>Tray menu → <strong>Open Client</strong> (or browse to <code>http://127.0.0.1:8080/</code>).</li>
+  <li>Tray menu → <strong>Open Chat</strong> (or browse to <code>http://127.0.0.1:8080/</code>).</li>
   <li>Log in as <code>tester1</code> (or any non-admin user you created).</li>
   <li>Pick an available agent from the left panel.</li>
   <li>Enter a message, optionally attach a single file for that turn, and send.</li>
@@ -380,7 +379,7 @@ plus once on startup (after a 5-second delay).</p>
 <h3>11.4 Owner overrides (10 min)</h3>
 <ol>
   <li>Log in as <code>owner</code>/<code>owner</code> in the Admin web UI.</li>
-  <li>Agents tab → disable the <em>General</em> agent. Verify it disappears from the Client's agent list within ~5 s after a refresh.</li>
+  <li>Agents tab → disable the <em>General</em> agent. Verify it disappears from the chat UI agent list within ~5 s after a refresh.</li>
   <li>Edit a per-agent system prompt to "Always reply in Yoda voice." Send a chat turn → confirm the style change.</li>
   <li>Settings → Global system prompt → set "Be concise, max 3 sentences." Verify every agent now obeys it.</li>
 </ol>
@@ -404,7 +403,7 @@ plus once on startup (after a 5-second delay).</p>
 
 <h3>11.7 Resilience test (5 min)</h3>
 <ol>
-  <li>Tray → Restart server. Verify the Admin and Client apps reconnect within ~10 s.</li>
+  <li>Tray → Restart server. Verify the Admin and Chat pages reconnect within ~10 s.</li>
   <li>Force-kill <code>MyLocalAssistant.Server.exe</code> from Task Manager. The launcher should restart it within a few seconds (status flips Stopped → Starting → Running).</li>
 </ol>
 
@@ -414,7 +413,7 @@ plus once on startup (after a 5-second delay).</p>
 <table>
   <tr><th>What broke</th><th>Log file</th></tr>
   <tr><td>Server / API / RAG</td><td><code>%LocalAppData%\MyLocalAssistant\current\logs\server-*.log</code> (latest)</td></tr>
-  <tr><td>Client crash on startup</td><td><code>%LocalAppData%\MyLocalAssistant\client.log</code></td></tr>
+  <tr><td>Chat page runtime issue</td><td>Browser DevTools (F12) Console/Network capture</td></tr>
   <tr><td>Tray launcher / updater</td><td>Tray → <strong>Open logs folder</strong></td></tr>
 </table>
 
@@ -423,7 +422,7 @@ plus once on startup (after a 5-second delay).</p>
   <tr><th>Symptom</th><th>Likely cause &amp; fix</th></tr>
   <tr><td>Tray status is permanently <em>Stopped</em>.</td>
       <td>Port <code>8080</code> is in use. Quit the launcher, change <code>ServerSettings.json → BindPort</code>, restart.</td></tr>
-  <tr><td>"Cannot connect to server" in Admin/Client.</td>
+  <tr><td>"Cannot connect to server" in Admin/Chat page.</td>
       <td>Tray icon present? If yes, wait 10 s — the server is still loading the model. If no, run the launcher from the Start menu.</td></tr>
   <tr><td>Model download stalls.</td>
       <td>Some catalog mirrors throttle. Cancel and retry, or pick a different model.</td></tr>

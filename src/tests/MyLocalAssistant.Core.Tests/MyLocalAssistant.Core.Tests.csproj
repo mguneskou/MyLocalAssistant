@@ -24,7 +24,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\MyLocalAssistant.Core\MyLocalAssistant.Core.csproj" />
     <ProjectReference Include="..\..\MyLocalAssistant.Server\MyLocalAssistant.Server.csproj" />
-    <ProjectReference Include="..\..\MyLocalAssistant.Client\MyLocalAssistant.Client.csproj" />
   </ItemGroup>
 
   <ItemGroup>

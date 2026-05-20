@@ -44,12 +44,12 @@ internal sealed class TrayContext : ApplicationContext
     private readonly NotifyIcon _icon;
     private readonly ToolStripMenuItem _statusItem;
     private readonly ToolStripMenuItem _openAdminItem;
-    private readonly ToolStripMenuItem _openClientItem;
+    private readonly ToolStripMenuItem _openChatItem;
     private readonly ToolStripMenuItem _pauseUpdatesItem;
     private readonly System.Windows.Forms.Timer _healthTimer;
     private readonly System.Windows.Forms.Timer _updateTimer;
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(2) };
-    private readonly string _clientUrl;
+    private readonly string _chatUrl;
     private readonly string _adminUrl;
     private readonly string _healthUrl;
     private Process? _server;
@@ -65,17 +65,17 @@ internal sealed class TrayContext : ApplicationContext
 
     public TrayContext(Mutex singleInstanceMutex)
     {
-        (_clientUrl, _adminUrl, _healthUrl) = ResolveWebUrls();
+        (_chatUrl, _adminUrl, _healthUrl) = ResolveWebUrls();
 
         _statusItem = new ToolStripMenuItem("Server: starting…") { Enabled = false };
         _openAdminItem = new ToolStripMenuItem("Open Admin", null, (_, _) => OpenAdminInBrowser());
-        _openClientItem = new ToolStripMenuItem("Open Client", null, (_, _) => OpenClientInBrowser());
+        _openChatItem = new ToolStripMenuItem("Open Chat", null, (_, _) => OpenChatInBrowser());
 
         var menu = new ContextMenuStrip();
         menu.Items.Add(_statusItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(_openAdminItem);
-        menu.Items.Add(_openClientItem);
+        menu.Items.Add(_openChatItem);
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(new ToolStripMenuItem("Open logs folder", null, (_, _) => OpenAbsolute(ResolveLogsDirectory())));
         menu.Items.Add(new ToolStripMenuItem("Open install folder", null, (_, _) => OpenFolder(".")));
@@ -189,7 +189,7 @@ internal sealed class TrayContext : ApplicationContext
         // NotifyIcon.Text is capped at 127 chars on older Windows; keep it short.
         _icon.Text = healthy ? "MyLocalAssistant — running" : "MyLocalAssistant — " + text.Substring(8);
         _openAdminItem.Enabled = true;  // Admin can still launch even if the server is down (it shows a connection error)
-        _openClientItem.Enabled = true;
+        _openChatItem.Enabled = true;
     }
 
     private async Task RestartServerAsync()
@@ -228,11 +228,11 @@ internal sealed class TrayContext : ApplicationContext
         ExitThread();
     }
 
-    private void OpenClientInBrowser()
+    private void OpenChatInBrowser()
     {
         Process.Start(new ProcessStartInfo
         {
-            FileName = _clientUrl,
+            FileName = _chatUrl,
             UseShellExecute = true,
         });
     }
@@ -267,7 +267,7 @@ internal sealed class TrayContext : ApplicationContext
         Process.Start(new ProcessStartInfo { FileName = path, UseShellExecute = true });
     }
 
-    private static (string clientUrl, string adminUrl, string healthUrl) ResolveWebUrls()
+    private static (string chatUrl, string adminUrl, string healthUrl) ResolveWebUrls()
     {
         var listenUrl = TryReadListenUrl() ?? DefaultListenUrl;
         if (!Uri.TryCreate(listenUrl, UriKind.Absolute, out var listenUri))
@@ -284,8 +284,8 @@ internal sealed class TrayContext : ApplicationContext
         if (builder.Port <= 0)
             builder.Port = string.Equals(builder.Scheme, Uri.UriSchemeHttps, StringComparison.OrdinalIgnoreCase) ? 443 : 80;
 
-        var client = builder.Uri.ToString().TrimEnd('/');
-        return (client, $"{client}/admin", $"{client}/healthz");
+        var chat = builder.Uri.ToString().TrimEnd('/');
+        return (chat, $"{chat}/admin", $"{chat}/healthz");
     }
 
     private static string NormalizeLoopbackHost(string host)
@@ -415,7 +415,7 @@ internal sealed class TrayContext : ApplicationContext
             if (interactive)
             {
                 var ok = MessageBox.Show(
-                    $"Update {info.TargetFullRelease.Version} is available. Download and install now?\n\nThe server will restart and Admin/Client must be re-opened.",
+                    $"Update {info.TargetFullRelease.Version} is available. Download and install now?\n\nThe server will restart and Admin/Chat must be re-opened.",
                     "MyLocalAssistant update",
                     MessageBoxButtons.YesNo,
                     MessageBoxIcon.Question);

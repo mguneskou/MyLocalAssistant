@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import type { ConversationSummaryDto, UserDto } from '../api/types'
 import * as api from '../api/client'
 
@@ -37,11 +38,13 @@ function groupByDate(convs: ConversationSummaryDto[]) {
 }
 
 export default function Sidebar({ conversations, activeConvId, onNewChat, onSelect, onDelete, user, onSignOut }: Props) {
+  const navigate = useNavigate()
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
   const [workRoot, setWorkRoot] = useState<string>(user?.workRoot ?? '')
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsError, setSettingsError] = useState<string | null>(null)
+  const canUseAdmin = !!(user?.isAdmin || user?.isGlobalAdmin)
   const groups = groupByDate(conversations)
 
   async function saveWorkRoot() {
@@ -136,6 +139,14 @@ export default function Sidebar({ conversations, activeConvId, onNewChat, onSele
 
       {/* User footer */}
       <div className="px-3 py-3 border-t border-zinc-800">
+        {canUseAdmin && (
+          <button
+            onClick={() => navigate('/admin')}
+            className="w-full mb-3 px-3 py-2 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-200 transition-colors"
+          >
+            Open Admin
+          </button>
+        )}
         {showSettings && (
           <div className="mb-3 p-3 bg-zinc-800 rounded-lg space-y-2">
             <p className="text-xs font-medium text-zinc-300">Work folder</p>
@@ -184,18 +195,6 @@ export default function Sidebar({ conversations, activeConvId, onNewChat, onSele
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
           </button>
-          {user?.isAdmin && (
-            <button
-              onClick={() => { window.location.href = '/admin' }}
-              title="Admin"
-              className="p-1 rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M12 3l2.2 4.46 4.92.72-3.56 3.47.84 4.9L12 14.77 7.6 16.55l.84-4.9-3.56-3.47 4.92-.72L12 3z" />
-              </svg>
-            </button>
-          )}
           <button
             onClick={onSignOut}
             title="Sign out"

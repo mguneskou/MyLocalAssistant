@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as api from '../../api/client'
 import type { ActiveEmbeddingStatusDto, ActiveModelStatusDto, ModelDto } from '../../api/types'
 
+const LIVE_DOWNLOAD_STAGES = new Set(['Queued', 'Downloading', 'Verifying'])
+
 export default function AdminModelsTab() {
   const [models, setModels] = useState<ModelDto[]>([])
   const [chatStatus, setChatStatus] = useState<ActiveModelStatusDto | null>(null)
@@ -14,6 +16,10 @@ export default function AdminModelsTab() {
   const selected = useMemo(
     () => models.find(m => m.id === selectedId) ?? null,
     [models, selectedId],
+  )
+  const hasLiveDownloads = useMemo(
+    () => models.some(isDownloadRunning),
+    [models],
   )
 
   const load = useCallback(async () => {
@@ -29,8 +35,9 @@ export default function AdminModelsTab() {
       setChatStatus(chatResp)
       setEmbeddingStatus(embedResp)
       if (!selectedId && modelsResp.length > 0) setSelectedId(modelsResp[0].id)
-      if (selectedId && !modelsResp.some(m => m.id === selectedId))
+      if (selectedId && !modelsResp.some(m => m.id === selectedId)) {
         setSelectedId(modelsResp[0]?.id ?? null)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load models.')
     } finally {
@@ -42,13 +49,16 @@ export default function AdminModelsTab() {
     load()
   }, [load])
 
-  const canDownload = selected?.isCloud === false && selected?.isInstalled === false && selected?.download?.stage !== 'Downloading'
-  const canCancel = selected?.download && ['Queued', 'Downloading', 'Verifying'].includes(selected.download.stage)
-  const canActivate =
-    !!selected &&
-    selected.isActiveEmbedding === false &&
-    (!selected.isActive || selected.isActiveFailed) &&
-    (selected.isCloud ? selected.isCloudConfigured : selected.isInstalled)
+  useEffect(() => {
+    if (!hasLiveDownloads) return
+    const id = window.setInterval(() => {
+      void load()
+    }, 1500)
+    return () => window.clearInterval(id)
+  }, [hasLiveDownloads, load])
+
+  const canCancel = !!selected?.download && LIVE_DOWNLOAD_STAGES.has(selected.download.stage)
+  const canDownload = selected?.isCloud === false && selected?.isInstalled === false && !canCancel
   const canDeactivate = selected?.isActive === true
   const canDelete =
     selected?.isCloud === false &&
@@ -82,37 +92,34 @@ export default function AdminModelsTab() {
           className="px-3 py-2 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700 transition-colors"
           disabled={loading || busy}
         >
-          {loading ? 'Refreshing…' : 'Refresh'}
+          {loading ? 'Refreshing...' : 'Refresh'}
         </button>
       </div>
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-sm grid grid-cols-1 lg:grid-cols-2 gap-2">
         <div className="text-zinc-300">
           Chat: <span className="font-medium">{chatStatus?.activeModelId ?? '(none)'}</span>
-          <span className="text-zinc-500"> — {chatStatus?.status ?? 'unknown'}</span>
+          <span className="text-zinc-500"> - {chatStatus?.status ?? 'unknown'}</span>
         </div>
         <div className="text-zinc-300">
           Embedding: <span className="font-medium">{embeddingStatus?.activeModelId ?? '(none)'}</span>
-          <span className="text-zinc-500"> — {embeddingStatus?.status ?? 'unknown'}</span>
+          <span className="text-zinc-500"> - {embeddingStatus?.status ?? 'unknown'}</span>
         </div>
+      </div>
+
+      {hasLiveDownloads && (
+        <div className="rounded-lg border border-blue-900/60 bg-blue-950/30 text-blue-200 px-4 py-3 text-sm">
+          Download status is auto-refreshing every 1.5 seconds.
+        </div>
+      )}
+
+      <div className="text-xs text-zinc-500">
+        Selected model: <span className="text-zinc-300">{selected?.displayName ?? '(none)'}</span>
       </div>
 
       <div className="flex flex-wrap gap-2">
         <ActionButton disabled={!canDownload || busy} onClick={() => runAction(() => api.startDownload(selected!.id))}>Download</ActionButton>
         <ActionButton disabled={!canCancel || busy} onClick={() => runAction(() => api.cancelDownload(selected!.id))}>Cancel download</ActionButton>
-        <ActionButton
-          disabled={!canActivate || busy}
-          onClick={() => runAction(async () => {
-            if (!selected) return
-            if (selected.tier.toLowerCase() === 'embedding') {
-              await api.activateEmbedding(selected.id)
-            } else {
-              await api.activateModel(selected.id)
-            }
-          })}
-        >
-          Activate
-        </ActionButton>
         <ActionButton
           disabled={!canDeactivate || busy}
           onClick={() => {
@@ -121,7 +128,7 @@ export default function AdminModelsTab() {
             void runAction(() => api.deactivateModel())
           }}
         >
-          Deactivate
+          Deactivate chat
         </ActionButton>
         <ActionButton
           disabled={!canDelete || busy}
@@ -146,14 +153,28 @@ export default function AdminModelsTab() {
           <thead className="bg-zinc-800/70 text-zinc-300">
             <tr>
               <th className="text-left px-3 py-2">Model</th>
-              <th className="text-left px-3 py-2">Tier</th>
+              <th className="text-left px-3 py-2">Role</th>
               <th className="text-left px-3 py-2">Source</th>
               <th className="text-left px-3 py-2">Size</th>
               <th className="text-left px-3 py-2">Status</th>
+              <th className="text-left px-3 py-2">Switch</th>
             </tr>
           </thead>
           <tbody>
             {models.map(m => {
+              const isEmbedding = isEmbeddingModel(m)
+              const activeForRole = isEmbedding ? m.isActiveEmbedding : m.isActive
+              const readyForRole = isEmbedding ? m.isInstalled : (m.isCloud ? m.isCloudConfigured : m.isInstalled)
+              const blockedByDownload = isDownloadRunning(m)
+              const canSwitch = !busy && !activeForRole && readyForRole && !blockedByDownload
+              const switchLabel = activeForRole
+                ? (isEmbedding ? 'Active Embedding' : 'Active Chat')
+                : !readyForRole
+                  ? (m.isCloud ? 'Configure cloud key' : 'Install to activate')
+                  : blockedByDownload
+                    ? 'Wait for download'
+                    : (isEmbedding ? 'Set Active Embedding' : 'Set Active Chat')
+
               const isSelected = m.id === selectedId
               return (
                 <tr
@@ -165,16 +186,38 @@ export default function AdminModelsTab() {
                     <div className="font-medium text-zinc-100">{m.displayName}</div>
                     <div className="text-zinc-500 text-xs">{m.id}</div>
                   </td>
-                  <td className="px-3 py-2 text-zinc-300">{m.tier}</td>
+                  <td className="px-3 py-2 text-zinc-300">
+                    <div className="inline-flex items-center px-2 py-0.5 rounded-full text-xs border border-zinc-700 bg-zinc-800/70">
+                      {isEmbedding ? 'Embedding' : 'Chat'}
+                    </div>
+                    <div className="text-zinc-500 text-xs mt-1">Tier: {m.tier}</div>
+                  </td>
                   <td className="px-3 py-2 text-zinc-300">{m.isCloud ? `Cloud (${m.source})` : 'Local'}</td>
-                  <td className="px-3 py-2 text-zinc-300">{m.isCloud ? '—' : formatBytes(m.totalBytes)}</td>
-                  <td className="px-3 py-2 text-zinc-300">{renderStatus(m)}</td>
+                  <td className="px-3 py-2 text-zinc-300">{m.isCloud ? '-' : formatBytes(m.totalBytes)}</td>
+                  <td className="px-3 py-2 text-zinc-300">{renderStatusCell(m)}</td>
+                  <td className="px-3 py-2">
+                    <button
+                      onClick={e => {
+                        e.stopPropagation()
+                        if (!canSwitch) return
+                        void runAction(() => isEmbedding ? api.activateEmbedding(m.id) : api.activateModel(m.id))
+                      }}
+                      disabled={!canSwitch}
+                      className={`px-3 py-1.5 rounded-lg text-xs transition-colors disabled:cursor-not-allowed ${
+                        activeForRole
+                          ? 'bg-emerald-700/50 text-emerald-200 border border-emerald-700'
+                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 disabled:opacity-60'
+                      }`}
+                    >
+                      {switchLabel}
+                    </button>
+                  </td>
                 </tr>
               )
             })}
             {models.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-3 py-6 text-center text-zinc-500">No models found.</td>
+                <td colSpan={6} className="px-3 py-6 text-center text-zinc-500">No models found.</td>
               </tr>
             )}
           </tbody>
@@ -216,23 +259,102 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(1)} ${units[i]}`
 }
 
-function renderStatus(model: ModelDto): string {
+function formatEta(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return 'calculating'
+  const total = Math.round(seconds)
+  const m = Math.floor(total / 60)
+  const s = total % 60
+  if (m <= 0) return `${s}s`
+  if (m < 60) return `${m}m ${s}s`
+  const h = Math.floor(m / 60)
+  const mm = m % 60
+  return `${h}h ${mm}m`
+}
+
+function isEmbeddingModel(model: ModelDto): boolean {
+  return model.tier.toLowerCase() === 'embedding'
+}
+
+function isDownloadRunning(model: ModelDto): boolean {
+  const stage = model.download?.stage
+  return !!stage && LIVE_DOWNLOAD_STAGES.has(stage)
+}
+
+function renderStatusCell(model: ModelDto) {
   const d = model.download
   if (d) {
-    if (d.stage === 'Downloading' && d.totalBytes > 0) {
-      const pct = Math.round((d.bytes * 100) / d.totalBytes)
-      return `Downloading ${pct}%`
+    const pct = d.totalBytes > 0 ? Math.min(100, Math.max(0, Math.round((d.bytes * 100) / d.totalBytes))) : null
+    if (d.stage === 'Queued') {
+      return <span className="text-zinc-300">Queued...</span>
     }
-    if (d.stage === 'Verifying') return 'Verifying…'
-    if (d.stage === 'Failed') return `Failed: ${d.error ?? ''}`
-    if (d.stage === 'Cancelled') return 'Cancelled'
-    if (d.stage === 'Completed') return 'Installed'
-    return d.stage
+    if (d.stage === 'Downloading' && pct !== null) {
+      return (
+        <div className="space-y-1.5">
+          <div className="text-zinc-100">Downloading {pct}%</div>
+          <div className="h-1.5 rounded bg-zinc-800 overflow-hidden">
+            <div className="h-full bg-blue-500" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="text-xs text-zinc-500">
+            {formatBytes(d.bytes)} / {formatBytes(d.totalBytes)}
+            {d.bytesPerSecond > 0 ? ` · ${formatBytes(d.bytesPerSecond)}/s` : ''}
+            {d.etaSeconds > 0 ? ` · ETA ${formatEta(d.etaSeconds)}` : ''}
+          </div>
+        </div>
+      )
+    }
+    if (d.stage === 'Downloading') {
+      return (
+        <div className="space-y-1.5">
+          <div className="text-zinc-100">Downloading...</div>
+          <div className="text-xs text-zinc-500">{formatBytes(d.bytes)} downloaded</div>
+        </div>
+      )
+    }
+    if (d.stage === 'Verifying') return <span className="text-zinc-300">Verifying...</span>
+    if (d.stage === 'Failed') return <span className="text-red-300">Failed: {d.error ?? 'Unknown error'}</span>
+    if (d.stage === 'Cancelled') return <span className="text-zinc-400">Cancelled</span>
+    if (d.stage === 'Completed') return <span className="text-emerald-300">Installed</span>
+    return <span className="text-zinc-300">{d.stage}</span>
   }
-  if (model.isActive && model.isActiveFailed) return 'Active (load failed)'
-  if (model.isActive) return 'Installed (active chat)'
-  if (model.isActiveEmbedding) return 'Installed (active embedding)'
-  if (model.isCloud) return model.isCloudConfigured ? 'Cloud (key configured)' : 'Cloud (no key configured)'
-  if (model.isInstalled) return 'Installed'
-  return 'Available'
+
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {model.isActive && (
+        <span className="px-2 py-0.5 rounded-full text-xs border border-emerald-700 bg-emerald-950/40 text-emerald-200">
+          Active Chat
+        </span>
+      )}
+      {model.isActiveEmbedding && (
+        <span className="px-2 py-0.5 rounded-full text-xs border border-cyan-700 bg-cyan-950/40 text-cyan-200">
+          Active Embedding
+        </span>
+      )}
+      {model.isActiveFailed && (
+        <span className="px-2 py-0.5 rounded-full text-xs border border-red-700 bg-red-950/40 text-red-200">
+          Load Failed
+        </span>
+      )}
+      {!model.isActive && !model.isActiveEmbedding && model.isInstalled && (
+        <span className="px-2 py-0.5 rounded-full text-xs border border-zinc-700 bg-zinc-800/70 text-zinc-300">
+          Installed
+        </span>
+      )}
+      {model.isCloud && (
+        <span
+          className={`px-2 py-0.5 rounded-full text-xs border ${
+            model.isCloudConfigured
+              ? 'border-blue-700 bg-blue-950/40 text-blue-200'
+              : 'border-amber-700 bg-amber-950/40 text-amber-200'
+          }`}
+        >
+          {model.isCloudConfigured ? 'Cloud Ready' : 'Cloud Key Missing'}
+        </span>
+      )}
+      {!model.isCloud && !model.isInstalled && (
+        <span className="px-2 py-0.5 rounded-full text-xs border border-zinc-700 bg-zinc-800/70 text-zinc-400">
+          Not Installed
+        </span>
+      )}
+    </div>
+  )
 }

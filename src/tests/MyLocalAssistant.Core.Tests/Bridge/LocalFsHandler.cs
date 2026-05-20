@@ -3,10 +3,8 @@ using System.Text.Json;
 namespace MyLocalAssistant.Client.Bridge;
 
 /// <summary>
-/// Executes fs.* methods on the local disk, confined to the user-chosen root folder.
-/// Every incoming path is canonicalized and rejected if it escapes the root, contains
-/// '..' segments, hits a reparse point (symlink/junction), or has wildcard chars.
-/// Executable extensions are read-only by default.
+/// Test-local filesystem bridge handler used by bridge security tests.
+/// This keeps tests independent from legacy desktop client UI project dependencies.
 /// </summary>
 internal sealed class LocalFsHandler
 {
@@ -31,10 +29,6 @@ internal sealed class LocalFsHandler
         catch { return null; }
     }
 
-    /// <summary>
-    /// Dispatch a single bridge call. Returns the JSON value (will be serialized as the
-    /// "result" field) or throws <see cref="BridgeMethodException"/> with a stable code.
-    /// </summary>
     public async Task<object?> InvokeAsync(string method, JsonElement @params, CancellationToken ct)
     {
         if (Root is null) throw new BridgeMethodException("fs.notConfigured", "Client has no shared folder configured.");
@@ -52,8 +46,6 @@ internal sealed class LocalFsHandler
             _             => throw new BridgeMethodException("bridge.unknownMethod", $"Method '{method}' is not supported."),
         };
     }
-
-    // -------- methods --------
 
     private object Stat(string path)
     {
@@ -162,7 +154,6 @@ internal sealed class LocalFsHandler
         EnsureNotReparsePoint(resolved);
         if (File.Exists(resolved)) File.Delete(resolved);
         else if (Directory.Exists(resolved)) Directory.Delete(resolved, recursive);
-        // missing == success
         return new { };
     }
 
@@ -175,22 +166,15 @@ internal sealed class LocalFsHandler
         return new { path = dir };
     }
 
-    // -------- path validation --------
-
-    /// <summary>
-    /// Canonicalize a request path and verify it stays inside the configured root.
-    /// </summary>
     private string Resolve(string requested, bool mustExist)
     {
         if (string.IsNullOrWhiteSpace(requested))
             throw new BridgeMethodException("fs.bad", "Path is empty.");
         if (requested.IndexOfAny(s_invalidPathChars) >= 0)
             throw new BridgeMethodException("fs.bad", "Path contains illegal characters.");
-        // Reject explicit traversal segments before canonicalization swallows them.
         foreach (var seg in requested.Split('/', '\\'))
             if (seg == "..") throw new BridgeMethodException("fs.bad", "Path traversal is not allowed.");
 
-        // Treat requests as relative to root unless they're already a full path inside root.
         string combined;
         try
         {
@@ -223,10 +207,8 @@ internal sealed class LocalFsHandler
                 throw new BridgeMethodException("fs.symlink", "Symlinks/junctions are not allowed via the bridge.");
         }
         catch (BridgeMethodException) { throw; }
-        catch { /* ignore — non-existence handled above */ }
+        catch { }
     }
-
-    // -------- json helpers --------
 
     private static string GetPath(JsonElement p, string field = "path")
     {

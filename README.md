@@ -128,7 +128,7 @@ proper installer + auto-updater so testers can be onboarded with a single downlo
 ### Distribution & lifecycle (new)
 
 - **`MyLocalAssistant.ServerHost.exe`** — system-tray launcher that spawns the server
-  as a child process, polls `/healthz` every 2 s, and exposes Open Admin / Open Client /
+  as a child process, polls `/healthz` every 2 s, and exposes Open Admin / Open Chat /
   Restart server / Open logs / About / Quit menu items. Single-instance via a global mutex.
 - **Velopack-based installer**: `MyLocalAssistant-win-Setup.exe` installs per-user under
   `%LocalAppData%\MyLocalAssistant\current\` — no admin rights, no UAC prompt.
@@ -157,14 +157,8 @@ proper installer + auto-updater so testers can be onboarded with a single downlo
 - **`DateTimeOffset` ↔ `long` (UtcTicks) value converter** — fixes the
   *"SQLite does not support expressions of type 'DateTimeOffset' in ORDER BY clauses"*
   crash on chat history.
-- **Client crash hardening** — global `Application.ThreadException`,
-  `AppDomain.UnhandledException`, `TaskScheduler.UnobservedTaskException` handlers all
-  log to `%LocalAppData%\MyLocalAssistant\client.log` + show a MessageBox; deferred
-  `SplitContainer` sizing to `HandleCreated` to stop ctor-time `InvalidOperationException`.
 - **Telemetry & hot-reload** of agent config; **sandbox ACL + UI limits** in the Admin
   web UI; minimum password length raised to 8 to match the server.
-- **Modern WinForms theme**: rounded buttons, app icon, themed tool-strips and dialogs,
-  branded login header.
 - **31 → expanded** xUnit test suite (now also covers plug-in manifest parsing,
   signing, sandbox enforcement).
 
@@ -199,11 +193,10 @@ Web admin route at `/admin`: Users, Departments, Roles, Models, RAG,
 Audit, Settings, Usage, and (owner only) Agents/Tools management including
 per-agent prompt testing and plug-in reload.
 
-### Client (`MyLocalAssistant.Client`)
+### Chat Web UI (`MyLocalAssistant.Web`)
 
-WinForms LAN client: login → ACL-filtered agent list → streaming chat panel
-with file attachments, copy / export, conversation history per agent,
-JWT auto-refresh, offline indicator.
+Browser chat route at `/`: login, ACL-filtered agent list, streaming chat,
+attachments, and conversation history.
 
 ### Repo layout
 
@@ -212,10 +205,8 @@ src/
   MyLocalAssistant.Server/      ASP.NET Core service (LLM, RAG, auth, audit, REST/SSE)
   MyLocalAssistant.ServerHost/  Tray-icon launcher + Velopack auto-updater
   MyLocalAssistant.Web/         React + Vite web UI (chat + admin)
-  MyLocalAssistant.Client/      WinForms end-user chat client
   MyLocalAssistant.Shared/      DTOs / contracts shared by server + clients
   MyLocalAssistant.Core/        Catalog, downloader, hashing (shared with v1)
-  MyLocalAssistant.App/         v1 single-user desktop app (legacy, still buildable)
   tests/                        xUnit test project
 plugins/echo/                   Reference plug-in skill (out-of-process, signed)
 tools/MyLocalAssistant.SkillTools/  Sign / verify / pack plug-ins
@@ -256,12 +247,6 @@ On first launch the server creates `./data`, `./models`, `./vectors`, `./ingesti
 Set-Location src\MyLocalAssistant.Web
 npm ci
 npm run build
-```
-
-### Client
-
-```powershell
-dotnet run --project src\MyLocalAssistant.Client -c Release
 ```
 
 ### Tests
@@ -306,7 +291,7 @@ uninstall walkthrough aimed at non-developer testers.
 |-------------|--------------------------------------------------------------------|
 | `v1.0.0.0`  | First v1 desktop release (skeleton + first-run model wizard).      |
 | `v1.0.1`    | v1 patch release.                                                  |
-| `v2.0.0.0`  | First v2 release — server + admin + client + RAG + ACL + owner.    |
+| `v2.0.0.0`  | First v2 release — server + web chat/admin + RAG + ACL + owner.     |
 | `v2.1.3.0`  | Migration also scans Velopack `app-*\` sibling folders to rescue state from 2.1.0/2.1.1 installs. |
 | `v2.1.2.0`  | Persistent state moved to sibling `state\` folder so it survives Velopack updates. |
 | `v2.1.1.0`  | Client chat bubbles, typing indicator, sticky-bottom scroll, per-bubble copy. |

@@ -21,6 +21,69 @@
     ]
   },
   {
+    "id": "nomic-embed-text-v15-q5km",
+    "displayName": "Nomic Embed Text v1.5",
+    "tier": "embedding",
+    "huggingFaceRepo": "nomic-ai/nomic-embed-text-v1.5-GGUF",
+    "quantization": "Q5_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5",
+    "recommendedContextSize": 8192,
+    "minRamGb": 2,
+    "embeddingDimension": 768,
+    "description": "Open-source Nomic embedding model with commercial-friendly Apache-2.0 license.",
+    "files": [
+      {
+        "fileName": "nomic-embed-text-v1.5.Q5_K_M.gguf",
+        "url": "https://huggingface.co/nomic-ai/nomic-embed-text-v1.5-GGUF/resolve/main/nomic-embed-text-v1.5.Q5_K_M.gguf",
+        "sizeBytes": 99588928,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "bge-base-en-v15-q4km",
+    "displayName": "BGE Base EN v1.5",
+    "tier": "embedding",
+    "huggingFaceRepo": "CompendiumLabs/bge-base-en-v1.5-gguf",
+    "quantization": "Q4_K_M",
+    "license": "MIT",
+    "licenseUrl": "https://huggingface.co/BAAI/bge-base-en-v1.5",
+    "recommendedContextSize": 512,
+    "minRamGb": 2,
+    "embeddingDimension": 768,
+    "description": "English-focused BGE base embedding model under MIT license.",
+    "files": [
+      {
+        "fileName": "bge-base-en-v1.5-q4_k_m.gguf",
+        "url": "https://huggingface.co/CompendiumLabs/bge-base-en-v1.5-gguf/resolve/main/bge-base-en-v1.5-q4_k_m.gguf",
+        "sizeBytes": 68348448,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "all-minilm-l6-v2-q5km",
+    "displayName": "All-MiniLM-L6-v2 Embedding",
+    "tier": "embedding",
+    "huggingFaceRepo": "second-state/All-MiniLM-L6-v2-Embedding-GGUF",
+    "quantization": "Q5_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2",
+    "recommendedContextSize": 512,
+    "minRamGb": 1,
+    "embeddingDimension": 384,
+    "description": "Compact Apache-2.0 embedding model for low-memory deployments.",
+    "files": [
+      {
+        "fileName": "all-MiniLM-L6-v2-Q5_K_M.gguf",
+        "url": "https://huggingface.co/second-state/All-MiniLM-L6-v2-Embedding-GGUF/resolve/main/all-MiniLM-L6-v2-Q5_K_M.gguf",
+        "sizeBytes": 21717952,
+        "sha256": ""
+      }
+    ]
+  },
+  {
     "id": "tinyllama-1.1b-q5km",
     "displayName": "TinyLlama 1.1B Chat",
     "tier": "lightweight",

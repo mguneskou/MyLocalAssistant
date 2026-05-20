@@ -7,6 +7,19 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.13
+        ───────────────────────────────────────────────────────────
+        • Breaking/Cleanup: Legacy WinForms client source has been removed
+          from the active solution and release graph. Browser chat/admin is
+          now the only supported UI path.
+        • Improved: Tray menu wording now uses Open Chat (browser) and
+          Open Admin (browser) for clearer web-only navigation.
+        • Improved: Admin Models tab now has explicit role labeling
+          (Chat vs Embedding), per-row role activation actions, active status
+          chips, and live download telemetry (progress bar, %, speed, ETA).
+        • Improved: Added additional commercially permissive embedding models
+          to the catalog (Nomic v1.5, BGE Base EN v1.5, All-MiniLM-L6-v2).
+
         v2.21.12
         ───────────────────────────────────────────────────────────
         • Fixed: The login redirect flow now preserves the requested path via
@@ -35,7 +48,7 @@ internal sealed class ChangelogForm : Form
           workbench for agent validation.
         • Improved: Release packaging now ships only Server + ServerHost for
           admin operations; no desktop admin executable is distributed.
-        • Fixed: Tray Open Admin/Open Client URLs now resolve from server
+        • Fixed: Tray Open Admin/Open Chat URLs now resolve from server
           listen settings instead of a hard-coded port, so web UI launch works
           reliably on configured host/port deployments.
 

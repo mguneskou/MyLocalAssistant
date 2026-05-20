@@ -28,9 +28,10 @@ function RequireGuest({ children }: { children: ReactNode }) {
   const stateFrom = (location.state as { from?: string } | null)?.from
   const queryFrom = new URLSearchParams(location.search).get('from')
   const from = getRequestedPath(queryFrom) ?? getRequestedPath(stateFrom)
+  const canUseAdmin = user?.isAdmin || user?.isGlobalAdmin
   if (isAuthenticated && user?.mustChangePassword) return <Navigate to="/change-password" replace />
-  if (isAuthenticated && from?.startsWith('/admin') && user?.isAdmin) return <Navigate to={from} replace />
-  if (isAuthenticated && from?.startsWith('/admin') && !user?.isAdmin) return <Navigate to="/admin-required" replace />
+  if (isAuthenticated && from?.startsWith('/admin') && canUseAdmin) return <Navigate to={from} replace />
+  if (isAuthenticated && from?.startsWith('/admin') && !canUseAdmin) return <Navigate to="/admin-required" replace />
   if (isAuthenticated) return <Navigate to="/" replace />
   return <>{children}</>
 }
@@ -38,12 +39,13 @@ function RequireGuest({ children }: { children: ReactNode }) {
 function RequireAdmin({ children }: { children: ReactNode }) {
   const location = useLocation()
   const { isAuthenticated, user } = useAuth()
+  const canUseAdmin = user?.isAdmin || user?.isGlobalAdmin
   if (!isAuthenticated) {
     const from = `${location.pathname}${location.search}`
     return <Navigate to={`/login?from=${encodeURIComponent(from)}`} replace state={{ from }} />
   }
   if (user?.mustChangePassword) return <Navigate to="/change-password" replace />
-  if (!user?.isAdmin) return <Navigate to="/admin-required" replace />
+  if (!canUseAdmin) return <Navigate to="/admin-required" replace />
   return <>{children}</>
 }
 
