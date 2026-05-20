@@ -48,6 +48,13 @@ function loadAuth(): StoredAuth | null {
 function saveAuth(a: StoredAuth) { sessionStorage.setItem(AUTH_KEY, JSON.stringify(a)) }
 function clearAuth() { sessionStorage.removeItem(AUTH_KEY) }
 
+function redirectToLoginPreservingPath() {
+  const currentPath = `${window.location.pathname}${window.location.search}`
+  if (window.location.pathname === '/login') return
+  const loginUrl = `/login?from=${encodeURIComponent(currentPath)}`
+  window.location.replace(loginUrl)
+}
+
 async function getToken(): Promise<string | null> {
   const auth = loadAuth()
   if (!auth) return null
@@ -82,7 +89,7 @@ async function json<T>(res: Response): Promise<T> {
     if (res.status === 401 && loadAuth() !== null) {
       clearAuth()
       clearUser()
-      window.location.replace('/login')
+      redirectToLoginPreservingPath()
       throw new Error('Session expired')
     }
     let detail = res.statusText
