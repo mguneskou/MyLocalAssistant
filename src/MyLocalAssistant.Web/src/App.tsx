@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import LoginPage from './pages/LoginPage'
 import ChangePasswordPage from './pages/ChangePasswordPage'
@@ -17,17 +17,53 @@ function RequireAuth({ children }: { children: ReactNode }) {
 
 function RequireGuest({ children }: { children: ReactNode }) {
   const { isAuthenticated, user } = useAuth()
+  const location = useLocation()
+  const from = (location.state as { from?: string } | null)?.from
   if (isAuthenticated && user?.mustChangePassword) return <Navigate to="/change-password" replace />
+  if (isAuthenticated && from === '/admin' && user?.isAdmin) return <Navigate to="/admin" replace />
+  if (isAuthenticated && from === '/admin' && !user?.isAdmin) return <Navigate to="/admin-required" replace />
   if (isAuthenticated) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
 function RequireAdmin({ children }: { children: ReactNode }) {
+  const location = useLocation()
   const { isAuthenticated, user } = useAuth()
-  if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!isAuthenticated) return <Navigate to="/login" replace state={{ from: location.pathname }} />
   if (user?.mustChangePassword) return <Navigate to="/change-password" replace />
-  if (!user?.isAdmin) return <Navigate to="/" replace />
+  if (!user?.isAdmin) return <Navigate to="/admin-required" replace />
   return <>{children}</>
+}
+
+function AdminAccessRequiredPage() {
+  const { user, signOut } = useAuth()
+  return (
+    <div className="min-h-full bg-zinc-950 text-zinc-100 flex items-center justify-center px-4">
+      <div className="w-full max-w-lg rounded-xl border border-zinc-800 bg-zinc-900 p-6 space-y-4">
+        <h1 className="text-xl font-semibold">Admin Access Required</h1>
+        <p className="text-sm text-zinc-400">
+          The current account {user?.username ? `'${user.username}'` : ''} does not have admin permissions.
+        </p>
+        <p className="text-sm text-zinc-400">
+          Sign out and log in with an admin or global-admin account to use the admin interface.
+        </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={signOut}
+            className="px-3 py-2 rounded-lg text-sm bg-blue-600 hover:bg-blue-500"
+          >
+            Sign Out
+          </button>
+          <a
+            href="/"
+            className="px-3 py-2 rounded-lg text-sm bg-zinc-800 hover:bg-zinc-700"
+          >
+            Go To Chat
+          </a>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default function App() {
@@ -38,6 +74,7 @@ export default function App() {
           <Route path="/login" element={<RequireGuest><LoginPage /></RequireGuest>} />
           <Route path="/change-password" element={<ChangePasswordPage />} />
           <Route path="/admin" element={<RequireAdmin><AdminPage /></RequireAdmin>} />
+          <Route path="/admin-required" element={<RequireAuth><AdminAccessRequiredPage /></RequireAuth>} />
           <Route path="/" element={<RequireAuth><ChatPage /></RequireAuth>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
