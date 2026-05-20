@@ -10,6 +10,7 @@ interface Props {
   onSelect: (id: string) => void
   onDelete: (id: string) => void
   user: UserDto | null
+  onUserUpdated: (u: UserDto) => void
   onSignOut: () => void
 }
 
@@ -37,7 +38,7 @@ function groupByDate(convs: ConversationSummaryDto[]) {
   return groups
 }
 
-export default function Sidebar({ conversations, activeConvId, onNewChat, onSelect, onDelete, user, onSignOut }: Props) {
+export default function Sidebar({ conversations, activeConvId, onNewChat, onSelect, onDelete, user, onUserUpdated, onSignOut }: Props) {
   const navigate = useNavigate()
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [showSettings, setShowSettings] = useState(false)
@@ -51,7 +52,9 @@ export default function Sidebar({ conversations, activeConvId, onNewChat, onSele
     setSettingsSaving(true)
     setSettingsError(null)
     try {
-      await api.updateWorkRoot(workRoot.trim() || null)
+      const updated = await api.updateWorkRoot(workRoot.trim() || null)
+      onUserUpdated(updated)
+      setWorkRoot(updated.workRoot ?? '')
       setShowSettings(false)
     } catch (e) {
       setSettingsError(e instanceof Error ? e.message : 'Failed to save.')

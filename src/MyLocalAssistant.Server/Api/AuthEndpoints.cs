@@ -83,7 +83,11 @@ public static class AuthEndpoints
                       ?? principal.FindFirstValue(ClaimTypes.NameIdentifier);
             if (!Guid.TryParse(sub, out var userId)) return Results.Unauthorized();
             var code = await svc.UpdateWorkRootAsync(userId, req.WorkRoot, ct);
-            if (code is null) return Results.NoContent();
+            if (code is null)
+            {
+                var dto = await svc.GetProfileAsync(userId, ct);
+                return dto is null ? Results.Unauthorized() : Results.Ok(dto);
+            }
             return code switch
             {
                 ProblemCodes.ValidationFailed => Problem(code, "Invalid path: must be an absolute path without wildcards or '..'.", StatusCodes.Status400BadRequest),

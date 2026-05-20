@@ -157,7 +157,7 @@ export default function AdminModelsTab() {
               <th className="text-left px-3 py-2">Source</th>
               <th className="text-left px-3 py-2">Size</th>
               <th className="text-left px-3 py-2">Status</th>
-              <th className="text-left px-3 py-2">Switch</th>
+              <th className="text-left px-3 py-2">Checklist Select</th>
             </tr>
           </thead>
           <tbody>
@@ -166,14 +166,14 @@ export default function AdminModelsTab() {
               const activeForRole = isEmbedding ? m.isActiveEmbedding : m.isActive
               const readyForRole = isEmbedding ? m.isInstalled : (m.isCloud ? m.isCloudConfigured : m.isInstalled)
               const blockedByDownload = isDownloadRunning(m)
-              const canSwitch = !busy && !activeForRole && readyForRole && !blockedByDownload
-              const switchLabel = activeForRole
-                ? (isEmbedding ? 'Active Embedding' : 'Active Chat')
+              const canSelect = !busy && readyForRole && !blockedByDownload
+              const selectLabel = activeForRole
+                ? 'Selected'
                 : !readyForRole
                   ? (m.isCloud ? 'Configure cloud key' : 'Install to activate')
                   : blockedByDownload
                     ? 'Wait for download'
-                    : (isEmbedding ? 'Set Active Embedding' : 'Set Active Chat')
+                    : 'Select'
 
               const isSelected = m.id === selectedId
               return (
@@ -196,21 +196,21 @@ export default function AdminModelsTab() {
                   <td className="px-3 py-2 text-zinc-300">{m.isCloud ? '-' : formatBytes(m.totalBytes)}</td>
                   <td className="px-3 py-2 text-zinc-300">{renderStatusCell(m)}</td>
                   <td className="px-3 py-2">
-                    <button
-                      onClick={e => {
-                        e.stopPropagation()
-                        if (!canSwitch) return
-                        void runAction(() => isEmbedding ? api.activateEmbedding(m.id) : api.activateModel(m.id))
-                      }}
-                      disabled={!canSwitch}
-                      className={`px-3 py-1.5 rounded-lg text-xs transition-colors disabled:cursor-not-allowed ${
-                        activeForRole
-                          ? 'bg-emerald-700/50 text-emerald-200 border border-emerald-700'
-                          : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border border-zinc-700 disabled:opacity-60'
-                      }`}
-                    >
-                      {switchLabel}
-                    </button>
+                    <label className={`inline-flex items-center gap-2 text-xs ${activeForRole ? 'text-emerald-200' : 'text-zinc-300'}`}>
+                      <input
+                        type="radio"
+                        name={isEmbedding ? 'embedding-active-model' : 'chat-active-model'}
+                        checked={activeForRole}
+                        disabled={!activeForRole && !canSelect}
+                        onClick={e => e.stopPropagation()}
+                        onChange={e => {
+                          e.stopPropagation()
+                          if (activeForRole || !canSelect) return
+                          void runAction(() => isEmbedding ? api.activateEmbedding(m.id) : api.activateModel(m.id))
+                        }}
+                      />
+                      <span>{isEmbedding ? `Embedding ${selectLabel}` : `Chat ${selectLabel}`}</span>
+                    </label>
                   </td>
                 </tr>
               )

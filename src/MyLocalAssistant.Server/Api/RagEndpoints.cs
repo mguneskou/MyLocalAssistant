@@ -117,7 +117,8 @@ public static class RagEndpoints
         group.MapPost("/collections/{id:guid}/search",
             async (Guid id, RagSearchRequest req, IVectorStore store, EmbeddingService emb, AppDbContext db, CancellationToken ct) =>
         {
-            if (!emb.IsLoaded) return Results.Problem("Embedding model is not loaded.", statusCode: 400);
+            if (!await emb.EnsureLoadedAsync(ct))
+                return Results.Problem("Embedding model is not loaded. Activate one in Models and ensure it is installed.", statusCode: 400);
             if (string.IsNullOrWhiteSpace(req.Query)) return Results.BadRequest("query is required.");
             if (!await db.RagCollections.AnyAsync(c => c.Id == id, ct)) return Results.NotFound();
             await store.EnsureCollectionAsync(id.ToString("N"), emb.EmbeddingDimension, ct);

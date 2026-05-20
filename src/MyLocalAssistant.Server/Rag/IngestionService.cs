@@ -65,8 +65,8 @@ public sealed class IngestionService(
         string? contentType,
         CancellationToken ct = default)
     {
-        if (!embedding.IsLoaded)
-            throw new InvalidOperationException("Embedding model is not loaded. Activate one in Server Settings first.");
+        if (!await embedding.EnsureLoadedAsync(ct).ConfigureAwait(false))
+            throw new InvalidOperationException("Embedding model is not loaded. Activate one in Models and ensure the embedding model is installed.");
         if (!DocumentParsers.IsSupported(fileName))
             throw new InvalidOperationException($"File type not supported: {Path.GetExtension(fileName)}");
 

@@ -446,6 +446,12 @@ public sealed class ChatService(
             sb.Append("\n\n");
         }
         sb.Append(systemPrompt.Trim());
+        sb.Append("\n\nAgent execution loop (always follow):\n");
+        sb.Append("• Thought: decide the next best step based on the user goal and current evidence.\n");
+        sb.Append("• Act: when a tool materially helps, call the most relevant tool with precise arguments.\n");
+        sb.Append("• Observe: inspect the tool result, update your plan, and either continue the loop or produce the final answer.\n");
+        sb.Append("• Keep this loop internal; provide concise user-facing outputs.\n");
+        sb.Append("• Never invent tool outputs, files, or facts. If evidence is missing after available actions, state the gap clearly.\n");
         if (!string.IsNullOrWhiteSpace(workDirectory))
         {
             var resolvedWorkDir = workDirectory.Replace("\r", "").Replace("\n", " ");

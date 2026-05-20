@@ -133,7 +133,7 @@ export default function AdminUsersTab() {
           departments: draft.isAdmin ? [] : draft.departments,
           isAdmin: draft.isAdmin,
           isDisabled: draft.isDisabled,
-          workRoot: draft.workRoot.trim() || null,
+          workRoot: draft.workRoot.trim(),
           mustChangePassword: draft.mustChangePassword,
         }
         const updated = await api.updateUser(selected.id, req)

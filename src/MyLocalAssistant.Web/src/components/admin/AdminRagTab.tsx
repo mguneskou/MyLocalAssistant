@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as api from '../../api/client'
 import type {
+  ActiveEmbeddingStatusDto,
   CollectionGrantDto,
   DepartmentDto,
   RagCollectionDto,
@@ -14,6 +15,7 @@ type PrincipalKind = 'User' | 'Department' | 'Role'
 const ACCESS_MODES = ['Restricted', 'Public'] as const
 
 export default function AdminRagTab() {
+  const [embeddingStatus, setEmbeddingStatus] = useState<ActiveEmbeddingStatusDto | null>(null)
   const [collections, setCollections] = useState<RagCollectionDto[]>([])
   const [selectedCollectionId, setSelectedCollectionId] = useState<string | null>(null)
   const [documents, setDocuments] = useState<RagDocumentDto[]>([])
@@ -57,16 +59,18 @@ export default function AdminRagTab() {
     setLoading(true)
     setError(null)
     try {
-      const [collectionsResp, usersResp, depsResp, rolesResp] = await Promise.all([
+      const [collectionsResp, usersResp, depsResp, rolesResp, embeddingResp] = await Promise.all([
         api.listCollections(),
         api.listUsers(),
         api.listDepartments(),
         api.listRoles(),
+        api.getEmbeddingStatus(),
       ])
       setCollections(collectionsResp)
       setUsers(usersResp)
       setDepartments(depsResp)
       setRoles(rolesResp)
+      setEmbeddingStatus(embeddingResp)
       setSelectedCollectionId(prev => {
         if (prev && collectionsResp.some(c => c.id === prev)) return prev
         return collectionsResp[0]?.id ?? null
@@ -269,6 +273,15 @@ export default function AdminRagTab() {
 
       {error && <div className="rounded-lg border border-red-800 bg-red-950/30 text-red-300 px-4 py-3 text-sm">{error}</div>}
       {status && <div className="rounded-lg border border-emerald-800 bg-emerald-950/20 text-emerald-300 px-4 py-3 text-sm">{status}</div>}
+
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-3 text-sm">
+        <span className="text-zinc-300">Embedding runtime:</span>{' '}
+        <span className="font-medium text-zinc-100">{embeddingStatus?.activeModelId ?? '(none)'}</span>{' '}
+        <span className="text-zinc-500">- {embeddingStatus?.status ?? 'unknown'}</span>
+        {(embeddingStatus?.status ?? '').toLowerCase() === 'failed' && embeddingStatus?.lastError && (
+          <div className="text-xs text-red-300 mt-1">{embeddingStatus.lastError}</div>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4 min-h-0 flex-1">
         <aside className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-auto">

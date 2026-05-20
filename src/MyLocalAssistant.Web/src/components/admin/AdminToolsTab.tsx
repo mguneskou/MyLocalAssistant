@@ -68,6 +68,26 @@ export default function AdminToolsTab() {
     setDraft(toDraft(selected))
   }, [selected])
 
+  async function onQuickToggle(tool: ToolDto, enabled: boolean) {
+    if (!canEdit) return
+    setSaving(true)
+    setError(null)
+    setStatus('')
+    try {
+      const updated = await api.updateTool(tool.id, {
+        enabled,
+        configJson: tool.configJson ?? null,
+      })
+      setTools(prev => prev.map(t => (t.id === updated.id ? updated : t)))
+      if (selectedId === updated.id) setDraft(toDraft(updated))
+      setStatus(`${enabled ? 'Enabled' : 'Disabled'} '${updated.name}'.`)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Tool toggle failed.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function onSave() {
     if (!selected || !draft || !canEdit) return
     setSaving(true)
@@ -161,19 +181,32 @@ export default function AdminToolsTab() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[320px_1fr] gap-4 min-h-0 flex-1">
         <aside className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-auto">
-          <div className="px-3 py-2 border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-400">Registered tools</div>
+          <div className="px-3 py-2 border-b border-zinc-800 text-xs uppercase tracking-wide text-zinc-400">Registered tools checklist</div>
           <ul className="divide-y divide-zinc-800">
             {tools.map(tool => {
               const active = tool.id === selectedId
               return (
                 <li key={tool.id}>
-                  <button
-                    onClick={() => setSelectedId(tool.id)}
-                    className={`w-full text-left px-3 py-3 ${active ? 'bg-zinc-800/70' : 'hover:bg-zinc-800/40'}`}
-                  >
-                    <div className="font-medium text-zinc-100">{tool.name}</div>
-                    <div className="text-xs text-zinc-400 mt-1">{tool.category} • {tool.enabled ? 'enabled' : 'disabled'}</div>
-                  </button>
+                  <div className={`flex items-center gap-2 px-3 py-2 ${active ? 'bg-zinc-800/70' : 'hover:bg-zinc-800/40'}`}>
+                    <input
+                      type="checkbox"
+                      checked={tool.enabled}
+                      disabled={!canEdit || saving}
+                      onClick={e => e.stopPropagation()}
+                      onChange={e => {
+                        e.stopPropagation()
+                        void onQuickToggle(tool, e.target.checked)
+                      }}
+                      title={tool.enabled ? 'Disable tool' : 'Enable tool'}
+                    />
+                    <button
+                      onClick={() => setSelectedId(tool.id)}
+                      className="flex-1 text-left"
+                    >
+                      <div className="font-medium text-zinc-100">{tool.name}</div>
+                      <div className="text-xs text-zinc-400 mt-1">{tool.category} • {tool.enabled ? 'enabled' : 'disabled'}</div>
+                    </button>
+                  </div>
                 </li>
               )
             })}

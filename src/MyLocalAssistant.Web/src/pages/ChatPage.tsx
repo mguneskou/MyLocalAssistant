@@ -8,7 +8,7 @@ import ChatInput from '../components/ChatInput'
 import { useAuth } from '../contexts/AuthContext'
 
 export default function ChatPage() {
-  const { user, signOut } = useAuth()
+  const { user, signOut, signIn } = useAuth()
 
   const [agents, setAgents] = useState<AgentDto[]>([])
   const [selectedAgent, setSelectedAgent] = useState<AgentDto | null>(null)
@@ -168,6 +168,7 @@ export default function ChatPage() {
         onSelect={selectConversation}
         onDelete={deleteConversation}
         user={user}
+        onUserUpdated={signIn}
         onSignOut={signOut}
       />
 

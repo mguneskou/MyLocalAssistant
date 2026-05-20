@@ -126,13 +126,13 @@ export async function getProfile(): Promise<UserDto> {
   return json<UserDto>(res)
 }
 
-export async function updateWorkRoot(workRoot: string | null): Promise<void> {
+export async function updateWorkRoot(workRoot: string | null): Promise<UserDto> {
   const res = await fetch('/api/auth/me', {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', ...(await authHeaders()) },
     body: JSON.stringify({ workRoot }),
   })
-  await json<unknown>(res)
+  return json<UserDto>(res)
 }
 
 export function logout() { clearAuth() }

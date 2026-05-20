@@ -68,9 +68,37 @@ public sealed class EmbeddingService(
         return LoadAsync(entry, inst.PrimaryFilePath);
     }
 
+    /// <summary>
+    /// Best-effort runtime load: used by RAG paths so activation/startup races do not require
+    /// manual retries from the user.
+    /// </summary>
+    public async Task<bool> EnsureLoadedAsync(CancellationToken ct = default)
+    {
+        if (IsLoaded) return true;
+
+        // If another request is already loading, wait for it to finish first.
+        if (_status == ModelStatus.Loading)
+        {
+            await _loadLock.WaitAsync(ct);
+            _loadLock.Release();
+            return IsLoaded;
+        }
+
+        if (string.IsNullOrWhiteSpace(settings.EmbeddingModelId)) return false;
+        var entry = catalog.FindById(settings.EmbeddingModelId);
+        if (entry is null || entry.Tier != ModelTier.Embedding) return false;
+
+        var inst = catalog.GetInstalled(ServerPaths.ModelsDirectory)
+            .FirstOrDefault(i => i.Catalog.Id == entry.Id);
+        if (inst is null) return false;
+
+        await LoadAsync(entry, inst.PrimaryFilePath);
+        return IsLoaded;
+    }
+
     public async Task<float[]> EmbedAsync(string text, CancellationToken ct = default)
     {
-        if (!IsLoaded || _embedder is null)
+        if (!await EnsureLoadedAsync(ct).ConfigureAwait(false) || _embedder is null)
             throw new InvalidOperationException("Embedding model is not loaded.");
         if (string.IsNullOrWhiteSpace(text))
             throw new ArgumentException("Text is empty.", nameof(text));
