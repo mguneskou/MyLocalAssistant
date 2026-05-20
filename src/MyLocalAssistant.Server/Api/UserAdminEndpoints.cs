@@ -63,11 +63,10 @@ public static class UserAdminEndpoints
                 detail: ok ? $"reset password for user id={id}" : $"failed: {code}",
                 ipAddress: http.Connection.RemoteIpAddress?.ToString(),
                 isAdminAction: true, ct: CancellationToken.None);
-            return ok
-                ? Results.NoContent()
-                : code == ProblemCodes.NotFound
-                    ? Problem(code, "User not found.", StatusCodes.Status404NotFound)
-                    : Problem(code, "New password must be at least 8 characters.", StatusCodes.Status400BadRequest);
+            if (code is null) return Results.NoContent();
+            return code == ProblemCodes.NotFound
+                ? Problem(code, "User not found.", StatusCodes.Status404NotFound)
+                : Problem(code, "New password must be at least 8 characters.", StatusCodes.Status400BadRequest);
         });
 
         group.MapDelete("/{id:guid}", async (
@@ -86,9 +85,8 @@ public static class UserAdminEndpoints
                 detail: ok ? $"deleted user id={id}" : $"failed: {code}",
                 ipAddress: http.Connection.RemoteIpAddress?.ToString(),
                 isAdminAction: true, ct: CancellationToken.None);
-            return ok
-                ? Results.NoContent()
-                : Problem(code, "User not found.", StatusCodes.Status404NotFound);
+            if (code is null) return Results.NoContent();
+            return Problem(code, "User not found.", StatusCodes.Status404NotFound);
         });
 
         return app;
