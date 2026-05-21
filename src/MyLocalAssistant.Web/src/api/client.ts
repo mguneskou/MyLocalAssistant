@@ -36,6 +36,8 @@ import type {
 
 const AUTH_KEY = 'mla_auth'
 
+let refreshInFlight: Promise<string | null> | null = null
+
 interface StoredAuth {
   accessToken: string
   refreshToken: string
@@ -61,18 +63,48 @@ async function getToken(): Promise<string | null> {
 
   // Refresh if token expires in < 60 s
   if (new Date(auth.expiresAt).getTime() - Date.now() < 60_000) {
+    if (!refreshInFlight) {
+      refreshInFlight = (async () => {
+        try {
+          // Re-read auth right before refresh so parallel callers share the freshest token pair.
+          const current = loadAuth()
+          if (!current) return null
+
+          // Another caller may have refreshed while we were queued.
+          if (new Date(current.expiresAt).getTime() - Date.now() >= 60_000)
+            return current.accessToken
+
+          const res = await fetch('/api/auth/refresh', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: current.refreshToken }),
+          })
+          if (!res.ok) {
+            clearAuth()
+            clearUser()
+            redirectToLoginPreservingPath()
+            return null
+          }
+
+          const data: LoginResponse = await res.json()
+          saveAuth({ accessToken: data.accessToken, refreshToken: data.refreshToken, expiresAt: data.expiresAt })
+          return data.accessToken
+        } catch {
+          clearAuth()
+          clearUser()
+          redirectToLoginPreservingPath()
+          return null
+        }
+      })()
+    }
+
     try {
-      const res = await fetch('/api/auth/refresh', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: auth.refreshToken }),
-      })
-      if (!res.ok) { clearAuth(); clearUser(); return null }
-      const data: LoginResponse = await res.json()
-      saveAuth({ accessToken: data.accessToken, refreshToken: data.refreshToken, expiresAt: data.expiresAt })
-      return data.accessToken
-    } catch { clearAuth(); return null }
+      return await refreshInFlight
+    } finally {
+      refreshInFlight = null
+    }
   }
+
   return auth.accessToken
 }
 

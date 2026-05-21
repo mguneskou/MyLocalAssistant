@@ -23,49 +23,65 @@ public sealed class DownloadCoordinator(
 
     public DownloadEntry StartAsync(CatalogEntry entry, string modelsDir)
     {
-        return _entries.GetOrAdd(entry.Id, id =>
+        while (true)
         {
-            var cts = new CancellationTokenSource();
-            var de = new DownloadEntry(entry);
-
-            var progress = new Progress<DownloadProgress>(p =>
+            if (_entries.TryGetValue(entry.Id, out var existing))
             {
-                de.Stage = p.Stage.ToString();
-                de.Bytes = p.BytesDownloaded;
-                de.TotalBytes = p.TotalBytes;
-                de.BytesPerSecond = p.BytesPerSecond;
-                de.EtaSeconds = p.Eta.TotalSeconds;
-            });
+                if (existing.IsRunning) return existing;
 
-            de.Cts = cts;
-            de.Task = Task.Run(async () =>
-            {
-                try
-                {
-                    foreach (var f in entry.Files)
-                    {
-                        var dest = ModelCatalogService.ResolveDestinationPath(modelsDir, entry, f);
-                        await downloader.DownloadAsync(f.Url, dest, f.SizeBytes, f.Sha256, progress, cts.Token);
-                    }
-                    de.Stage = DownloadStage.Completed.ToString();
-                    log.LogInformation("Download complete for {Id}", entry.Id);
-                }
-                catch (OperationCanceledException)
-                {
-                    de.Stage = DownloadStage.Cancelled.ToString();
-                    de.Error = "Cancelled by admin.";
-                    log.LogInformation("Download cancelled for {Id}", entry.Id);
-                }
-                catch (Exception ex)
-                {
-                    de.Stage = DownloadStage.Failed.ToString();
-                    de.Error = ex.Message;
-                    log.LogError(ex, "Download failed for {Id}", entry.Id);
-                }
-            }, cts.Token);
+                // A previous run has finished (cancelled/failed/completed). Remove it so
+                // a new StartAsync call can create a fresh entry and restart the download.
+                _entries.TryRemove(entry.Id, out _);
+                continue;
+            }
 
-            return de;
+            var created = CreateEntry(entry, modelsDir);
+            if (_entries.TryAdd(entry.Id, created)) return created;
+        }
+    }
+
+    private DownloadEntry CreateEntry(CatalogEntry entry, string modelsDir)
+    {
+        var cts = new CancellationTokenSource();
+        var de = new DownloadEntry(entry);
+
+        var progress = new Progress<DownloadProgress>(p =>
+        {
+            de.Stage = p.Stage.ToString();
+            de.Bytes = p.BytesDownloaded;
+            de.TotalBytes = p.TotalBytes;
+            de.BytesPerSecond = p.BytesPerSecond;
+            de.EtaSeconds = p.Eta.TotalSeconds;
         });
+
+        de.Cts = cts;
+        de.Task = Task.Run(async () =>
+        {
+            try
+            {
+                foreach (var f in entry.Files)
+                {
+                    var dest = ModelCatalogService.ResolveDestinationPath(modelsDir, entry, f);
+                    await downloader.DownloadAsync(f.Url, dest, f.SizeBytes, f.Sha256, progress, cts.Token);
+                }
+                de.Stage = DownloadStage.Completed.ToString();
+                log.LogInformation("Download complete for {Id}", entry.Id);
+            }
+            catch (OperationCanceledException)
+            {
+                de.Stage = DownloadStage.Cancelled.ToString();
+                de.Error = "Cancelled by admin.";
+                log.LogInformation("Download cancelled for {Id}", entry.Id);
+            }
+            catch (Exception ex)
+            {
+                de.Stage = DownloadStage.Failed.ToString();
+                de.Error = ex.Message;
+                log.LogError(ex, "Download failed for {Id}", entry.Id);
+            }
+        }, cts.Token);
+
+        return de;
     }
 
     public bool Cancel(string modelId)
