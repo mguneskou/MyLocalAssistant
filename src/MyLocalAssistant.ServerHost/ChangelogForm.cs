@@ -7,6 +7,12 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.18
+        ───────────────────────────────────────────────────────────
+        • Fixed: Admin Models table now scrolls horizontally when needed, so
+          right-side checklist selection controls remain visible after adding
+          Min RAM and License columns.
+
         v2.21.17
         ───────────────────────────────────────────────────────────
         • Fixed: Version drift between release tags and app windows. The

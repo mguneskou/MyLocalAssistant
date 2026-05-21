@@ -148,7 +148,7 @@ export default function AdminModelsTab() {
         </div>
       )}
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-hidden">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-zinc-800/70 text-zinc-300">
             <tr>
