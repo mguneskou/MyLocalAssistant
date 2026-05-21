@@ -64,7 +64,7 @@ jobs:
       - name: Publish server and host into dist\stage
         shell: pwsh
         run: |
-          .\scripts\publish-all.ps1 -Configuration Release -Runtime win-x64 -OutDir "$PWD\dist\stage"
+          .\scripts\publish-all.ps1 -Configuration Release -Runtime win-x64 -OutDir "$PWD\dist\stage" -Version '${{ steps.ver.outputs.tag_version }}'
           Get-ChildItem dist\stage -Filter *.exe | Select-Object Name, Length
 
       - name: vpk pack

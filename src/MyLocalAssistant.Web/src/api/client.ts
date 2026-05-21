@@ -1,5 +1,6 @@
 import type {
   LoginResponse,
+  HealthDto,
   UserDto,
   AgentDto,
   AgentUpdateRequest,
@@ -129,6 +130,12 @@ async function json<T>(res: Response): Promise<T> {
     throw new Error(detail)
   }
   return res.json() as Promise<T>
+}
+
+export async function getHealth(): Promise<HealthDto> {
+  const res = await fetch('/healthz')
+  if (!res.ok) throw new Error(`Health check failed (${res.status})`)
+  return res.json() as Promise<HealthDto>
 }
 
 // ── Auth ────────────────────────────────────────────────────────────────────

@@ -7,6 +7,17 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.17
+        ───────────────────────────────────────────────────────────
+        • Fixed: Version drift between release tags and app windows. The
+          publish/release pipeline now stamps Server and ServerHost binaries
+          with the resolved release tag version.
+        • Fixed: Tray About, Feedback version field, and browser UIs now
+          align on one runtime version surface so testers see the same number
+          across desktop and web shells.
+        • Improved: Web Models tab now shows Min RAM and License columns,
+          including license links when provided by the catalog.
+
         v2.21.13
         ───────────────────────────────────────────────────────────
         • Breaking/Cleanup: Legacy WinForms client source has been removed

@@ -1,6 +1,7 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import * as api from '../api/client'
 import AdminOverviewTab from '../components/admin/AdminOverviewTab'
 import AdminUsageTab from '../components/admin/AdminUsageTab'
 import AdminModelsTab from '../components/admin/AdminModelsTab'
@@ -60,6 +61,7 @@ export default function AdminPage() {
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = normalizeTab(searchParams.get('tab'))
+  const [appVersion, setAppVersion] = useState<string>('…')
 
   const tabOrder = useMemo(
     () => (user?.isGlobalAdmin ? [...BASE_TABS.slice(0, 6), ...GLOBAL_TABS, ...BASE_TABS.slice(6)] : BASE_TABS),
@@ -73,6 +75,18 @@ export default function AdminPage() {
       setSearchParams({ tab: activeTab }, { replace: true })
     }
   }, [activeTab, requestedTab, setSearchParams])
+
+  useEffect(() => {
+    let cancelled = false
+    void api.getHealth()
+      .then(h => {
+        if (!cancelled) setAppVersion(h.version || '?')
+      })
+      .catch(() => {
+        if (!cancelled) setAppVersion('?')
+      })
+    return () => { cancelled = true }
+  }, [])
 
   const subtitle = useMemo(() => {
     if (!user) return ''
@@ -89,6 +103,7 @@ export default function AdminPage() {
         <div className="px-4 py-4 border-b border-zinc-800">
           <div className="text-sm font-semibold tracking-wide">Admin</div>
           <div className="text-xs text-zinc-500 mt-1">{subtitle}</div>
+          <div className="text-[11px] text-zinc-500 mt-1">Version {appVersion}</div>
         </div>
 
         <nav className="p-2 space-y-1 flex-1">

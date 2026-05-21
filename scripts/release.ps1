@@ -55,7 +55,7 @@ if (-not (Get-Command vpk -ErrorAction SilentlyContinue)) {
 
 # 2) Publish Server + ServerHost into the staging folder.
 Write-Host "Publishing $tagVersion to $StageDir" -ForegroundColor Cyan
-& (Join-Path $scriptDir "publish-all.ps1") -Configuration $Configuration -Runtime $Runtime -OutDir $StageDir
+& (Join-Path $scriptDir "publish-all.ps1") -Configuration $Configuration -Runtime $Runtime -OutDir $StageDir -Version $tagVersion
 if ($LASTEXITCODE -ne 0) { throw "publish-all failed." }
 
 # 3) Pack with vpk.

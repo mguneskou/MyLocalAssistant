@@ -156,6 +156,8 @@ export default function AdminModelsTab() {
               <th className="text-left px-3 py-2">Role</th>
               <th className="text-left px-3 py-2">Source</th>
               <th className="text-left px-3 py-2">Size</th>
+              <th className="text-left px-3 py-2">Min RAM</th>
+              <th className="text-left px-3 py-2">License</th>
               <th className="text-left px-3 py-2">Status</th>
               <th className="text-left px-3 py-2">Checklist Select</th>
             </tr>
@@ -194,6 +196,8 @@ export default function AdminModelsTab() {
                   </td>
                   <td className="px-3 py-2 text-zinc-300">{m.isCloud ? `Cloud (${m.source})` : 'Local'}</td>
                   <td className="px-3 py-2 text-zinc-300">{m.isCloud ? '-' : formatBytes(m.totalBytes)}</td>
+                  <td className="px-3 py-2 text-zinc-300">{formatMinRam(m)}</td>
+                  <td className="px-3 py-2 text-zinc-300">{renderLicense(m)}</td>
                   <td className="px-3 py-2 text-zinc-300">{renderStatusCell(m)}</td>
                   <td className="px-3 py-2">
                     <label className={`inline-flex items-center gap-2 text-xs ${activeForRole ? 'text-emerald-200' : 'text-zinc-300'}`}>
@@ -217,7 +221,7 @@ export default function AdminModelsTab() {
             })}
             {models.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-3 py-6 text-center text-zinc-500">No models found.</td>
+                <td colSpan={8} className="px-3 py-6 text-center text-zinc-500">No models found.</td>
               </tr>
             )}
           </tbody>
@@ -278,6 +282,30 @@ function isEmbeddingModel(model: ModelDto): boolean {
 function isDownloadRunning(model: ModelDto): boolean {
   const stage = model.download?.stage
   return !!stage && LIVE_DOWNLOAD_STAGES.has(stage)
+}
+
+function formatMinRam(model: ModelDto): string {
+  if (model.isCloud) return '-'
+  if (!Number.isFinite(model.minRamGb) || model.minRamGb <= 0) return 'n/a'
+  return `${model.minRamGb} GB`
+}
+
+function renderLicense(model: ModelDto) {
+  const license = model.license?.trim()
+  const url = model.licenseUrl?.trim()
+  if (!license && !url) return <span className="text-zinc-500">n/a</span>
+  if (!url) return <span>{license ?? 'n/a'}</span>
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noreferrer"
+      className="text-blue-300 hover:text-blue-200 underline"
+      onClick={e => e.stopPropagation()}
+    >
+      {license || 'View'}
+    </a>
+  )
 }
 
 function renderStatusCell(model: ModelDto) {

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import type { ConversationSummaryDto, UserDto } from '../api/types'
 import * as api from '../api/client'
@@ -45,8 +45,21 @@ export default function Sidebar({ conversations, activeConvId, onNewChat, onSele
   const [workRoot, setWorkRoot] = useState<string>(user?.workRoot ?? '')
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsError, setSettingsError] = useState<string | null>(null)
+  const [appVersion, setAppVersion] = useState<string>('…')
   const canUseAdmin = !!(user?.isAdmin || user?.isGlobalAdmin)
   const groups = groupByDate(conversations)
+
+  useEffect(() => {
+    let cancelled = false
+    void api.getHealth()
+      .then(h => {
+        if (!cancelled) setAppVersion(h.version || '?')
+      })
+      .catch(() => {
+        if (!cancelled) setAppVersion('?')
+      })
+    return () => { cancelled = true }
+  }, [])
 
   async function saveWorkRoot() {
     setSettingsSaving(true)
@@ -208,6 +221,9 @@ export default function Sidebar({ conversations, activeConvId, onNewChat, onSele
                 d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
             </svg>
           </button>
+        </div>
+        <div className="mt-2 text-[11px] text-zinc-500">
+          Version {appVersion}
         </div>
       </div>
     </aside>

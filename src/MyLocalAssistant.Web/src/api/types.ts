@@ -19,6 +19,12 @@ export interface UserDto {
   workRoot: string | null
 }
 
+export interface HealthDto {
+  status: string
+  version: string
+  time: string
+}
+
 export interface DownloadStatusDto {
   stage: string
   bytes: number

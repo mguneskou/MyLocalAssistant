@@ -7,7 +7,8 @@
 param(
     [string]$Configuration = "Release",
     [string]$Runtime       = "win-x64",
-    [string]$OutDir        = ""
+    [string]$OutDir        = "",
+    [string]$Version       = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -19,6 +20,12 @@ $out = (Resolve-Path $OutDir).Path
 
 Write-Host "Publishing to $out" -ForegroundColor Cyan
 Remove-Item -Recurse -Force "$out\*" -ErrorAction SilentlyContinue
+
+$versionArgs = @()
+if (-not [string]::IsNullOrWhiteSpace($Version)) {
+    $versionArgs = @("-p:Version=$Version")
+    Write-Host "Using version override: $Version" -ForegroundColor Cyan
+}
 
 $projects = @(
     "src\MyLocalAssistant.Server\MyLocalAssistant.Server.csproj",
@@ -41,10 +48,18 @@ $optionalNativeRuntimeGroups = @(
 foreach ($proj in $projects) {
     $name = [IO.Path]::GetFileNameWithoutExtension($proj)
     Write-Host ">> $name" -ForegroundColor Yellow
-    dotnet publish (Join-Path $root $proj) `
-        -c $Configuration -r $Runtime --self-contained false `
-        -p:PublishSingleFile=false `
-        -o $out --nologo -v:minimal
+    $publishArgs = @(
+        "publish",
+        (Join-Path $root $proj),
+        "-c", $Configuration,
+        "-r", $Runtime,
+        "--self-contained", "false",
+        "-p:PublishSingleFile=false",
+        "-o", $out,
+        "--nologo",
+        "-v:minimal"
+    ) + $versionArgs
+    dotnet @publishArgs
     if ($LASTEXITCODE -ne 0) { throw "publish failed for $name" }
 }
 
