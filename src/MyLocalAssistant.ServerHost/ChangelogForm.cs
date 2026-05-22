@@ -7,6 +7,20 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.19
+        ───────────────────────────────────────────────────────────
+        • Fixed: Work folder path handling is now more robust. The server
+          resolves environment-variable and home-shortcut paths (for example
+          %USERPROFILE% and ~) and verifies the target path is writable before
+          saving it.
+        • Fixed: Embedding model startup is now more resilient on low-memory
+          systems. The loader retries with smaller context sizes and falls back
+          to CPU-only if GPU probe/load fails.
+        • Improved: Agent prompt governance is stricter. Seeded prompts now
+          include Thought/Action/Observation guidance plus explicit rules to
+          use required file-deliverable tools and report exact reasons when a
+          required tool is unavailable or fails.
+
         v2.21.18
         ───────────────────────────────────────────────────────────
         • Fixed: Admin Models table now scrolls horizontally when needed, so

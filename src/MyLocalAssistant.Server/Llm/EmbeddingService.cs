@@ -132,38 +132,30 @@ public sealed class EmbeddingService(
             BackendSelector.Configure(log);
 
             log.LogInformation("Loading embedding model {Id} from {Path}", entry.Id, path);
-            var ctx = entry.RecommendedContextSize > 0 ? entry.RecommendedContextSize : 8192;
-            var p = new ModelParams(path)
+            Exception? lastError = null;
+            foreach (var ctx in BuildContextFallbacks(entry.RecommendedContextSize))
             {
-                ContextSize = (uint)ctx,
-                Embeddings = true,
-                PoolingType = LLama.Native.LLamaPoolingType.Mean,
-                GpuLayerCount = int.MaxValue,
-            };
-            LLamaWeights weights;
-            try
-            {
-                weights = await LLamaWeights.LoadFromFileAsync(p).ConfigureAwait(false);
-                // Probe: force KV-cache/compute buffer allocation so an integrated-GPU
-                // failure surfaces here rather than on the first real EmbedAsync call.
-                if (p.GpuLayerCount != 0)
+                try
                 {
-                    var probeEmbedder = new LLamaEmbedder(weights, p, null);
-                    await probeEmbedder.GetEmbeddings("probe", CancellationToken.None).ConfigureAwait(false);
+                    var (weights, embedder, gpuLayersUsed) = await LoadEmbedderWithGpuFallbackAsync(path, ctx, entry.Id).ConfigureAwait(false);
+                    _weights = weights;
+                    _embedder = embedder;
+                    _dim = _embedder.EmbeddingSize;
+                    _loadedId = entry.Id;
+                    _status = ModelStatus.Loaded;
+                    log.LogInformation("Embedding model {Id} loaded (dim={Dim}, ctx={Ctx}, gpuLayers={GpuLayers}).", entry.Id, _dim, ctx, gpuLayersUsed);
+                    return;
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+                    log.LogWarning(ex, "Failed to load embedding model {Id} with context size {Ctx}; trying lower context.", entry.Id, ctx);
                 }
             }
-            catch (Exception ex) when (p.GpuLayerCount > 0)
-            {
-                log.LogWarning(ex, "GPU load/probe failed for embedding model {Id} — retrying with CPU-only.", entry.Id);
-                p = new ModelParams(path) { ContextSize = (uint)ctx, Embeddings = true, PoolingType = LLama.Native.LLamaPoolingType.Mean, GpuLayerCount = 0 };
-                weights = await LLamaWeights.LoadFromFileAsync(p).ConfigureAwait(false);
-            }
-            _weights = weights;
-            _embedder = new LLamaEmbedder(_weights, p, null);
-            _dim = _embedder.EmbeddingSize;
-            _loadedId = entry.Id;
-            _status = ModelStatus.Loaded;
-            log.LogInformation("Embedding model {Id} loaded (dim={Dim}).", entry.Id, _dim);
+
+            throw new InvalidOperationException(
+                $"Failed to load embedding model '{entry.DisplayName}'. Try a smaller embedding model for low-memory machines (for example All-MiniLM-L6-v2 or BGE Base EN v1.5).",
+                lastError);
         }
         catch (Exception ex)
         {
@@ -174,6 +166,82 @@ public sealed class EmbeddingService(
         finally
         {
             _loadLock.Release();
+        }
+    }
+
+    private static IReadOnlyList<int> BuildContextFallbacks(int recommended)
+    {
+        var values = new List<int>();
+        var ctx = recommended > 0 ? recommended : 8192;
+        ctx = Math.Max(ctx, 256);
+
+        while (ctx >= 256)
+        {
+            if (!values.Contains(ctx)) values.Add(ctx);
+            if (ctx == 256) break;
+            ctx = Math.Max(ctx / 2, 256);
+        }
+
+        return values;
+    }
+
+    private async Task<(LLamaWeights Weights, LLamaEmbedder Embedder, int GpuLayersUsed)> LoadEmbedderWithGpuFallbackAsync(string path, int ctx, string modelId)
+    {
+        var gpuParams = new ModelParams(path)
+        {
+            ContextSize = (uint)ctx,
+            Embeddings = true,
+            PoolingType = LLama.Native.LLamaPoolingType.Mean,
+            GpuLayerCount = int.MaxValue,
+        };
+
+        LLamaWeights? gpuWeights = null;
+        try
+        {
+            gpuWeights = await LLamaWeights.LoadFromFileAsync(gpuParams).ConfigureAwait(false);
+            // Probe: force KV-cache/compute buffer allocation so integrated-GPU failures
+            // surface here rather than later on the first real embed call.
+            using (var probeEmbedder = new LLamaEmbedder(gpuWeights, gpuParams, null))
+            {
+                await probeEmbedder.GetEmbeddings("probe", CancellationToken.None).ConfigureAwait(false);
+            }
+
+            var embedder = new LLamaEmbedder(gpuWeights, gpuParams, null);
+            return (gpuWeights, embedder, gpuParams.GpuLayerCount);
+        }
+        catch (Exception ex)
+        {
+            if (gpuWeights is not null)
+            {
+                try { gpuWeights.Dispose(); } catch { /* best effort */ }
+                gpuWeights = null;
+            }
+
+            log.LogWarning(ex, "GPU load/probe failed for embedding model {Id} at ctx={Ctx}; retrying with CPU-only.", modelId, ctx);
+
+            var cpuParams = new ModelParams(path)
+            {
+                ContextSize = (uint)ctx,
+                Embeddings = true,
+                PoolingType = LLama.Native.LLamaPoolingType.Mean,
+                GpuLayerCount = 0,
+            };
+
+            LLamaWeights? cpuWeights = null;
+            try
+            {
+                cpuWeights = await LLamaWeights.LoadFromFileAsync(cpuParams).ConfigureAwait(false);
+                var embedder = new LLamaEmbedder(cpuWeights, cpuParams, null);
+                return (cpuWeights, embedder, cpuParams.GpuLayerCount);
+            }
+            catch
+            {
+                if (cpuWeights is not null)
+                {
+                    try { cpuWeights.Dispose(); } catch { /* best effort */ }
+                }
+                throw;
+            }
         }
     }
 

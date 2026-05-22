@@ -450,8 +450,10 @@ public sealed class ChatService(
         sb.Append("• Thought: decide the next best step based on the user goal and current evidence.\n");
         sb.Append("• Act: when a tool materially helps, call the most relevant tool with precise arguments.\n");
         sb.Append("• Observe: inspect the tool result, update your plan, and either continue the loop or produce the final answer.\n");
+        sb.Append("• You should think step by step in order to fulfill the objective with reasoning divided into Thought/Action/Observation steps that can be repeated multiple times when needed.\n");
         sb.Append("• Keep this loop internal; provide concise user-facing outputs.\n");
         sb.Append("• Never invent tool outputs, files, or facts. If evidence is missing after available actions, state the gap clearly.\n");
+        sb.Append("• If a request requires a tool that is not enabled, unavailable, or failed at runtime, explicitly state the exact tool name and the reason.\n");
         if (!string.IsNullOrWhiteSpace(workDirectory))
         {
             var resolvedWorkDir = workDirectory.Replace("\r", "").Replace("\n", " ");
@@ -485,6 +487,8 @@ public sealed class ChatService(
             sb.Append("<tool_result>{\"content\":\"...\"}</tool_result>\n");
             sb.Append("Then continue your answer to the user. Call a tool only when it materially helps. Maximum ");
             sb.Append(maxToolCalls).Append(" tool calls per turn.\n\nAvailable tools:\n");
+            sb.Append("• If the user asks for a concrete file deliverable (for example Excel, Word, PowerPoint, or PDF) and the matching tool is available, you must call that tool before your final answer.\n");
+            sb.Append("• Do not claim a file was created, modified, or analyzed unless the corresponding tool call succeeded.\n");
             foreach (var skill in tools)
             {
                 foreach (var t in skill.Tools)

@@ -239,6 +239,18 @@ public sealed class UserService(
     {
         var (normalized, error) = NormalizeWorkRoot(workRoot);
         if (error is not null) return error;
+        if (!string.IsNullOrWhiteSpace(normalized))
+        {
+            try
+            {
+                EnsureWorkRootIsWritable(normalized);
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning(ex, "Rejected WorkRoot update for {UserId}. Path '{Path}' is not writable by the server process.", userId, normalized);
+                return ProblemCodes.ValidationFailed;
+            }
+        }
         var user = await db.Users.FindAsync(new object[] { userId }, ct);
         if (user is null) return ProblemCodes.NotFound;
         user.WorkRoot = normalized;
@@ -288,6 +300,18 @@ public sealed class UserService(
         };
         var (workRoot, workRootError) = NormalizeWorkRoot(req.WorkRoot);
         if (workRootError is not null) return (null, workRootError);
+        if (!string.IsNullOrWhiteSpace(workRoot))
+        {
+            try
+            {
+                EnsureWorkRootIsWritable(workRoot);
+            }
+            catch (Exception ex)
+            {
+                log.LogWarning(ex, "Rejected WorkRoot during user create for '{Username}'. Path '{Path}' is not writable by the server process.", username, workRoot);
+                return (null, ProblemCodes.ValidationFailed);
+            }
+        }
         user.WorkRoot = workRoot;
         db.Users.Add(user);
 
@@ -323,6 +347,18 @@ public sealed class UserService(
         {
             var (workRoot, workRootError) = NormalizeWorkRoot(req.WorkRoot);
             if (workRootError is not null) return (null, workRootError);
+            if (!string.IsNullOrWhiteSpace(workRoot))
+            {
+                try
+                {
+                    EnsureWorkRootIsWritable(workRoot);
+                }
+                catch (Exception ex)
+                {
+                    log.LogWarning(ex, "Rejected WorkRoot update for user '{Username}'. Path '{Path}' is not writable by the server process.", user.Username, workRoot);
+                    return (null, ProblemCodes.ValidationFailed);
+                }
+            }
             user.WorkRoot = workRoot;
         }
 
@@ -417,18 +453,45 @@ public sealed class UserService(
             return (null, ProblemCodes.ValidationFailed);
         if (trimmed.Contains("..", StringComparison.Ordinal))
             return (null, ProblemCodes.ValidationFailed);
+
+        // Allow common user-friendly path forms such as %USERPROFILE%\... and ~\...
+        // while still enforcing a rooted final path.
+        var expanded = Environment.ExpandEnvironmentVariables(trimmed);
+        if (expanded.StartsWith('~'))
+        {
+            var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            if (!string.IsNullOrWhiteSpace(home))
+            {
+                var suffix = expanded.Length == 1
+                    ? string.Empty
+                    : expanded[1..].TrimStart(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+                expanded = suffix.Length == 0 ? home : Path.Combine(home, suffix);
+            }
+        }
+
         // Must be rooted (e.g. C:\foo or \\server\share\foo).
-        if (!Path.IsPathFullyQualified(trimmed))
+        if (!Path.IsPathFullyQualified(expanded))
             return (null, ProblemCodes.ValidationFailed);
         try
         {
             // Round-trip through GetFullPath to canonicalize separators.
-            var canonical = Path.GetFullPath(trimmed).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            var canonical = Path.GetFullPath(expanded).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             return (canonical, null);
         }
         catch
         {
             return (null, ProblemCodes.ValidationFailed);
         }
+    }
+
+    private static void EnsureWorkRootIsWritable(string path)
+    {
+        Directory.CreateDirectory(path);
+        var probeFile = Path.Combine(path, $"mla-write-probe-{Guid.NewGuid():N}.tmp");
+        using (var fs = new FileStream(probeFile, FileMode.CreateNew, FileAccess.Write, FileShare.None))
+        {
+            fs.WriteByte(0x2A);
+        }
+        File.Delete(probeFile);
     }
 }

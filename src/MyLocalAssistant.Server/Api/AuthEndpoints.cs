@@ -90,7 +90,7 @@ public static class AuthEndpoints
             }
             return code switch
             {
-                ProblemCodes.ValidationFailed => Problem(code, "Invalid path: must be an absolute path without wildcards or '..'.", StatusCodes.Status400BadRequest),
+                ProblemCodes.ValidationFailed => Problem(code, "Invalid path: it must resolve to an absolute local/UNC path (no wildcards or '..') and be writable by the server process.", StatusCodes.Status400BadRequest),
                 _ => Problem(code, "Not found.", StatusCodes.Status404NotFound),
             };
         }).RequireAuthorization();
