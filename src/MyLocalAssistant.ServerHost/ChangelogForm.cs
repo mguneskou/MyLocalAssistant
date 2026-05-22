@@ -7,6 +7,19 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.20
+        ───────────────────────────────────────────────────────────
+        • New: Added a seeded restricted CEO Strategic Supervisor agent
+          (Mode A advisory) with a fixed executive output contract for
+          recommendation, risk/opportunity analysis, evidence mapping,
+          and remediation actions.
+        • Improved: CEO supervisor default tool bindings now include
+          office/report generation plus explicit collection lookup via
+          rag.search_collection for evidence-driven reviews.
+        • Improved: Runtime output governance now validates CEO Mode A
+          response structure; if required sections are missing, a schema
+          compliance supplement template is appended before completion.
+
         v2.21.19
         ───────────────────────────────────────────────────────────
         • Fixed: Work folder path handling is now more robust. The server

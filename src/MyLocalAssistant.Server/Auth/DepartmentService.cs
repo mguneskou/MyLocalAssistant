@@ -30,6 +30,7 @@ public sealed class DepartmentService(AppDbContext db, ILogger<DepartmentService
         "Sales / CRM",
         "Customer Support",
         // Restricted
+        "CEO Strategic Supervisor",
         "HR",
         "Finance",
         "IT / Code Helper",

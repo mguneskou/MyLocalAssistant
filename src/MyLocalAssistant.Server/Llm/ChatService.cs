@@ -30,6 +30,7 @@ public sealed class ChatService(
 
     /// <summary>Server-wide default cap on tool invocations per chat turn. Agents may lower or raise this (max 20).</summary>
     private const int DefaultMaxToolCallsPerTurn = 10;
+    private const string CeoStrategicSupervisorAgentId = "ceo-strategic-supervisor";
 
     private const string ToolCallOpen = "<tool_call>";
     private const string ToolCallClose = "</tool_call>";
@@ -129,6 +130,7 @@ public sealed class ChatService(
         using var lease = await queue.AcquireAsync(ct);
 
         var assistantSoFar = new StringBuilder();
+        var visibleAssistant = new StringBuilder();
         var stops = toolMode ? new[] { ToolCallClose } : Array.Empty<string>();
         var skillCtx = new ToolContext(
             principal.UserId,
@@ -157,7 +159,12 @@ public sealed class ChatService(
                     var openIdx = IndexOf(holdBack, ToolCallOpen);
                     if (openIdx >= 0)
                     {
-                        if (openIdx > 0) yield return holdBack.ToString(0, openIdx);
+                        if (openIdx > 0)
+                        {
+                            var chunk = holdBack.ToString(0, openIdx);
+                            visibleAssistant.Append(chunk);
+                            yield return chunk;
+                        }
                         var afterOpen = openIdx + ToolCallOpen.Length;
                         toolBuffer.Append(holdBack.ToString(afterOpen, holdBack.Length - afterOpen));
                         holdBack.Clear();
@@ -174,7 +181,9 @@ public sealed class ChatService(
                         var safe = Math.Max(0, holdBack.Length - (ToolCallOpen.Length - 1));
                         if (safe > 0)
                         {
-                            yield return holdBack.ToString(0, safe);
+                            var chunk = holdBack.ToString(0, safe);
+                            visibleAssistant.Append(chunk);
+                            yield return chunk;
                             holdBack.Remove(0, safe);
                         }
                     }
@@ -193,7 +202,12 @@ public sealed class ChatService(
 
             if (completedToolJson is null)
             {
-                if (!hideMode && holdBack.Length > 0) yield return holdBack.ToString();
+                if (!hideMode && holdBack.Length > 0)
+                {
+                    var tail = holdBack.ToString();
+                    visibleAssistant.Append(tail);
+                    yield return tail;
+                }
                 if (hideMode)
                 {
                     var candidate = toolBuffer.ToString().Trim();
@@ -215,6 +229,8 @@ public sealed class ChatService(
                 }
                 else
                 {
+                    var supplement = BuildCeoModeAComplianceSupplementIfNeeded(agent.Id, visibleAssistant.ToString());
+                    if (supplement.Length > 0) yield return supplement;
                     yield break;
                 }
             }
@@ -223,6 +239,8 @@ public sealed class ChatService(
             {
                 callbacks.OnToolUnavailable?.Invoke("(loop)",
                     $"Tool-call limit reached ({maxToolCalls}). Aborting further calls.");
+                var supplement = BuildCeoModeAComplianceSupplementIfNeeded(agent.Id, visibleAssistant.ToString());
+                if (supplement.Length > 0) yield return supplement;
                 yield break;
             }
 
@@ -424,6 +442,47 @@ public sealed class ChatService(
             if (ok) return;
         }
         sb.Append(suffix);
+    }
+
+    private static string BuildCeoModeAComplianceSupplementIfNeeded(string agentId, string assistantText)
+    {
+        if (!string.Equals(agentId, CeoStrategicSupervisorAgentId, StringComparison.OrdinalIgnoreCase))
+            return string.Empty;
+
+        var missingSections = new List<string>(6);
+        if (!assistantText.Contains("Executive recommendation", StringComparison.OrdinalIgnoreCase)) missingSections.Add("Executive recommendation");
+        if (!assistantText.Contains("Top risks", StringComparison.OrdinalIgnoreCase)) missingSections.Add("Top risks");
+        if (!assistantText.Contains("Top opportunities", StringComparison.OrdinalIgnoreCase)) missingSections.Add("Top opportunities");
+        if (!assistantText.Contains("Evidence map", StringComparison.OrdinalIgnoreCase)) missingSections.Add("Evidence map");
+        if (!assistantText.Contains("Evidence gaps and assumptions", StringComparison.OrdinalIgnoreCase)) missingSections.Add("Evidence gaps and assumptions");
+        if (!assistantText.Contains("Remediation actions", StringComparison.OrdinalIgnoreCase)) missingSections.Add("Remediation actions");
+
+        var missingFields = new List<string>(2);
+        if (!assistantText.Contains("Decision:", StringComparison.OrdinalIgnoreCase)) missingFields.Add("Decision");
+        if (!assistantText.Contains("Confidence:", StringComparison.OrdinalIgnoreCase)) missingFields.Add("Confidence");
+
+        if (missingSections.Count == 0 && missingFields.Count == 0)
+            return string.Empty;
+
+        var sb = new StringBuilder();
+        sb.AppendLine();
+        sb.AppendLine("[Mode A schema compliance notice]");
+        sb.AppendLine("The advisory response is missing required CEO Mode A structure. Please complete the schema below before actioning the recommendation.");
+        if (missingSections.Count > 0)
+            sb.AppendLine("Missing sections: " + string.Join(", ", missingSections) + ".");
+        if (missingFields.Count > 0)
+            sb.AppendLine("Missing required fields: " + string.Join(", ", missingFields) + ".");
+        sb.AppendLine();
+        sb.AppendLine("1) Executive recommendation");
+        sb.AppendLine("- Decision: Approve | Conditional Approve | Reject");
+        sb.AppendLine("- Confidence: High | Medium | Low");
+        sb.AppendLine("- One-sentence rationale");
+        sb.AppendLine("2) Top risks (maximum 3)");
+        sb.AppendLine("3) Top opportunities (maximum 3)");
+        sb.AppendLine("4) Evidence map");
+        sb.AppendLine("5) Evidence gaps and assumptions");
+        sb.AppendLine("6) Remediation actions");
+        return sb.ToString();
     }
 
     private static string BuildPrompt(
