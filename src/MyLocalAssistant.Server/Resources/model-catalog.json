@@ -582,6 +582,42 @@
     "description": "Google Gemini 2.5 Flash. Frontier quality with 1M token context and built-in reasoning. Free tier: 10 req/min, 250 req/day. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
   },
   {
+    "id": "gemini-3.1-flash",
+    "displayName": "Gemini 3.1 Flash — Google (cloud)",
+    "tier": "mid",
+    "source": "gemini",
+    "remoteModel": "gemini-3.1-flash",
+    "license": "Google Terms of Service",
+    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
+    "recommendedContextSize": 1048576,
+    "minRamGb": 0,
+    "description": "Google Gemini 3.1 Flash via Gemini API. Fast, high-context cloud model for general chat and tool workflows. Requires a Google AI Studio API key. Conversations leave your network."
+  },
+  {
+    "id": "gemini-3-flash-preview",
+    "displayName": "Gemini 3 Flash Preview — Google (cloud)",
+    "tier": "mid",
+    "source": "gemini",
+    "remoteModel": "gemini-3-flash-preview",
+    "license": "Google Terms of Service",
+    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
+    "recommendedContextSize": 1048576,
+    "minRamGb": 0,
+    "description": "Google Gemini 3 Flash Preview via Gemini API. Preview-tier cloud model for early access testing. Requires a Google AI Studio API key. Conversations leave your network."
+  },
+  {
+    "id": "gemma-4-31b-it",
+    "displayName": "Gemma 4 31B IT — Google (cloud)",
+    "tier": "workstation",
+    "source": "gemini",
+    "remoteModel": "gemma-4-31b-it",
+    "license": "Gemma Terms of Use",
+    "licenseUrl": "https://ai.google.dev/gemma/terms",
+    "recommendedContextSize": 131072,
+    "minRamGb": 0,
+    "description": "Google Gemma 4 31B IT served as a cloud model via Gemini API integration. Strong larger-model option for instruction-following and analysis tasks. Requires a Google AI Studio API key. Conversations leave your network."
+  },
+  {
     "id": "cerebras-llama3.1-8b",
     "displayName": "Llama 3.1 8B — Cerebras (free cloud)",
     "tier": "lightweight",

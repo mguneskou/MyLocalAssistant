@@ -7,6 +7,14 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.21
+        ───────────────────────────────────────────────────────────
+        • New: Added three cloud chat models to the built-in catalog:
+          Gemini 3.1 Flash, Gemini 3 Flash Preview, and Gemma 4 31B IT.
+        • Improved: Global-admin model selection now exposes these entries
+          in the Admin Models tab through the existing Gemini provider path,
+          including cloud-key readiness and activation checks.
+
         v2.21.20
         ───────────────────────────────────────────────────────────
         • New: Added a seeded restricted CEO Strategic Supervisor agent
