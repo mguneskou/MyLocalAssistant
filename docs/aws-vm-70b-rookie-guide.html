@@ -1,0 +1,722 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MyLocalAssistant on AWS for 70B Models - Beginner Guide</title>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --card: #ffffff;
+      --ink: #172338;
+      --muted: #4d5e79;
+      --line: #d6dfeb;
+      --accent: #0b5ad1;
+      --ok: #1e8a50;
+      --warn: #b56d00;
+      --danger: #ad2e3c;
+      --shadow: 0 10px 24px rgba(21, 39, 73, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 10% 0%, #e9f1ff 0%, var(--bg) 35%);
+      color: var(--ink);
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      line-height: 1.55;
+    }
+
+    .wrap {
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 22px;
+    }
+
+    .hero {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 31px;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      margin: 0;
+      font-size: 17px;
+      color: var(--muted);
+    }
+
+    .chips {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+    }
+
+    .chip {
+      border: 1px solid var(--line);
+      background: #f2f6ff;
+      color: #21488e;
+      border-radius: 999px;
+      padding: 6px 11px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 320px 1fr;
+      gap: 16px;
+      align-items: start;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+      margin-bottom: 16px;
+    }
+
+    .toc {
+      position: sticky;
+      top: 14px;
+      max-height: calc(100vh - 28px);
+      overflow: auto;
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: 25px;
+      color: #0d2f74;
+    }
+
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 18px;
+      color: #1a438f;
+    }
+
+    h4 {
+      margin: 14px 0 6px;
+      font-size: 15px;
+      color: #234b90;
+    }
+
+    p { margin: 8px 0; }
+
+    ul, ol {
+      margin: 8px 0 0 20px;
+      padding: 0;
+    }
+
+    li { margin: 6px 0; }
+
+    a { color: var(--accent); }
+
+    code {
+      background: #eef3fd;
+      border: 1px solid #d4deef;
+      padding: 1px 6px;
+      border-radius: 6px;
+      font-size: 90%;
+      color: #15315f;
+    }
+
+    pre {
+      background: #0f1728;
+      color: #eaf2ff;
+      border: 1px solid #243858;
+      border-radius: 10px;
+      padding: 12px;
+      overflow: auto;
+      white-space: pre-wrap;
+      line-height: 1.45;
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1f5fc;
+      color: #1b3f85;
+      font-weight: 700;
+    }
+
+    .callout {
+      border-left: 4px solid var(--accent);
+      background: #edf3ff;
+      border-radius: 8px;
+      padding: 10px 12px;
+      margin: 12px 0;
+      color: #1f3f7d;
+    }
+
+    .ok {
+      border-left-color: var(--ok);
+      background: #eaf8ef;
+      color: #175c36;
+    }
+
+    .warn {
+      border-left-color: var(--warn);
+      background: #fff5e8;
+      color: #855000;
+    }
+
+    .danger {
+      border-left-color: var(--danger);
+      background: #ffecee;
+      color: #862231;
+    }
+
+    .checklist li {
+      list-style: none;
+      margin-left: -20px;
+      padding-left: 24px;
+      position: relative;
+    }
+
+    .checklist li::before {
+      content: "[ ]";
+      position: absolute;
+      left: 0;
+      font-weight: 700;
+      color: #1f4f9b;
+      font-family: Consolas, monospace;
+    }
+
+    .small {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .step {
+      border: 1px dashed #c3d3eb;
+      border-radius: 10px;
+      padding: 10px;
+      margin-top: 10px;
+      background: #f9fbff;
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+      .toc { position: static; max-height: none; }
+      .wrap { padding: 14px; }
+      h1 { font-size: 26px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>MyLocalAssistant on AWS for 70B Models</h1>
+      <p class="subtitle">Complete rookie guide: from zero AWS knowledge to a working test VM.</p>
+      <div class="chips">
+        <span class="chip">Goal: run MyLocalAssistant on AWS</span>
+        <span class="chip">Focus: 70B model testing</span>
+        <span class="chip">Audience: first-time AWS user</span>
+        <span class="chip">Platform: Windows EC2</span>
+      </div>
+    </section>
+
+    <div class="grid">
+      <aside class="card toc">
+        <h3 style="margin-top:0;">Table of Contents</h3>
+        <ol>
+          <li><a href="#reality">Read this first (70B reality check)</a></li>
+          <li><a href="#plan">Choose your 70B plan</a></li>
+          <li><a href="#pricing">Understand cost before launch</a></li>
+          <li><a href="#account">Create AWS account safely</a></li>
+          <li><a href="#quota">Request GPU quota (if running local 70B)</a></li>
+          <li><a href="#launch">Launch EC2 Windows VM</a></li>
+          <li><a href="#rdp">Connect via Remote Desktop</a></li>
+          <li><a href="#gpu">Install and validate NVIDIA driver</a></li>
+          <li><a href="#app">Install MyLocalAssistant</a></li>
+          <li><a href="#model">Load and test 70B model</a></li>
+          <li><a href="#secure">Security hardening checklist</a></li>
+          <li><a href="#daily">Daily operation checklist</a></li>
+          <li><a href="#issues">Troubleshooting</a></li>
+          <li><a href="#stopcost">How to stop billing safely</a></li>
+          <li><a href="#handover">Ready-to-send handover template</a></li>
+        </ol>
+        <p class="small">This guide is intentionally detailed. Follow line by line.</p>
+      </aside>
+
+      <main>
+        <section id="reality" class="card">
+          <h2>1) Read This First (70B Reality Check)</h2>
+          <p>Running a local 70B model is heavy. It needs significant memory and often a very expensive GPU instance.</p>
+
+          <div class="callout warn">
+            The built-in local 70B entry in this product catalog is approximately <strong>40 GB</strong> model file size, with <strong>recommended context 8192</strong> and <strong>minimum RAM 48 GB</strong>. In real usage, budget more than the minimum.
+          </div>
+
+          <p>For beginners, there are two valid ways to "use 70B" with this software:</p>
+          <ol>
+            <li><strong>Plan A (Local 70B on your AWS VM):</strong> highest control, highest cost, highest setup complexity.</li>
+            <li><strong>Plan B (Cloud 70B provider from within the app):</strong> much cheaper and easier, still accessed from your AWS VM.</li>
+          </ol>
+
+          <div class="callout danger">
+            If you are not sure, start with <strong>Plan B</strong> first. You can validate your test flow without paying for top-tier GPU compute immediately.
+          </div>
+        </section>
+
+        <section id="plan" class="card">
+          <h2>2) Choose Your 70B Plan</h2>
+
+          <h3>Plan A: Local 70B model in AWS VM</h3>
+          <ul>
+            <li>Pros: model stays on your VM, no per-token cloud API billing.</li>
+            <li>Cons: very high EC2 cost, quota approvals, GPU setup complexity.</li>
+            <li>Best for: controlled test labs, strict data locality testing, performance profiling.</li>
+          </ul>
+
+          <h3>Plan B: 70B cloud model from inside MyLocalAssistant</h3>
+          <ul>
+            <li>Pros: easiest startup, lower fixed cost, no massive local model downloads.</li>
+            <li>Cons: prompts/responses leave your VM network to provider API.</li>
+            <li>Best for: functional testing and user acceptance with lower infra overhead.</li>
+          </ul>
+
+          <h3>Hardware guidance table (for local 70B)</h3>
+          <table>
+            <thead>
+              <tr><th>Level</th><th>Suggestion</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Minimum practical</td>
+                <td>GPU with large VRAM, strong RAM headroom</td>
+                <td>May work, but can be unstable with large context or heavy concurrency.</td>
+              </tr>
+              <tr>
+                <td>Recommended stable target</td>
+                <td>80 GB-class GPU memory per workload lane</td>
+                <td>Safer for 70B quantized model plus context/cache overhead.</td>
+              </tr>
+              <tr>
+                <td>Budget fallback</td>
+                <td>High-memory CPU instance (slow)</td>
+                <td>Good for correctness checks, not for speed.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="callout">
+            If your tester only needs to verify functionality (not throughput), Plan B is usually the fastest path to success.
+          </div>
+        </section>
+
+        <section id="pricing" class="card">
+          <h2>3) Understand Cost Before Launch</h2>
+
+          <h3>3.1 Cost components</h3>
+          <ul>
+            <li>EC2 runtime (per hour while instance is running)</li>
+            <li>EBS storage (per month while disk exists)</li>
+            <li>Data transfer (small for basic testing, but monitor anyway)</li>
+            <li>Optional cloud model API usage (if Plan B)</li>
+          </ul>
+
+          <h3>3.2 Set budget guardrails now</h3>
+          <ol>
+            <li>AWS Console -> Billing and Cost Management.</li>
+            <li>Enable billing alerts.</li>
+            <li>Create monthly budget alerts at 50%, 80%, and 100%.</li>
+            <li>Add at least two emails for notifications.</li>
+          </ol>
+
+          <h3>3.3 Rookie-safe strategy</h3>
+          <div class="step">
+            <strong>Day 1:</strong> launch a smaller Windows VM first, install and test app workflow.<br />
+            <strong>Day 2:</strong> switch to expensive GPU instance only when app/setup process is proven.
+          </div>
+
+          <div class="callout danger">
+            Biggest mistake: leaving expensive GPU VM running overnight/weekends.
+          </div>
+        </section>
+
+        <section id="account" class="card">
+          <h2>4) Create AWS Account Safely (If New)</h2>
+
+          <h3>4.1 Sign up</h3>
+          <ol>
+            <li>Go to <a href="https://aws.amazon.com/" target="_blank" rel="noopener">aws.amazon.com</a>.</li>
+            <li>Create account with your company email.</li>
+            <li>Complete phone + payment verification.</li>
+          </ol>
+
+          <h3>4.2 Secure root account immediately</h3>
+          <ol>
+            <li>Top-right account menu -> Security credentials.</li>
+            <li>Enable MFA for root user.</li>
+            <li>Store backup codes securely.</li>
+          </ol>
+
+          <h3>4.3 Pick one region</h3>
+          <p>Use one region close to your tester location (for example <code>eu-west-2</code> or <code>us-east-1</code>). Keep everything in this single region.</p>
+
+          <h3>4.4 Create a key pair for RDP password decryption</h3>
+          <ol>
+            <li>EC2 -> Key pairs -> Create key pair.</li>
+            <li>Name: <code>mla-ec2-key</code></li>
+            <li>Type: RSA, format: PEM.</li>
+            <li>Download and save it safely.</li>
+          </ol>
+
+          <div class="callout warn">
+            If you lose the PEM file, recovering Windows administrator password is harder.
+          </div>
+        </section>
+
+        <section id="quota" class="card">
+          <h2>5) Request GPU Quota (Plan A only)</h2>
+          <p>If you want local 70B on AWS GPU, quota approval may be required before launch.</p>
+
+          <h3>5.1 Open quota page</h3>
+          <ol>
+            <li>AWS Console -> Service Quotas.</li>
+            <li>Select service: EC2.</li>
+            <li>Search for instance family quota for your target GPU family (for example P-family or G-family).</li>
+          </ol>
+
+          <h3>5.2 Request increase</h3>
+          <ol>
+            <li>Open quota item.</li>
+            <li>Request a value enough for one test instance.</li>
+            <li>Submit and wait for approval email.</li>
+          </ol>
+
+          <h3>5.3 Keep fallback path ready</h3>
+          <p>Quota can take time. If blocked, continue with Plan B (cloud 70B model) using a normal VM.</p>
+        </section>
+
+        <section id="launch" class="card">
+          <h2>6) Launch EC2 Windows VM</h2>
+
+          <h3>6.1 Open launch wizard</h3>
+          <ol>
+            <li>EC2 dashboard -> Launch instance.</li>
+          </ol>
+
+          <h3>6.2 Fill core fields</h3>
+          <table>
+            <thead>
+              <tr><th>Field</th><th>Value</th><th>Why</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Name</td><td><code>mla-70b-test-01</code></td><td>Easy identification.</td></tr>
+              <tr><td>AMI</td><td>Windows Server 2022 Base</td><td>Easy beginner RDP flow.</td></tr>
+              <tr><td>Instance type</td><td>Choose based on Plan A or Plan B</td><td>Cost and performance control.</td></tr>
+              <tr><td>Key pair</td><td><code>mla-ec2-key</code></td><td>Needed for admin password decrypt.</td></tr>
+              <tr><td>Root disk</td><td>At least 200 GB gp3 for local 70B; 100 GB for Plan B</td><td>Model file + app + logs + headroom.</td></tr>
+            </tbody>
+          </table>
+
+          <h3>6.3 Security group rules (required)</h3>
+          <table>
+            <thead>
+              <tr><th>Rule</th><th>Port</th><th>Source</th><th>Reason</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>RDP</td><td>3389</td><td>Your public IP only</td><td>Remote desktop management.</td></tr>
+              <tr><td>Custom TCP</td><td>8080</td><td>Tester IP(s) only if possible</td><td>MyLocalAssistant web UI.</td></tr>
+            </tbody>
+          </table>
+
+          <div class="callout danger">
+            Do not leave RDP open to the whole internet for ongoing use.
+          </div>
+
+          <h3>6.4 Launch and wait</h3>
+          <ol>
+            <li>Click Launch instance.</li>
+            <li>Open Instances list.</li>
+            <li>Wait for 2/2 status checks.</li>
+          </ol>
+
+          <h3>6.5 Allocate Elastic IP</h3>
+          <ol>
+            <li>EC2 -> Elastic IPs -> Allocate Elastic IP.</li>
+            <li>Associate to your instance.</li>
+          </ol>
+          <p>This keeps URL stable after stop/start cycles.</p>
+        </section>
+
+        <section id="rdp" class="card">
+          <h2>7) Connect with Remote Desktop (RDP)</h2>
+
+          <h3>7.1 Get Windows password</h3>
+          <ol>
+            <li>Instances -> select your VM -> Connect -> RDP client tab.</li>
+            <li>Download RDP file.</li>
+            <li>Click Get password.</li>
+            <li>Upload PEM key and decrypt.</li>
+          </ol>
+
+          <h3>7.2 Login</h3>
+          <ol>
+            <li>Open .rdp file.</li>
+            <li>Enter credentials from previous step.</li>
+            <li>Accept certificate warning.</li>
+          </ol>
+
+          <div class="callout ok">
+            First login can be slow because Windows runs initial configuration.
+          </div>
+        </section>
+
+        <section id="gpu" class="card">
+          <h2>8) Install and Validate GPU Driver (Plan A local 70B)</h2>
+
+          <h3>8.1 Install latest Windows updates first</h3>
+          <ol>
+            <li>Settings -> Windows Update -> install all updates.</li>
+            <li>Reboot.</li>
+          </ol>
+
+          <h3>8.2 Install NVIDIA driver for your EC2 GPU family</h3>
+          <ol>
+            <li>Open AWS docs search: "AWS EC2 NVIDIA Windows driver".</li>
+            <li>Open the official AWS driver installation page for your instance family.</li>
+            <li>Download the recommended driver package.</li>
+            <li>Run installer and reboot.</li>
+          </ol>
+
+          <h3>8.3 Validate GPU</h3>
+          <p>Open PowerShell and run:</p>
+          <pre>nvidia-smi</pre>
+          <p>You should see GPU model, driver version, and memory stats.</p>
+
+          <h3>8.4 Set page file for safety</h3>
+          <ol>
+            <li>System Properties -> Advanced -> Performance -> Settings.</li>
+            <li>Advanced tab -> Virtual memory -> Change.</li>
+            <li>Set a larger fixed page file (for example 64-128 GB depending on disk size).</li>
+            <li>Reboot.</li>
+          </ol>
+
+          <div class="callout warn">
+            If driver is missing, local 70B may still run with CPU offload but performance can be very poor.
+          </div>
+        </section>
+
+        <section id="app" class="card">
+          <h2>9) Install MyLocalAssistant</h2>
+
+          <h3>9.1 Download and install</h3>
+          <ol>
+            <li>On VM browser, open your GitHub Releases page.</li>
+            <li>Download latest Setup EXE.</li>
+            <li>Run installer.</li>
+          </ol>
+
+          <h3>9.2 Launch and open pages</h3>
+          <ol>
+            <li>Start MyLocalAssistant.ServerHost.</li>
+            <li>Use tray menu -> Open Admin.</li>
+            <li>Use tray menu -> Open Chat.</li>
+          </ol>
+
+          <h3>9.3 First login</h3>
+          <ol>
+            <li>Login with bootstrap admin credentials from your internal docs.</li>
+            <li>Change password immediately.</li>
+            <li>Create dedicated tester users.</li>
+          </ol>
+
+          <h3>9.4 Confirm server is reachable</h3>
+          <p>On VM PowerShell:</p>
+          <pre>Test-NetConnection -ComputerName localhost -Port 8080</pre>
+          <p>If <code>TcpTestSucceeded</code> is true, app port is listening locally.</p>
+        </section>
+
+        <section id="model" class="card">
+          <h2>10) Load and Test 70B Model</h2>
+
+          <h3>10.1 Local 70B (Plan A)</h3>
+          <ol>
+            <li>Admin -> Models tab.</li>
+            <li>Find local 70B entry (for example Llama 3.3 70B Q4_K_S).</li>
+            <li>Click Download and wait fully complete.</li>
+            <li>Click Activate.</li>
+            <li>Wait for model status to become loaded.</li>
+          </ol>
+
+          <h3>10.2 Cloud 70B (Plan B)</h3>
+          <ol>
+            <li>Admin -> Server Settings -> set cloud key (provider you use).</li>
+            <li>Models tab -> choose 70B cloud entry and Activate.</li>
+            <li>Confirm model status loaded/configured.</li>
+          </ol>
+
+          <h3>10.3 Quick verification prompts</h3>
+          <ol>
+            <li>"Write a 300-word technical summary of a system migration plan."</li>
+            <li>"Create a risk table with severity and mitigation."</li>
+            <li>"Generate a Word memo named aws-70b-test.docx."</li>
+          </ol>
+
+          <h3>10.4 If local 70B fails to load</h3>
+          <ul>
+            <li>Check logs for memory/backend error details.</li>
+            <li>Verify driver and <code>nvidia-smi</code>.</li>
+            <li>Reduce workload (single user, lower concurrent activity).</li>
+            <li>Temporarily switch to cloud 70B for functional testing.</li>
+          </ul>
+        </section>
+
+        <section id="secure" class="card">
+          <h2>11) Security Hardening Checklist</h2>
+          <ul class="checklist">
+            <li>AWS root account MFA enabled.</li>
+            <li>RDP port 3389 restricted to trusted admin IP(s) only.</li>
+            <li>Port 8080 restricted to tester IPs whenever possible.</li>
+            <li>Default app passwords changed.</li>
+            <li>Only required users are admin/global-admin.</li>
+            <li>Budget alerts configured and tested.</li>
+            <li>Elastic IP documented.</li>
+            <li>VM stop/start ownership clearly assigned.</li>
+          </ul>
+
+          <div class="callout danger">
+            Never share RDP admin credentials in plain text email or chat.
+          </div>
+        </section>
+
+        <section id="daily" class="card">
+          <h2>12) Daily Operation Checklist</h2>
+
+          <h3>Start of day</h3>
+          <ul class="checklist">
+            <li>Start EC2 instance.</li>
+            <li>RDP login succeeds.</li>
+            <li>Open Admin and Chat pages.</li>
+            <li>Model status is loaded.</li>
+            <li>Test one prompt response.</li>
+          </ul>
+
+          <h3>End of day</h3>
+          <ul class="checklist">
+            <li>Export any required logs or screenshots.</li>
+            <li>Stop EC2 instance if not actively testing.</li>
+            <li>Confirm instance is in Stopped state.</li>
+          </ul>
+
+          <div class="callout warn">
+            Stopped instance still incurs EBS storage cost. Running instance incurs full compute cost.
+          </div>
+        </section>
+
+        <section id="issues" class="card">
+          <h2>13) Troubleshooting Guide</h2>
+
+          <h3>Problem: Cannot RDP into VM</h3>
+          <ul>
+            <li>Check instance state is Running.</li>
+            <li>Check status checks are 2/2.</li>
+            <li>Verify security group allows your current public IP on 3389.</li>
+            <li>If your IP changed, update SG rule.</li>
+          </ul>
+
+          <h3>Problem: Tester cannot open app URL</h3>
+          <ul>
+            <li>Ensure app is running on VM.</li>
+            <li>Check security group inbound for 8080 from tester IP.</li>
+            <li>From VM browser test <code>http://localhost:8080/</code>.</li>
+            <li>Use Elastic IP in URL, not old temporary public IP.</li>
+          </ul>
+
+          <h3>Problem: 70B activation fails</h3>
+          <ul>
+            <li>Open app logs and read exact error.</li>
+            <li>Check available RAM and GPU memory.</li>
+            <li>Check GPU driver using <code>nvidia-smi</code>.</li>
+            <li>Try cloud 70B temporarily to continue tester cycle.</li>
+          </ul>
+
+          <h3>Problem: Costs are too high</h3>
+          <ul>
+            <li>Verify instance was not left running.</li>
+            <li>Check if more than one VM is active.</li>
+            <li>Consider switching from local 70B to cloud 70B for routine validation.</li>
+            <li>Tighten test windows (scheduled test sessions only).</li>
+          </ul>
+        </section>
+
+        <section id="stopcost" class="card">
+          <h2>14) How to Stop Billing Safely</h2>
+
+          <h3>Pause testing</h3>
+          <ol>
+            <li>EC2 -> Instances -> select VM.</li>
+            <li>Instance state -> Stop instance.</li>
+            <li>Confirm state changes to Stopped.</li>
+          </ol>
+
+          <h3>Permanent cleanup</h3>
+          <ol>
+            <li>Back up anything needed first.</li>
+            <li>Terminate instance only when done permanently.</li>
+            <li>Delete unused EBS volumes and Elastic IP if no longer required.</li>
+          </ol>
+
+          <div class="callout danger">
+            Terminate is destructive. Stop is safer when uncertain.
+          </div>
+        </section>
+
+        <section id="handover" class="card">
+          <h2>15) Handover Template (copy/paste)</h2>
+          <pre>MyLocalAssistant AWS test environment handover
+
+Release version:
+VM Name:
+AWS Region:
+Instance Type:
+Elastic IP:
+App URL:
+Admin URL:
+RDP owner:
+Security Group name:
+Inbound rules summary:
+70B mode used: Local or Cloud
+Active model id:
+Last successful test date/time:
+Known issues:
+Budget threshold and alert emails:
+Escalation contact:
+</pre>
+
+          <p class="small">Guide version: 1.0 | Purpose: first-time tester onboarding for AWS + 70B model validation.</p>
+        </section>
+      </main>
+    </div>
+  </div>
+</body>
+</html>

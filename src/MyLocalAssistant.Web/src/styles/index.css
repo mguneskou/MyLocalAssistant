@@ -1,0 +1,21 @@
+/* Highlight.js dark theme — must be first import */
+@import 'highlight.js/styles/github-dark.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Prose code overrides */
+.prose pre { margin: 0.75rem 0; }
+.prose pre code { font-size: 0.8125rem; }
+.prose p { margin: 0.5rem 0; }
+.prose p:first-child { margin-top: 0; }
+.prose p:last-child { margin-bottom: 0; }
+.prose ul, .prose ol { margin: 0.5rem 0; padding-left: 1.5rem; }
+.prose li { margin: 0.25rem 0; }
+.prose table { font-size: 0.8125rem; }
+.prose th { background: #27272a; }
+.prose td, .prose th { padding: 0.4rem 0.75rem; border: 1px solid #3f3f46; }
+
+/* Auto-grow textarea */
+textarea { field-sizing: content; }

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>ExampleWeatherTool</RootNamespace>
+    <AssemblyName>ExampleWeatherTool</AssemblyName>
+    <Description>Example plugin tool for MyLocalAssistant — current weather lookup.</Description>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <!-- Reference the server to get ITool, ToolContext, ToolResult, etc. -->
+  <!-- In a real scenario you can extract the contracts into a separate NuGet package. -->
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\MyLocalAssistant.Server\MyLocalAssistant.Server.csproj" />
+  </ItemGroup>
+</Project>

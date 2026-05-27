@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>CEO Agent Mode A Stakeholder Briefing</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --ink: #162033;
+      --muted: #4e5d78;
+      --line: #d8dfeb;
+      --accent: #0d5bd7;
+      --ok: #1f8a4c;
+      --warn: #c37700;
+      --shadow: 0 10px 24px rgba(21, 38, 73, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #eef3fb 0%, var(--bg) 45%);
+      color: var(--ink);
+      font-family: "Segoe UI", Calibri, Arial, sans-serif;
+      line-height: 1.45;
+    }
+
+    .wrap {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 28px 20px 40px;
+    }
+
+    .hero {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 22px 24px;
+      margin-bottom: 18px;
+    }
+
+    .hero h1 {
+      margin: 0 0 8px;
+      font-size: 30px;
+      letter-spacing: 0.2px;
+    }
+
+    .hero p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: var(--shadow);
+      padding: 16px 18px;
+    }
+
+    .card h2 {
+      margin: 0 0 10px;
+      font-size: 20px;
+      color: #0d2a66;
+    }
+
+    .card h3 {
+      margin: 14px 0 8px;
+      font-size: 16px;
+      color: #163f90;
+    }
+
+    .pill-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 10px;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      background: #f4f7ff;
+      color: #234a9b;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .pill.mode { background: #eaf2ff; border-color: #c7dafd; }
+    .pill.ok { background: #eaf8ef; border-color: #b8e3c7; color: var(--ok); }
+    .pill.warn { background: #fff6e8; border-color: #ffd8a8; color: var(--warn); }
+
+    ul {
+      margin: 8px 0 0 18px;
+      padding: 0;
+    }
+
+    li { margin: 5px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    th, td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1f5fc;
+      color: #1b3f83;
+      font-weight: 700;
+    }
+
+    .full { grid-column: 1 / -1; }
+
+    pre {
+      white-space: pre-wrap;
+      background: #0f1727;
+      color: #ecf3ff;
+      border-radius: 12px;
+      border: 1px solid #1f2f4f;
+      padding: 14px;
+      font-size: 13px;
+      line-height: 1.4;
+      overflow: auto;
+    }
+
+    .legend {
+      display: flex;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin: 8px 0 0;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .dot {
+      display: inline-block;
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+
+    .c-input { background: #3b82f6; }
+    .c-acq { background: #22a06b; }
+    .c-ass { background: #d97706; }
+    .c-out { background: #7c3aed; }
+
+    .note {
+      border-left: 4px solid var(--accent);
+      background: #eef5ff;
+      padding: 10px 12px;
+      border-radius: 8px;
+      color: #1f3f7c;
+      font-size: 14px;
+      margin-top: 10px;
+    }
+
+    @media (max-width: 980px) {
+      .grid { grid-template-columns: 1fr; }
+      .hero h1 { font-size: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>CEO Agent Proposal - Mode A Advisory</h1>
+      <p>
+        Stakeholder briefing for a CEO-focused supervisory agent that evaluates other agents,
+        highlights risks and approval opportunities, and generates executive reports without hard blocking.
+      </p>
+      <div class="pill-row">
+        <span class="pill mode">Supervisor Mode: A (Advisory)</span>
+        <span class="pill ok">Recommendation states: Approve / Conditional / Reject</span>
+        <span class="pill warn">Boundary: Non-blocking and evidence-dependent</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Purpose and Scope</h2>
+        <ul>
+          <li>Assess employee-agent outputs at executive decision quality.</li>
+          <li>Provide portfolio-level risk and opportunity framing.</li>
+          <li>Issue advisory recommendation with confidence and evidence map.</li>
+          <li>Generate report files for executive communication when requested.</li>
+        </ul>
+        <h3>Out of Scope in Mode A</h3>
+        <ul>
+          <li>No automatic blocking or approval enforcement.</li>
+          <li>No hidden data access outside authorized evidence channels.</li>
+          <li>No fabricated evidence or implied certainty without support.</li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>Mode A Evidence Contract</h2>
+        <table>
+          <thead>
+            <tr><th>Contract area</th><th>Requirement</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Request metadata</td>
+              <td>Objective, deadline, decision class, owner, risk appetite.</td>
+            </tr>
+            <tr>
+              <td>Assessment payload</td>
+              <td>Source agent output (text/file), acceptance criteria, business context.</td>
+            </tr>
+            <tr>
+              <td>Evidence minimum</td>
+              <td>At least one: provided artifact, authorized knowledge evidence, or read-only data extract.</td>
+            </tr>
+            <tr>
+              <td>Data quality rule</td>
+              <td>If evidence is weak or missing, force Low confidence and list explicit gaps.</td>
+            </tr>
+            <tr>
+              <td>Output contract</td>
+              <td>Recommendation, confidence, top risks/opportunities, evidence map, actions with owner/date.</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+
+      <article class="card full">
+        <h2>Connected Flow Diagram</h2>
+        <div class="legend">
+          <span><span class="dot c-input"></span>Inputs</span>
+          <span><span class="dot c-acq"></span>Acquisition</span>
+          <span><span class="dot c-ass"></span>Assessment</span>
+          <span><span class="dot c-out"></span>Outputs</span>
+        </div>
+
+        <svg viewBox="0 0 1800 360" width="100%" role="img" aria-label="Mode A advisory flow with connected data acquisition and outputs">
+          <defs>
+            <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+              <path d="M0,0 L12,6 L0,12 z" fill="#526a93"></path>
+            </marker>
+            <style>
+              .n { rx: 10; ry: 10; stroke: #8fa3c5; stroke-width: 1.2; }
+              .in { fill: #e7f0ff; }
+              .ac { fill: #e8f8ef; }
+              .as { fill: #fff3e3; }
+              .out { fill: #f2eaff; }
+              .tx { font: 13px Segoe UI, Calibri, Arial; fill: #10203e; }
+              .ln { stroke: #526a93; stroke-width: 2; fill: none; marker-end: url(#arrow); }
+            </style>
+          </defs>
+
+          <rect class="n in" x="20" y="20" width="220" height="70"></rect>
+          <text class="tx" x="34" y="48">CEO Request</text>
+          <text class="tx" x="34" y="68">Objective, deadline, appetite</text>
+
+          <rect class="n in" x="20" y="120" width="220" height="70"></rect>
+          <text class="tx" x="34" y="148">Target Agent Output</text>
+          <text class="tx" x="34" y="168">Text, file, criteria</text>
+
+          <rect class="n in" x="20" y="220" width="220" height="70"></rect>
+          <text class="tx" x="34" y="248">Optional KPI Data</text>
+          <text class="tx" x="34" y="268">Read-only SQL extracts</text>
+
+          <rect class="n ac" x="300" y="110" width="250" height="90"></rect>
+          <text class="tx" x="318" y="140">Access and Scope Check</text>
+          <text class="tx" x="318" y="160">Identity, visibility, authorization</text>
+
+          <rect class="n ac" x="620" y="20" width="240" height="70"></rect>
+          <text class="tx" x="636" y="48">Conversation History</text>
+          <text class="tx" x="636" y="68">Recent context window</text>
+
+          <rect class="n ac" x="620" y="120" width="240" height="70"></rect>
+          <text class="tx" x="636" y="148">Authorized Knowledge</text>
+          <text class="tx" x="636" y="168">Retrieval from allowed sources</text>
+
+          <rect class="n ac" x="620" y="220" width="240" height="70"></rect>
+          <text class="tx" x="636" y="248">Bound Tool Results</text>
+          <text class="tx" x="636" y="268">Reports, SQL, file operations</text>
+
+          <rect class="n ac" x="930" y="120" width="240" height="90"></rect>
+          <text class="tx" x="948" y="150">Unified Evidence Pack</text>
+          <text class="tx" x="948" y="170">Normalize, dedupe, confidence tags</text>
+
+          <rect class="n as" x="1240" y="120" width="240" height="90"></rect>
+          <text class="tx" x="1258" y="150">CEO Rubric Scoring</text>
+          <text class="tx" x="1258" y="170">Risk, opportunity, feasibility</text>
+
+          <rect class="n out" x="1540" y="50" width="230" height="70"></rect>
+          <text class="tx" x="1558" y="78">Advisory Decision</text>
+          <text class="tx" x="1558" y="98">Approve / Conditional / Reject</text>
+
+          <rect class="n out" x="1540" y="140" width="230" height="70"></rect>
+          <text class="tx" x="1558" y="168">Executive Reports</text>
+          <text class="tx" x="1558" y="188">Word, PDF, Excel outputs</text>
+
+          <rect class="n out" x="1540" y="230" width="230" height="70"></rect>
+          <text class="tx" x="1558" y="258">Audit and Traceability</text>
+          <text class="tx" x="1558" y="278">Evidence and rationale trail</text>
+
+          <path class="ln" d="M240,55 L300,145"></path>
+          <path class="ln" d="M240,155 L300,155"></path>
+          <path class="ln" d="M240,255 L300,165"></path>
+
+          <path class="ln" d="M550,145 L620,55"></path>
+          <path class="ln" d="M550,155 L620,155"></path>
+          <path class="ln" d="M550,165 L620,255"></path>
+
+          <path class="ln" d="M860,55 L930,145"></path>
+          <path class="ln" d="M860,155 L930,165"></path>
+          <path class="ln" d="M860,255 L930,185"></path>
+
+          <path class="ln" d="M1170,165 L1240,165"></path>
+          <path class="ln" d="M1480,165 L1540,85"></path>
+          <path class="ln" d="M1480,165 L1540,175"></path>
+          <path class="ln" d="M1480,165 L1540,265"></path>
+        </svg>
+
+        <div class="note">
+          Mode A boundary is explicit: advisory outputs inform executive decisions but do not enforce hard approval gates.
+        </div>
+      </article>
+
+      <article class="card full">
+        <h2>Exact CEO System Prompt</h2>
+        <pre>You are the CEO Strategic Supervisor agent operating in Mode A (Advisory only).
+
+Main objective:
+- Evaluate work produced by employee agents.
+- Surface material risks and approval opportunities.
+- Provide CEO-grade recommendations grounded in available evidence.
+- Generate executive reports when requested.
+
+Operating mode:
+- This is advisory mode only. You do not hard-block execution.
+- You provide recommendation states, confidence, and required follow-up actions.
+
+Evidence boundaries (strict):
+- Use only evidence available from:
+  1) current user request and attached artifacts,
+  2) current conversation history,
+  3) authorized knowledge retrieval results,
+  4) results returned by bound tools.
+- Never claim access to hidden systems, unrelated conversations, private logs, or unprovided data.
+- If evidence is missing, explicitly mark gaps and lower confidence.
+
+Assessment rubric (score each dimension 1-5):
+- Strategic alignment with company goals.
+- Factual accuracy and internal consistency.
+- Risk exposure and downside severity.
+- Opportunity upside and expected value.
+- Execution feasibility (time, dependencies, owner clarity).
+- Governance/compliance sensitivity.
+
+Scoring policy:
+- Provide weighted composite score.
+- Provide confidence level: High, Medium, Low.
+- If key evidence is missing, confidence cannot be High.
+
+Required output schema in every advisory response:
+1) Executive recommendation
+- Decision: Approve | Conditional Approve | Reject
+- Confidence: High | Medium | Low
+- One-sentence rationale
+
+2) Top risks (maximum 3)
+- Risk title
+- Severity (High/Medium/Low)
+- Impact statement
+- Mitigation
+- Owner
+- Target date
+
+3) Top opportunities (maximum 3)
+- Opportunity title
+- Upside statement
+- Effort (High/Medium/Low)
+- Owner
+- Target date
+
+4) Evidence map
+- List each evidence item used
+- State source type (request/history/retrieval/tool result)
+
+5) Evidence gaps and assumptions
+- Missing data that could change decision
+- Explicit assumptions made
+
+6) Remediation actions
+- Action
+- Owner
+- Due date
+
+Report behavior:
+- If the user requests a concrete deliverable report, generate the file using the matching report tool.
+- Supported report outputs: CEO advisory memo (Word or PDF) and risk-opportunity register (Excel).
+
+You should think step by step in order to fulfill the objective with reasoning divided into Thought/Action/Observation steps that can be repeated multiple times when needed.
+
+Tool execution requirements:
+- If the user asks for a concrete file deliverable (for example Excel, Word, PowerPoint, or PDF) and the matching tool is enabled for this agent, you must call that tool before your final answer.
+- If the required tool is not enabled, unavailable, or fails, explicitly state the exact tool name and the reason you could not complete the action.
+- Do not claim a file was created, modified, or analyzed unless the corresponding tool call succeeded.</pre>
+      </article>
+
+      <article class="card full">
+        <h2>Example Advisory Response Shape</h2>
+        <table>
+          <thead>
+            <tr><th>Section</th><th>Expected content</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Executive recommendation</td>
+              <td>Conditional Approve, Confidence Medium, rationale in one sentence.</td>
+            </tr>
+            <tr>
+              <td>Top risks</td>
+              <td>Three maximum, each with severity, impact, mitigation, owner, date.</td>
+            </tr>
+            <tr>
+              <td>Top opportunities</td>
+              <td>Three maximum, each with upside, effort, owner, date.</td>
+            </tr>
+            <tr>
+              <td>Evidence map</td>
+              <td>Itemized references from request, history, retrieval, and tool outputs.</td>
+            </tr>
+            <tr>
+              <td>Gaps and assumptions</td>
+              <td>Explicit unknowns that could alter recommendation state.</td>
+            </tr>
+            <tr>
+              <td>Remediation actions</td>
+              <td>Clear owner and deadline for each next action.</td>
+            </tr>
+          </tbody>
+        </table>
+      </article>
+    </section>
+  </div>
+</body>
+</html>

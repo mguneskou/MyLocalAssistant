@@ -1,0 +1,110 @@
+name: release
+
+on:
+  push:
+    tags:
+      - 'v*'                  # any vX.Y.Z tag triggers a release
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 2.21.7.0 or 2.21.7). Leave blank to use the tag.'
+        required: false
+
+permissions:
+  contents: write             # needed to create the GitHub Release
+
+jobs:
+  windows-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET (8 for build, 9 for slnx-aware tooling)
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            9.0.x
+
+      - name: Resolve version
+        id: ver
+        shell: pwsh
+        run: |
+          $tagVersion = '${{ github.event.inputs.version }}'
+          if ([string]::IsNullOrWhiteSpace($tagVersion)) {
+            $tagVersion = '${{ github.ref_name }}'.TrimStart('v')
+          }
+          if ([string]::IsNullOrWhiteSpace($tagVersion)) { throw 'Could not resolve version.' }
+
+          $packVersion = $tagVersion
+          # Velopack requires SemVer 2.0 (3 parts). External release tags can stay
+          # on the full app version (X.Y.Z or X.Y.Z.W), but vpk must receive X.Y.Z.
+          if ($packVersion -match '^(\d+\.\d+\.\d+)(\.\d+)?$') { $packVersion = $Matches[1] }
+
+          "tag_version=$tagVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          "pack_version=$packVersion" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          Write-Host "Release tag version: $tagVersion"
+          Write-Host "Velopack package version: $packVersion"
+
+      - name: Restore + test
+        shell: pwsh
+        run: |
+          dotnet test src\tests\MyLocalAssistant.Core.Tests\MyLocalAssistant.Core.Tests.csproj `
+            -c Release --verbosity minimal
+
+      - name: Install vpk (Velopack CLI)
+        shell: pwsh
+        run: |
+          dotnet tool install --global vpk
+          # Make tools dir visible to every subsequent step.
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Append
+          $env:PATH = "$env:USERPROFILE\.dotnet\tools;$env:PATH"
+          vpk --help | Select-Object -First 3
+
+      - name: Publish server and host into dist\stage
+        shell: pwsh
+        run: |
+          .\scripts\publish-all.ps1 -Configuration Release -Runtime win-x64 -OutDir "$PWD\dist\stage" -Version '${{ steps.ver.outputs.tag_version }}'
+          Get-ChildItem dist\stage -Filter *.exe | Select-Object Name, Length
+
+      - name: vpk pack
+        shell: pwsh
+        run: |
+          if (-not (Test-Path dist\releases)) { New-Item -ItemType Directory -Force -Path dist\releases | Out-Null }
+          vpk pack `
+            --packId      MyLocalAssistant `
+            --packVersion '${{ steps.ver.outputs.pack_version }}' `
+            --packDir     "$PWD\dist\stage" `
+            --mainExe     MyLocalAssistant.ServerHost.exe `
+            --packTitle   MyLocalAssistant `
+            --packAuthors "Mehmet Gunes" `
+            --outputDir   "$PWD\dist\releases" `
+            --channel     win
+          Get-ChildItem dist\releases | Format-Table Name, Length -AutoSize
+
+      - name: Delete existing GitHub Release for this tag (if any)
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete 'v${{ steps.ver.outputs.tag_version }}' --repo '${{ github.repository }}' --yes 2>$null || true
+
+      - name: vpk upload to GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          vpk upload github `
+            --outputDir   "$PWD\dist\releases" `
+            --repoUrl     'https://github.com/${{ github.repository }}' `
+            --token       $env:GH_TOKEN `
+            --tag         'v${{ steps.ver.outputs.tag_version }}' `
+            --releaseName 'MyLocalAssistant ${{ steps.ver.outputs.tag_version }}' `
+            --publish
+
+      - name: Upload artifacts (always, for diagnosis)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MyLocalAssistant-${{ steps.ver.outputs.tag_version }}-win
+          path: dist/releases/*
+          if-no-files-found: warn
