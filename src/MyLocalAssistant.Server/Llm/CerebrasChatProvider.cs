@@ -10,9 +10,10 @@ namespace MyLocalAssistant.Server.Llm;
 
 /// <summary>
 /// Chat provider for the Cerebras Cloud API (OpenAI-compatible /v1/chat/completions).
-/// Cerebras provides extremely fast LPU-based inference with a generous free tier.
+/// Cerebras provides extremely fast wafer-scale inference with a generous free tier.
 /// Free tier: ~20 req/min — no credit card required.
-/// Models: llama3.1-8b, llama3.1-70b, llama-4-scout-17b-16e-instruct, qwen-3-32b.
+/// Concrete model IDs are sourced from <c>Resources/model-catalog.json</c>;
+/// the provider itself is model-agnostic so the list is intentionally not duplicated here.
 /// Get a free API key at: https://cloud.cerebras.ai
 /// </summary>
 public sealed class CerebrasChatProvider : IChatProvider

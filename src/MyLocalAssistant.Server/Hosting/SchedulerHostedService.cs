@@ -94,9 +94,20 @@ public sealed class SchedulerHostedService(
         var owner = await db.Users.AsNoTracking()
             .FirstOrDefaultAsync(u => u.Id.ToString() == entry.CreatedByUserId ||
                                       u.Username == entry.CreatedByUserId, ct);
-        Guid userId   = owner?.Id       ?? Guid.Empty;
-        string username = owner?.Username ?? "scheduler";
-        bool isAdmin  = owner?.IsAdmin  ?? false;
+        if (owner is null)
+        {
+            // Owner deleted or renamed since the schedule was created. Creating rows with
+            // UserId=Guid.Empty would violate the FK to Users and leave orphaned data.
+            // Skip the run; AdvanceOrDisable in the finally block will move NextRun forward
+            // so we don't busy-loop on this entry every poll.
+            log.LogWarning(
+                "Scheduler: owner '{Owner}' for task '{Name}' (id={Id}) no longer exists — skipping run.",
+                entry.CreatedByUserId, entry.Name, entry.Id);
+            return;
+        }
+        Guid userId   = owner.Id;
+        string username = owner.Username;
+        bool isAdmin  = owner.IsAdmin;
 
         var principal = new UserPrincipals(userId, username, isAdmin, false,
             new HashSet<Guid>(), new HashSet<Guid>());
@@ -286,7 +297,13 @@ public sealed class SchedulerHostedService(
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
             var json = JsonSerializer.Serialize(schedules, s_jsonIndented);
-            File.WriteAllText(path, json);
+            // Atomic write: stage to a sibling .tmp then replace the live file. Prevents
+            // a half-written schedules.json when the process is killed mid-write, which
+            // would surface as JsonException on the next LoadSchedules().
+            var tmp = path + ".tmp";
+            File.WriteAllText(tmp, json);
+            if (File.Exists(path)) File.Replace(tmp, path, destinationBackupFileName: null);
+            else                   File.Move(tmp, path);
         }
         catch (Exception ex)
         {

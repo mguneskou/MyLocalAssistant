@@ -63,6 +63,10 @@ public sealed class LanceDbVectorStore : IVectorStore
     public async Task EnsureCollectionAsync(string collectionId, int dimension, CancellationToken ct = default)
     {
         if (dimension <= 0) throw new ArgumentException("Dimension must be > 0.", nameof(dimension));
+
+        // Fast path: already initialised. Reading the dictionary lock-free is safe under
+        // the "single writer / many readers after publish" model we enforce below; the
+        // writer side is fully serialised by _initLock.
         if (_tables.TryGetValue(collectionId, out var existing))
         {
             if (existing.Dim != dimension)
@@ -72,21 +76,35 @@ public sealed class LanceDbVectorStore : IVectorStore
             return;
         }
 
-        var conn = await EnsureConnectedAsync();
-        var name = TableName(collectionId);
-        var names = await conn.TableNames();
-        LanceTable LanceTable;
-        if (names.Contains(name))
+        await _initLock.WaitAsync(ct);
+        try
         {
-            LanceTable = await conn.OpenTable(name);
+            // Re-check inside the lock — another caller may have created it while we waited.
+            if (_tables.TryGetValue(collectionId, out existing))
+            {
+                if (existing.Dim != dimension)
+                    throw new InvalidOperationException(
+                        $"Collection '{collectionId}' was created with dim={existing.Dim}, but embedding model produces dim={dimension}.");
+                return;
+            }
+
+            var conn = await EnsureConnectedAsync();
+            var name = TableName(collectionId);
+            var names = await conn.TableNames();
+            LanceTable LanceTable;
+            if (names.Contains(name))
+            {
+                LanceTable = await conn.OpenTable(name);
+            }
+            else
+            {
+                var schema = BuildSchema(dimension);
+                LanceTable = await conn.CreateTable(name, new CreateTableOptions { Schema = schema });
+                _log.LogInformation("Created LanceDB LanceTable {Name} (dim={Dim})", name, dimension);
+            }
+            _tables[collectionId] = (LanceTable, dimension);
         }
-        else
-        {
-            var schema = BuildSchema(dimension);
-            LanceTable = await conn.CreateTable(name, new CreateTableOptions { Schema = schema });
-            _log.LogInformation("Created LanceDB LanceTable {Name} (dim={Dim})", name, dimension);
-        }
-        _tables[collectionId] = (LanceTable, dimension);
+        finally { _initLock.Release(); }
     }
 
     public async Task UpsertAsync(string collectionId, IReadOnlyList<VectorRecord> records, CancellationToken ct = default)

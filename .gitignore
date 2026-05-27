@@ -49,3 +49,8 @@ plugins/*/.keys/
 # Plugin signing private key — public key (.pub) is committed; private (.key) goes in GitHub secrets
 tools/keys/*.key
 
+# Work-in-progress drafts (committed final versions are kept)
+tester_*.pdf
+docs/todo.md
+docs/agent-prompt-preview-*.md
+

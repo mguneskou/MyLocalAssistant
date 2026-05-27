@@ -12,7 +12,8 @@ namespace MyLocalAssistant.Server.Llm;
 /// <summary>
 /// Chat provider for the Google Gemini API via its OpenAI-compatible endpoint.
 /// Free tier: 15 req/min, 1 500 req/day — no credit card required.
-/// Models: gemini-2.0-flash, gemini-2.0-flash-lite, gemini-1.5-flash-8b.
+/// The concrete model IDs (Flash, Flash-Lite, etc.) are sourced from
+/// <c>Resources/model-catalog.json</c>; do not hard-code them here, they drift.
 /// API keys obtained from https://aistudio.google.com/apikey.
 /// </summary>
 public sealed class GeminiChatProvider : IChatProvider

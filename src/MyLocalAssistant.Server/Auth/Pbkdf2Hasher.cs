@@ -5,11 +5,18 @@ namespace MyLocalAssistant.Server.Auth;
 /// <summary>
 /// PBKDF2-SHA256 password hashing. Output format:
 ///   pbkdf2$sha256$&lt;iterations&gt;$&lt;saltB64&gt;$&lt;hashB64&gt;
-/// Iterations default 210_000 (OWASP 2023 guidance).
+/// New hashes use <see cref="DefaultIterations"/> (OWASP 2025 guidance for PBKDF2-SHA256).
+/// <see cref="Verify"/> honours whatever iteration count is stored in the hash, so
+/// hashes created by earlier versions (e.g. 210 000 iter) continue to verify
+/// transparently. No migration step required.
 /// </summary>
 public static class Pbkdf2Hasher
 {
-    private const int DefaultIterations = 210_000;
+    /// <summary>
+    /// OWASP 2025 guidance for PBKDF2-SHA256. Old hashes stored with fewer iterations
+    /// still verify because the iteration count is baked into the stored string.
+    /// </summary>
+    private const int DefaultIterations = 600_000;
     private const int SaltBytes = 16;
     private const int HashBytes = 32;
 

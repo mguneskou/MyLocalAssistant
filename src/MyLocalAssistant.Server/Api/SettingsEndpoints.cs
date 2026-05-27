@@ -85,7 +85,9 @@ public static class SettingsEndpoints
                 return Results.Ok(new CloudKeyTestResultDto(false, $"{(int)resp.StatusCode}: {Truncate(body, 300)}"));
             }
             catch (Exception ex) { return Results.Ok(new CloudKeyTestResultDto(false, ex.Message)); }
-        });        owner.MapPost("/cloud-keys/test/groq", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
+        });
+
+        owner.MapPost("/cloud-keys/test/groq", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
         {
             var key = s.GetGroqApiKey();
             if (string.IsNullOrEmpty(key))
@@ -141,7 +143,9 @@ public static class SettingsEndpoints
                 return Results.Ok(new CloudKeyTestResultDto(false, $"{(int)resp.StatusCode}: {Truncate(body, 300)}"));
             }
             catch (Exception ex) { return Results.Ok(new CloudKeyTestResultDto(false, ex.Message)); }
-        });        owner.MapPost("/cloud-keys/test/anthropic", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
+        });
+
+        owner.MapPost("/cloud-keys/test/anthropic", async (ServerSettings s, IHttpClientFactory hf, CancellationToken ct) =>
         {
             var key = s.GetAnthropicApiKey();
             if (string.IsNullOrEmpty(key))

@@ -12,7 +12,9 @@ namespace MyLocalAssistant.Server.Llm;
 /// <summary>
 /// Chat provider for the Groq Cloud API (OpenAI-compatible /v1/chat/completions).
 /// Free tier: 30 req/min, 6 000 req/day — no credit card required.
-/// Models: llama-3.3-70b-versatile, llama3-8b-8192, gemma2-9b-it, mixtral-8x7b-32768.
+/// Concrete model IDs are sourced from <c>Resources/model-catalog.json</c>;
+/// Groq retires and adds models frequently, so this provider is intentionally
+/// model-agnostic — anything reachable via the OpenAI-compat endpoint will work.
 /// </summary>
 public sealed class GroqChatProvider : IChatProvider
 {
