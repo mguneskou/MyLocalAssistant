@@ -342,7 +342,8 @@ internal sealed class ExcelTool : ITool
         }
         catch (Exception ex)
         {
-            return ToolResult.Error($"{call.ToolName} failed: {ex.Message}");
+            // Return full exception (includes inner exceptions and stack trace) so testers/devs can see root cause
+            return ToolResult.Error($"{call.ToolName} failed: {ex}");
         }
     }
 
@@ -370,7 +371,14 @@ internal sealed class ExcelTool : ITool
 
     private static XLWorkbook OpenOrCreate(string path)
     {
-        return File.Exists(path) ? new XLWorkbook(path) : new XLWorkbook();
+        try
+        {
+            return File.Exists(path) ? new XLWorkbook(path) : new XLWorkbook();
+        }
+        catch (Exception ex)
+        {
+            throw new IOException($"Failed to open or create workbook '{Path.GetFileName(path)}': {ex}", ex);
+        }
     }
 
     // ── Operations ────────────────────────────────────────────────────────────
