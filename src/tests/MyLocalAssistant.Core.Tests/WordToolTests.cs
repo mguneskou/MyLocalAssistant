@@ -1,3 +1,4 @@
+using System.Text.Json;
 using DocumentFormat.OpenXml;
 using DocumentFormat.OpenXml.Packaging;
 using DocumentFormat.OpenXml.Wordprocessing;
@@ -29,6 +30,30 @@ public sealed class WordToolTests
             Assert.Contains("Alice", doc.MainDocumentPart!.Document.Body!.InnerText);
             Assert.Contains("Quarterly Review", string.Join("\n", doc.MainDocumentPart.HeaderParts.Select(p => p.Header?.InnerText ?? string.Empty)));
             Assert.Contains("Alice", string.Join("\n", doc.MainDocumentPart.FooterParts.Select(p => p.Footer?.InnerText ?? string.Empty)));
+        }
+        finally
+        {
+            Directory.Delete(workDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Write_returns_structured_success_envelope()
+    {
+        var workDir = CreateTempDirectory();
+        try
+        {
+            var tool = new WordTool();
+            var result = await tool.InvokeAsync(new ToolInvocation(
+                "word.write",
+                "{\"filename\":\"report.docx\",\"blocks\":[{\"type\":\"paragraph\",\"text\":\"Hello world\"}]}"),
+                MakeContext(workDir));
+
+            Assert.False(result.IsError);
+            Assert.NotNull(result.StructuredJson);
+            using var envelope = JsonDocument.Parse(result.StructuredJson!);
+            Assert.Equal("success", envelope.RootElement.GetProperty("status").GetString());
+            Assert.Equal("Word document 'report.docx' saved.", envelope.RootElement.GetProperty("summary").GetString());
         }
         finally
         {

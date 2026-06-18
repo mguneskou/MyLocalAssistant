@@ -13,6 +13,82 @@ namespace MyLocalAssistant.Core.Tests;
 public sealed class ExcelToolTests
 {
     [Fact]
+    public async Task PreviewWriteRange_returns_summary_without_mutating_workbook()
+    {
+        var workDir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(workDir, "preview.xlsx");
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Cell("A1").Value = "before";
+                wb.SaveAs(path);
+            }
+
+            var tool = new ExcelTool();
+            var result = await tool.InvokeAsync(
+                new ToolInvocation("excel.preview_write_range", "{\"filename\":\"preview.xlsx\",\"sheet\":\"Sheet1\",\"startCell\":\"A1\",\"values\":[[\"after\"]]}"),
+                MakeContext(workDir));
+
+            Assert.False(result.IsError);
+            using var doc = JsonDocument.Parse(result.Content);
+            Assert.True(doc.RootElement.GetProperty("preview").GetBoolean());
+            Assert.Equal("Sheet1", doc.RootElement.GetProperty("sheet").GetString());
+            Assert.Equal("A1", doc.RootElement.GetProperty("startCell").GetString());
+
+            using (var wb = new XLWorkbook(path))
+            {
+                Assert.Equal("before", wb.Worksheet("Sheet1").Cell("A1").GetString());
+            }
+        }
+        finally
+        {
+            Directory.Delete(workDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task PreviewWriteCell_returns_summary_without_mutating_cell()
+    {
+        var workDir = CreateTempDirectory();
+        try
+        {
+            var path = Path.Combine(workDir, "preview-cell.xlsx");
+            using (var wb = new XLWorkbook())
+            {
+                var ws = wb.AddWorksheet("Sheet1");
+                ws.Cell("A1").Value = "before";
+                wb.SaveAs(path);
+            }
+
+            var tool = new ExcelTool();
+            var result = await tool.InvokeAsync(
+                new ToolInvocation("excel.write_cell", "{\"filename\":\"preview-cell.xlsx\",\"sheet\":\"Sheet1\",\"cell\":\"A1\",\"value\":\"after\",\"preview\":true}"),
+                MakeContext(workDir));
+
+            Assert.False(result.IsError);
+            Assert.NotNull(result.StructuredJson);
+            using var envelope = JsonDocument.Parse(result.StructuredJson!);
+            Assert.Equal("success", envelope.RootElement.GetProperty("status").GetString());
+            Assert.Equal("Preview complete", envelope.RootElement.GetProperty("summary").GetString());
+
+            using var doc = JsonDocument.Parse(result.Content);
+            Assert.True(doc.RootElement.GetProperty("preview").GetBoolean());
+            Assert.Equal("A1", doc.RootElement.GetProperty("cell").GetString());
+
+            using (var wb = new XLWorkbook(path))
+            {
+                Assert.Equal("before", wb.Worksheet("Sheet1").Cell("A1").GetString());
+            }
+        }
+        finally
+        {
+            Directory.Delete(workDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task WriteNamedRange_fills_template_cell_and_readNamedRange_returns_positioned_value()
     {
         var workDir = CreateTempDirectory();

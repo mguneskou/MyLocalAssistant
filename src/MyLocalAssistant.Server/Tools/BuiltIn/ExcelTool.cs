@@ -93,6 +93,11 @@ internal sealed class ExcelTool : ITool
             ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string","description":"Sheet name. Defaults to first sheet."},"startCell":{"type":"string","description":"Top-left cell address, e.g. 'A1'."},"values":{"type":"array","description":"Row-major 2-D array of cell values. Strings starting with '=' are treated as formulas.","items":{"type":"array","items":{}}},"headers":{"type":"array","description":"Optional header row written above 'values'.","items":{"type":"string"}}},"required":["filename","startCell","values"]}"""),
 
         new ToolFunctionDto(
+            Name: "excel.preview_write_range",
+            Description: "Preview how a write_range operation would affect a workbook without saving any changes. Useful for safe, commercial-grade editing workflows.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string","description":"Sheet name. Defaults to first sheet."},"startCell":{"type":"string","description":"Top-left cell address, e.g. 'A1'."},"values":{"type":"array","description":"Row-major 2-D array of cell values. Strings starting with '=' are treated as formulas.","items":{"type":"array","items":{}}},"headers":{"type":"array","description":"Optional header row written above 'values'.","items":{"type":"string"}}},"required":["filename","startCell","values"]}"""),
+
+        new ToolFunctionDto(
             Name: "excel.write_cell",
             Description: "Write a single cell. Can set a value, an Excel formula, and/or a number format.",
             ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"cell":{"type":"string","description":"Cell address, e.g. 'B3'."},"value":{"description":"Cell value (string, number, boolean, or null to clear)."},"formula":{"type":"string","description":"Excel formula WITHOUT leading '=', e.g. 'SUM(A1:A10)'."},"numberFormat":{"type":"string","description":"Excel number format string, e.g. '#,##0.00', 'dd/mm/yyyy'."}},"required":["filename","cell"]}"""),
@@ -271,6 +276,14 @@ internal sealed class ExcelTool : ITool
             Name: "excel.copy_range",
             Description: "Copy a range of cells (values, formulas, and formatting) to another location within the same sheet or to a different sheet. Relative formula references are adjusted automatically for the new position.",
             ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sourceRange":{"type":"string","description":"Source range, e.g. 'A1:D10'."},"sourceSheet":{"type":"string","description":"Source sheet name. Defaults to first sheet."},"destCell":{"type":"string","description":"Top-left cell of the destination, e.g. 'F1'."},"destSheet":{"type":"string","description":"Destination sheet name. Defaults to same sheet as source."}},"required":["filename","sourceRange","destCell"]}"""),
+        new ToolFunctionDto(
+            Name: "excel.stream_filter_to_csv",
+            Description: "Stream a worksheet row-by-row and write a filtered CSV without loading the full workbook into memory.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"sheet":{"type":"string"},"filterColumnName":{"type":"string"},"excludeValue":{"type":"string"},"outputFilename":{"type":"string"}},"required":["filename","filterColumnName","excludeValue"]}"""),
+        new ToolFunctionDto(
+            Name: "excel.repair_openxml",
+            Description: "Attempt a safe OpenXML repair by converting shared-string references to inline strings and removing the SharedStringTable. Produces a repaired copy and returns repairedFilename.",
+            ArgumentsSchemaJson: """{"type":"object","properties":{"filename":{"type":"string"},"outputFilename":{"type":"string"}},"required":["filename"]}"""),
     };
 
     // ── Configure ─────────────────────────────────────────────────────────────
@@ -300,6 +313,7 @@ internal sealed class ExcelTool : ITool
                 "excel.set_calculation_mode" => SetCalculationMode(root, ctx),
                 "excel.recalculate"     => Recalculate(root, ctx),
                 "excel.evaluate_formula" => EvaluateFormula(root, ctx),
+                "excel.preview_write_range" => PreviewWriteRange(root, ctx),
                 "excel.write_range"     => WriteRange(root, ctx),
                 "excel.write_cell"      => WriteCell(root, ctx),
                 "excel.format_range"    => FormatRange(root, ctx),
@@ -337,6 +351,8 @@ internal sealed class ExcelTool : ITool
                 "excel.protect_sheet"          => ProtectSheet(root, ctx),
                 "excel.unprotect_sheet"        => UnprotectSheet(root, ctx),
                 "excel.copy_range"             => CopyRange(root, ctx),
+                "excel.stream_filter_to_csv"   => StreamFilterToCsv(root, ctx),
+                "excel.repair_openxml"         => RepairOpenXml(root, ctx),
                 _                       => ToolResult.Error($"Unknown tool: {call.ToolName}"),
             };
         }
@@ -367,6 +383,199 @@ internal sealed class ExcelTool : ITool
             throw new ArgumentException($"Sheet '{sheetName}' not found.");
         }
         return wb.Worksheets.First();
+    }
+
+    private static ToolResult StreamFilterToCsv(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        if (!File.Exists(path)) return ToolResult.Error($"File not found: {Path.GetFileName(path)}");
+
+        var filterColumnName = root.GetProperty("filterColumnName").GetString() ?? throw new ArgumentException("filterColumnName is required.");
+        var excludeValue = root.GetProperty("excludeValue").GetString() ?? string.Empty;
+        var sheetName = root.TryGetProperty("sheet", out var sEl) && sEl.GetString() is { Length: > 0 } s ? s : null;
+
+        var outName = root.TryGetProperty("outputFilename", out var of) && of.GetString() is { Length: > 0 } ofn
+            ? ofn
+            : Path.GetFileNameWithoutExtension(path) + "_filtered.csv";
+        var outPath = OfficeToolSupport.ResolveWorkFile(ctx.WorkDirectory, outName, ".csv");
+
+        try
+        {
+            using var doc = SpreadsheetDocument.Open(path, false);
+            var workbookPart = doc.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart missing");
+            var sheets = workbookPart.Workbook.Sheets?.Elements<Sheet>().ToList() ?? new List<Sheet>();
+            Sheet sheet;
+            if (!string.IsNullOrEmpty(sheetName))
+                sheet = sheets.FirstOrDefault(sh => string.Equals(sh.Name?.Value, sheetName, StringComparison.OrdinalIgnoreCase)) ?? sheets.FirstOrDefault();
+            else
+                sheet = sheets.FirstOrDefault();
+            if (sheet is null) return ToolResult.Error("No sheets found in workbook.");
+
+            var wsPart = (WorksheetPart)workbookPart.GetPartById(sheet.Id!);
+            var sst = workbookPart.SharedStringTablePart?.SharedStringTable;
+
+            using var writer = new StreamWriter(outPath, false, System.Text.Encoding.UTF8);
+
+            // Read rows with OpenXmlReader to avoid loading full sheet
+            using var reader = OpenXmlReader.Create(wsPart);
+            bool headerProcessed = false;
+            int filterColIndex = -1; // 1-based
+
+            while (reader.Read())
+            {
+                if (reader.ElementType == typeof(Row))
+                {
+                    var row = (Row)reader.LoadCurrentElement();
+                    var cells = row.Elements<Cell>().ToList();
+                    // Build list of strings by column index
+                    var maxCol = cells.Count == 0 ? 0 : cells.Max(c => GetColumnIndexFromName(GetColumnName(c.CellReference?.Value ?? string.Empty)));
+                    var values = new string[maxCol + 1];
+                    foreach (var c in cells)
+                    {
+                        var colName = GetColumnName(c.CellReference?.Value ?? string.Empty);
+                        var idx = GetColumnIndexFromName(colName);
+                        values[idx] = GetCellText(c, sst);
+                    }
+
+                    if (!headerProcessed)
+                    {
+                        // find filter column index
+                        for (int i = 1; i < values.Length; i++)
+                        {
+                            if (string.Equals(values[i]?.Trim(), filterColumnName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                filterColIndex = i; break;
+                            }
+                        }
+                        headerProcessed = true;
+                        // write header line
+                        writer.WriteLine(string.Join(',', values.Skip(1).Select(EscapeCsv)));
+                        continue;
+                    }
+
+                    // If filter column missing, treat as keep
+                    var cellVal = filterColIndex > 0 && filterColIndex < values.Length ? values[filterColIndex] : null;
+                    if (string.Equals(cellVal ?? string.Empty, excludeValue, StringComparison.Ordinal))
+                        continue; // skip row
+
+                    writer.WriteLine(string.Join(',', values.Skip(1).Select(EscapeCsv)));
+                }
+            }
+
+            return ToolResult.Ok(JsonSerializer.Serialize(new { output = Path.GetFileName(outPath) }, s_json));
+        }
+        catch (Exception ex)
+        {
+            return ToolResult.Error($"StreamFilter failed: {ex}");
+        }
+    }
+
+    private static string GetCellText(Cell cell, SharedStringTable? sst)
+    {
+        if (cell == null) return string.Empty;
+        var value = cell.InnerText ?? string.Empty;
+        if (cell.DataType != null && cell.DataType == CellValues.SharedString && sst != null)
+        {
+            if (int.TryParse(value, out var idx) && idx >= 0 && idx < sst.Count())
+            {
+                return sst.ElementAt(idx).InnerText ?? string.Empty;
+            }
+            return value;
+        }
+        return value;
+    }
+
+    private static string GetColumnName(string cellRef)
+    {
+        if (string.IsNullOrEmpty(cellRef)) return string.Empty;
+        var match = System.Text.RegularExpressions.Regex.Match(cellRef, "[A-Za-z]+");
+        return match.Success ? match.Value : string.Empty;
+    }
+
+    private static int GetColumnIndexFromName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return 0;
+        int sum = 0;
+        foreach (char c in name.ToUpperInvariant())
+            sum = sum * 26 + (c - 'A' + 1);
+        return sum;
+    }
+
+    private static string EscapeCsv(string? s)
+        => s is null ? "" : (s.Contains(',') || s.Contains('"') || s.Contains('\n') ? '"' + s.Replace("\"", "\"\"") + '"' : s);
+
+    private static ToolResult RepairOpenXml(JsonElement root, ToolContext ctx)
+    {
+        var originalPath = ResolveFile(root, ctx);
+        if (!File.Exists(originalPath)) return ToolResult.Error($"File not found: {Path.GetFileName(originalPath)}");
+
+        var outName = root.TryGetProperty("outputFilename", out var of) && of.GetString() is { Length: > 0 } ofn
+            ? ofn
+            : Path.GetFileNameWithoutExtension(originalPath) + "_repaired.xlsx";
+        var outPath = OfficeToolSupport.ResolveWorkFile(ctx.WorkDirectory, outName, ".xlsx");
+
+        // ensure unique output path
+        var baseOut = Path.Combine(Path.GetDirectoryName(outPath) ?? ctx.WorkDirectory, Path.GetFileNameWithoutExtension(outPath));
+        var ext = Path.GetExtension(outPath);
+        var candidate = outPath;
+        int suffix = 1;
+        while (File.Exists(candidate))
+        {
+            candidate = baseOut + "-" + suffix + ext;
+            suffix++;
+        }
+        outPath = candidate;
+
+        // copy original to outPath and repair in-place on the copy
+        File.Copy(originalPath, outPath);
+
+        try
+        {
+            using var doc = SpreadsheetDocument.Open(outPath, true);
+            var wbPart = doc.WorkbookPart ?? throw new InvalidOperationException("WorkbookPart missing");
+            var sstPart = wbPart.SharedStringTablePart;
+            var sst = sstPart?.SharedStringTable;
+
+            foreach (var wsPart in wbPart.WorksheetParts)
+            {
+                var sheetData = wsPart.Worksheet.GetFirstChild<SheetData>();
+                if (sheetData == null) continue;
+                foreach (var row in sheetData.Elements<Row>())
+                {
+                    foreach (var cell in row.Elements<Cell>().ToList())
+                    {
+                        if (cell.DataType != null && cell.DataType == CellValues.SharedString)
+                        {
+                            string text = string.Empty;
+                            if (int.TryParse(cell.CellValue?.Text, out var sidx) && sst != null)
+                            {
+                                if (sidx >= 0 && sidx < sst.Count())
+                                    text = sst.ElementAt(sidx).InnerText ?? string.Empty;
+                            }
+                            if (string.IsNullOrEmpty(text)) text = cell.InnerText ?? string.Empty;
+
+                            cell.CellValue = null;
+                            cell.DataType = null;
+                            cell.InlineString = new InlineString(new Text(text));
+                        }
+                    }
+                }
+                wsPart.Worksheet.Save();
+            }
+
+            // remove shared string table part if present
+            if (sstPart != null)
+                wbPart.DeletePart(sstPart);
+
+            wbPart.Workbook.Save();
+            doc.Close();
+
+            return ToolResult.Ok(JsonSerializer.Serialize(new { repairedFilename = Path.GetFileName(outPath) }, s_json));
+        }
+        catch (Exception ex)
+        {
+            return ToolResult.Error($"Repair failed: {ex}");
+        }
     }
 
     private static XLWorkbook OpenOrCreate(string path)
@@ -587,6 +796,55 @@ internal sealed class ExcelTool : ITool
         }, s_json));
     }
 
+    private static ToolResult PreviewWriteRange(JsonElement root, ToolContext ctx)
+    {
+        var path = ResolveFile(root, ctx);
+        if (!File.Exists(path))
+            return ToolResult.Error($"File not found: {Path.GetFileName(path)}");
+
+        var startCell = root.GetProperty("startCell").GetString()
+            ?? throw new ArgumentException("startCell is required.");
+
+        using var wb = new XLWorkbook(path);
+        var ws = GetSheet(wb, root, createIfMissing: true);
+        var startAddr = ws.Cell(startCell).Address;
+        int row = startAddr.RowNumber;
+        int col = startAddr.ColumnNumber;
+        int cellsWritten = 0;
+
+        if (root.TryGetProperty("headers", out var hdrsEl) && hdrsEl.ValueKind == JsonValueKind.Array)
+        {
+            int c = col;
+            foreach (var h in hdrsEl.EnumerateArray())
+            {
+                cellsWritten++;
+                c++;
+            }
+            row++;
+        }
+
+        var valuesEl = root.GetProperty("values");
+        foreach (var rowEl in valuesEl.EnumerateArray())
+        {
+            foreach (var cellEl in rowEl.EnumerateArray())
+            {
+                cellsWritten++;
+            }
+            row++;
+        }
+
+        return ToolResult.Success(JsonSerializer.Serialize(new
+        {
+            preview = true,
+            previewOnly = true,
+            filename = Path.GetFileName(path),
+            sheet = ws.Name,
+            startCell,
+            cellsWritten,
+            rows = valuesEl.GetArrayLength(),
+        }, s_json), "Preview complete", new { filename = Path.GetFileName(path), sheet = ws.Name, startCell });
+    }
+
     private static ToolResult WriteRange(JsonElement root, ToolContext ctx)
     {
         var path = ResolveFile(root, ctx);
@@ -636,26 +894,84 @@ internal sealed class ExcelTool : ITool
         var path = ResolveFile(root, ctx);
         var cellAddr = root.GetProperty("cell").GetString()
             ?? throw new ArgumentException("cell is required.");
-        using var wb = OpenOrCreate(path);
-        var ws = GetSheet(wb, root, createIfMissing: true);
-        var cell = ws.Cell(cellAddr);
 
-        if (root.TryGetProperty("formula", out var formulaEl) && formulaEl.GetString() is { Length: > 0 } formula)
+        var preview = root.TryGetProperty("preview", out var previewEl) && previewEl.ValueKind == JsonValueKind.True;
+        if (preview)
         {
-            cell.FormulaA1 = formula;
+            if (!File.Exists(path))
+                return ToolResult.Error($"File not found: {Path.GetFileName(path)}");
+
+            using var wb = new XLWorkbook(path);
+            var ws = GetSheet(wb, root, createIfMissing: true);
+            var cell = ws.Cell(cellAddr);
+            var originalValue = cell.GetString();
+
+            if (root.TryGetProperty("formula", out var formulaEl) && formulaEl.GetString() is { Length: > 0 } formula)
+            {
+                return ToolResult.Success(JsonSerializer.Serialize(new
+                {
+                    preview = true,
+                    previewOnly = true,
+                    filename = Path.GetFileName(path),
+                    sheet = ws.Name,
+                    cell = cellAddr,
+                    action = "formula",
+                    formula,
+                    previousValue = originalValue,
+                }, s_json), "Preview complete", new { filename = Path.GetFileName(path), sheet = ws.Name, cell = cellAddr });
+            }
+
+            if (root.TryGetProperty("value", out var valueEl))
+            {
+                var previewValue = valueEl.ValueKind == JsonValueKind.Null
+                    ? "<clear>"
+                    : valueEl.ToString();
+
+                return ToolResult.Success(JsonSerializer.Serialize(new
+                {
+                    preview = true,
+                    previewOnly = true,
+                    filename = Path.GetFileName(path),
+                    sheet = ws.Name,
+                    cell = cellAddr,
+                    action = "value",
+                    value = previewValue,
+                    previousValue = originalValue,
+                }, s_json), "Preview complete", new { filename = Path.GetFileName(path), sheet = ws.Name, cell = cellAddr });
+            }
+
+            return ToolResult.Success(JsonSerializer.Serialize(new
+            {
+                preview = true,
+                previewOnly = true,
+                filename = Path.GetFileName(path),
+                sheet = ws.Name,
+                cell = cellAddr,
+                action = "noop",
+                previousValue = originalValue,
+            }, s_json), "Preview complete", new { filename = Path.GetFileName(path), sheet = ws.Name, cell = cellAddr });
         }
-        else if (root.TryGetProperty("value", out var valueEl))
+
+        using var workbook = OpenOrCreate(path);
+        var ws2 = GetSheet(workbook, root, createIfMissing: true);
+        var cell2 = ws2.Cell(cellAddr);
+
+        if (root.TryGetProperty("formula", out var formulaEl2) && formulaEl2.GetString() is { Length: > 0 } formula2)
         {
-            if (valueEl.ValueKind == JsonValueKind.Null)
-                cell.Value = Blank.Value;
+            cell2.FormulaA1 = formula2;
+        }
+        else if (root.TryGetProperty("value", out var valueEl2))
+        {
+            if (valueEl2.ValueKind == JsonValueKind.Null)
+                cell2.Value = Blank.Value;
             else
-                SetCellValue(cell, valueEl);
+                SetCellValue(cell2, valueEl2);
         }
 
         if (root.TryGetProperty("numberFormat", out var nfEl) && nfEl.GetString() is { Length: > 0 } nf)
-            cell.Style.NumberFormat.Format = nf;
+            cell2.Style.NumberFormat.Format = nf;
 
-        wb.SaveAs(path);
+        workbook.SaveAs(path);
         return ToolResult.Ok($"Wrote to cell {cellAddr} in '{Path.GetFileName(path)}'.");
     }
 

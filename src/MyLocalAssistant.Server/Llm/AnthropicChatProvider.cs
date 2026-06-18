@@ -19,6 +19,7 @@ public sealed class AnthropicChatProvider : IChatProvider
 {
     private const string BaseUrl = "https://api.anthropic.com/v1";
     private const string ApiVersion = "2023-06-01";
+    private const string PromptCachingBeta = "prompt-caching-2024-07-31";
 
     private readonly ServerSettings _settings;
     private readonly IHttpClientFactory _httpFactory;
@@ -82,7 +83,19 @@ public sealed class AnthropicChatProvider : IChatProvider
             max_tokens = maxTokens,
             messages = new object[]
             {
-                new { role = "user", content = prompt },
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new
+                        {
+                            type = "text",
+                            text = prompt,
+                            cache_control = new { type = "ephemeral" },
+                        },
+                    },
+                },
             },
             stop_sequences = stopArr,
         };
@@ -93,6 +106,7 @@ public sealed class AnthropicChatProvider : IChatProvider
         };
         req.Headers.TryAddWithoutValidation("x-api-key", key);
         req.Headers.TryAddWithoutValidation("anthropic-version", ApiVersion);
+        req.Headers.TryAddWithoutValidation("anthropic-beta", PromptCachingBeta);
         req.Headers.Accept.Add(new MediaTypeWithQualityHeaderValue("text/event-stream"));
 
         using var resp = await http.SendAsync(req, HttpCompletionOption.ResponseHeadersRead, ct).ConfigureAwait(false);

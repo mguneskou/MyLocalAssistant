@@ -1,3 +1,5 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using MyLocalAssistant.Server.Auth;
 using MyLocalAssistant.Server.Persistence;
 using MyLocalAssistant.Server.Rag;
@@ -42,8 +44,22 @@ public sealed record ToolResult(
     /// <summary>Optional structured payload retained for audit/UI; not shown to the LLM.</summary>
     string? StructuredJson = null)
 {
-    public static ToolResult Ok(string content, string? structured = null) => new(false, content, structured);
-    public static ToolResult Error(string message) => new(true, message);
+    private static readonly JsonSerializerOptions s_envelopeJson = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    };
+
+    public static ToolResult Ok(string content, string? structured = null) => new(false, content, structured ?? BuildEnvelope("success", content));
+    public static ToolResult Success(string content, string summary, object? details = null) => new(false, content, BuildEnvelope("success", summary, details));
+    public static ToolResult Error(string message) => new(true, message, BuildEnvelope("error", message));
+
+    private static string BuildEnvelope(string status, string summary, object? details = null)
+    {
+        object payload = details is null
+            ? new { status, summary }
+            : new { status, summary, details };
+        return JsonSerializer.Serialize(payload, s_envelopeJson);
+    }
 }
 
 /// <summary>One tool invocation request resolved from the LLM's tool call.</summary>

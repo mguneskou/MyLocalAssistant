@@ -201,9 +201,10 @@ internal sealed class WordTool : ITool
                 AppendBlocks(mainPart.Document.Body!, blocksEl);
                 mainPart.Document.Save();
             }
-            return Task.FromResult(ToolResult.Ok(
+            return Task.FromResult(ToolResult.Success(
                 JsonSerializer.Serialize(new { filename, success = true }, s_json),
-                $"Word document '{filename}' saved."));
+                $"Word document '{filename}' saved.",
+                new { filename }));
         }
         catch (Exception ex) { return Err($"Failed to write: {ex.Message}"); }
     }

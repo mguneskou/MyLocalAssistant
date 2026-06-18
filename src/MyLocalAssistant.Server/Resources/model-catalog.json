@@ -498,6 +498,42 @@
     "description": "Anthropic Claude 3.5 Sonnet, served via the Anthropic API. Strongest Anthropic model in this catalog, 200k context. Requires the Anthropic key configured in Server Settings."
   },
   {
+    "id": "anthropic-claude-opus-4-8",
+    "displayName": "Claude Opus 4.8 (cloud)",
+    "tier": "workstation",
+    "source": "anthropic",
+    "remoteModel": "claude-opus-4-8",
+    "license": "Anthropic Usage Policies",
+    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
+    "recommendedContextSize": 200000,
+    "minRamGb": 0,
+    "description": "Anthropic Claude Opus 4.8, served via the Anthropic API. High-end reasoning and coding performance with a large context window. Requires the Anthropic key configured in Server Settings."
+  },
+  {
+    "id": "anthropic-claude-sonnet-4-6",
+    "displayName": "Claude Sonnet 4.6 (cloud)",
+    "tier": "mid",
+    "source": "anthropic",
+    "remoteModel": "claude-sonnet-4-6",
+    "license": "Anthropic Usage Policies",
+    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
+    "recommendedContextSize": 200000,
+    "minRamGb": 0,
+    "description": "Anthropic Claude Sonnet 4.6, served via the Anthropic API. Balanced speed and quality for everyday chat, coding, and analysis. Requires the Anthropic key configured in Server Settings."
+  },
+  {
+    "id": "anthropic-claude-haiku-4-5",
+    "displayName": "Claude Haiku 4.5 (cloud)",
+    "tier": "lightweight",
+    "source": "anthropic",
+    "remoteModel": "claude-haiku-4-5",
+    "license": "Anthropic Usage Policies",
+    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
+    "recommendedContextSize": 200000,
+    "minRamGb": 0,
+    "description": "Anthropic Claude Haiku 4.5, served via the Anthropic API. Fast and inexpensive for lightweight requests and high-volume workloads. Requires the Anthropic key configured in Server Settings."
+  },
+  {
     "id": "groq-llama-3.3-70b",
     "displayName": "Llama 3.3 70B Versatile — Groq (free cloud)",
     "tier": "workstation",
