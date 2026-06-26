@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <PackageReference Include="ClosedXML" Version="0.102.3" />
+    <PackageReference Include="MailKit" Version="4.12.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.5.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="5.2.3" />
     <PackageReference Include="Microsoft.Identity.Client" Version="4.66.2" />
@@ -35,6 +36,7 @@
     <PackageReference Include="LLamaSharp.Backend.Cuda12" Version="0.27.0" />
     <PackageReference Include="LLamaSharp.Backend.Vulkan" Version="0.27.0" />
     <PackageReference Include="Cronos" Version="0.8.4" />
+    <PackageReference Include="Telegram.Bot" Version="22.4.0" />
   </ItemGroup>
 
   <ItemGroup>
@@ -55,7 +57,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>2.21.22.4</Version>
+    <Version>2.21.23.0</Version>
   </PropertyGroup>
 
   <!-- React SPA integration -->
@@ -64,46 +66,34 @@
   </PropertyGroup>
 
   <!-- Auto-install npm deps if missing -->
-  <Target Name="NpmInstall" BeforeTargets="BuildWebFrontend"
-          Condition="!Exists('$(WebDir)\node_modules')">
+  <Target Name="NpmInstall" BeforeTargets="BuildWebFrontend" Condition="!Exists('$(WebDir)\node_modules')">
     <Exec Command="npm ci" WorkingDirectory="$(WebDir)" />
   </Target>
 
   <!-- Auto-build SPA on first build (or after clean) when dist is absent -->
-  <Target Name="BuildWebFrontend" BeforeTargets="Build"
-          Condition="!Exists('$(WebDir)\dist\index.html')">
+  <Target Name="BuildWebFrontend" BeforeTargets="Build" Condition="!Exists('$(WebDir)\dist\index.html')">
     <Exec Command="npm run build" WorkingDirectory="$(WebDir)" />
   </Target>
 
   <!-- Always rebuild on dotnet publish so the release gets the latest SPA -->
-  <Target Name="RebuildWebFrontendOnPublish" BeforeTargets="PrepareForPublish"
-          DependsOnTargets="NpmInstall">
+  <Target Name="RebuildWebFrontendOnPublish" BeforeTargets="PrepareForPublish" DependsOnTargets="NpmInstall">
     <Exec Command="npm run build" WorkingDirectory="$(WebDir)" />
   </Target>
 
-  <Target Name="CopyWebDistToBuildOutput"
-          AfterTargets="Build"
-          Condition="Exists('$(WebDir)\dist\index.html') and '$(OutDir)' != ''">
+  <Target Name="CopyWebDistToBuildOutput" AfterTargets="Build" Condition="Exists('$(WebDir)\dist\index.html') and '$(OutDir)' != ''">
     <ItemGroup>
       <WebDistBuildFile Include="$(WebDir)\dist\**\*" />
     </ItemGroup>
     <MakeDir Directories="$(OutDir)wwwroot" />
-    <Copy SourceFiles="@(WebDistBuildFile)"
-          DestinationFiles="@(WebDistBuildFile->'$(OutDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(WebDistBuildFile)" DestinationFiles="@(WebDistBuildFile->'$(OutDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
-  <Target Name="CopyWebDistToPublishOutput"
-          AfterTargets="Publish"
-          DependsOnTargets="RebuildWebFrontendOnPublish"
-          Condition="Exists('$(WebDir)\dist\index.html') and '$(PublishDir)' != ''">
+  <Target Name="CopyWebDistToPublishOutput" AfterTargets="Publish" DependsOnTargets="RebuildWebFrontendOnPublish" Condition="Exists('$(WebDir)\dist\index.html') and '$(PublishDir)' != ''">
     <ItemGroup>
       <WebDistPublishFile Include="$(WebDir)\dist\**\*" />
     </ItemGroup>
     <MakeDir Directories="$(PublishDir)wwwroot" />
-    <Copy SourceFiles="@(WebDistPublishFile)"
-          DestinationFiles="@(WebDistPublishFile->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(WebDistPublishFile)" DestinationFiles="@(WebDistPublishFile->'$(PublishDir)wwwroot\%(RecursiveDir)%(Filename)%(Extension)')" SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="VerifyOfficeToolPublishDependencies" AfterTargets="Publish" DependsOnTargets="CopyWebDistToPublishOutput" Condition="'$(PublishDir)' != ''">

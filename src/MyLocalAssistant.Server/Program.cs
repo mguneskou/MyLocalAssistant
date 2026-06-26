@@ -99,8 +99,59 @@ try
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.SqlServerTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.EmailTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.SchedulerTool>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ITool, MyLocalAssistant.Server.Tools.BuiltIn.PythonInterpreterTool>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ToolRegistry>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ToolCallStats>();
+
+    // Skills (Hermes branch – Phase 1 + Phase 4 manufacturing skills)
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.Manufacturing.ShortageReviewSkill>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.Manufacturing.PurchaseRequestSkill>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.Manufacturing.SupplierFollowUpSkill>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.Development.PythonScriptSkill>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.SkillRegistry>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.SkillExecutor>();
+
+    // Operations Scheduler (Hermes branch – Phase 2)
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Scheduling.IOperationsScheduler,
+        MyLocalAssistant.Server.Scheduling.OperationsSchedulerService>();
+    builder.Services.AddHostedService<MyLocalAssistant.Server.Scheduling.OperationsSchedulerHostedService>();
+
+    // Messaging channels (Hermes branch – Phase 3 + Phase 5)
+    var telegramToken = builder.Configuration["Messaging:Telegram:BotToken"] ?? string.Empty;
+    if (!string.IsNullOrWhiteSpace(telegramToken))
+    {
+        builder.Services.AddSingleton<MyLocalAssistant.Server.Messaging.IMessageChannel>(
+            sp => new MyLocalAssistant.Server.Messaging.TelegramChannelAdapter(
+                telegramToken,
+                sp.GetRequiredService<ILogger<MyLocalAssistant.Server.Messaging.TelegramChannelAdapter>>()));
+    }
+
+    var emailOpts = builder.Configuration
+        .GetSection("Messaging:Email")
+        .Get<MyLocalAssistant.Server.Messaging.EmailChannelOptions>() ?? new();
+    if (emailOpts.IsValid)
+    {
+        builder.Services.AddSingleton<MyLocalAssistant.Server.Messaging.IMessageChannel>(
+            sp => new MyLocalAssistant.Server.Messaging.EmailChannelAdapter(
+                emailOpts,
+                sp.GetRequiredService<ILogger<MyLocalAssistant.Server.Messaging.EmailChannelAdapter>>()));
+    }
+
+    var teamsWebhook = builder.Configuration["Messaging:Teams:WebhookUrl"] ?? string.Empty;
+    if (!string.IsNullOrWhiteSpace(teamsWebhook))
+    {
+        builder.Services.AddSingleton<MyLocalAssistant.Server.Messaging.TeamsChannelAdapter>(
+            sp => new MyLocalAssistant.Server.Messaging.TeamsChannelAdapter(
+                teamsWebhook,
+                sp.GetRequiredService<IHttpClientFactory>().CreateClient("teams"),
+                sp.GetRequiredService<ILogger<MyLocalAssistant.Server.Messaging.TeamsChannelAdapter>>()));
+        builder.Services.AddSingleton<MyLocalAssistant.Server.Messaging.IMessageChannel>(
+            sp => sp.GetRequiredService<MyLocalAssistant.Server.Messaging.TeamsChannelAdapter>());
+    }
+
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Messaging.MessageChannelRegistry>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Messaging.InboundMessageRouter>();
+    builder.Services.AddHostedService<MyLocalAssistant.Server.Messaging.MessagingHostedService>();
     builder.Services.AddHostedService<ModelBootstrapService>();
     builder.Services.AddHostedService<EmbeddingBootstrapService>();
     builder.Services.AddHostedService<MyLocalAssistant.Server.Hosting.RetentionService>();
