@@ -110,6 +110,7 @@ try
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.ISkill, MyLocalAssistant.Server.Skills.Development.PythonScriptSkill>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.SkillRegistry>();
     builder.Services.AddSingleton<MyLocalAssistant.Server.Skills.SkillExecutor>();
+    builder.Services.AddSingleton<MyLocalAssistant.Server.Tools.ToolsetRegistry>();
 
     // Operations Scheduler (Hermes branch – Phase 2)
     builder.Services.AddSingleton<MyLocalAssistant.Server.Scheduling.IOperationsScheduler,
@@ -229,6 +230,7 @@ try
     app.MapSettingsEndpoints();
     app.MapAttachmentEndpoints();
     app.MapToolEndpoints();
+    app.MapSkillEndpoints();
     app.MapClientBridgeEndpoints();
     // SPA fallback: any path not matched by an API route returns index.html so
     // React Router handles client-side navigation.

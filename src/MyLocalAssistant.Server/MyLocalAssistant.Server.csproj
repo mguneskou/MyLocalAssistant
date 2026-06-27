@@ -57,7 +57,7 @@
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <Version>2.21.23.0</Version>
+    <Version>2.21.24.0</Version>
   </PropertyGroup>
 
   <!-- React SPA integration -->

@@ -21,6 +21,8 @@ public sealed class ChatService(
     ModelManager models,
     RagService rag,
     ToolRegistry skills,
+    MyLocalAssistant.Server.Skills.SkillRegistry skillRegistry,
+    MyLocalAssistant.Server.Tools.ToolsetRegistry toolsetRegistry,
     ModelCapabilityRegistry capabilities,
     ToolCallStats toolStats,
     ServerSettings settings,
@@ -100,6 +102,26 @@ public sealed class ChatService(
         var chatProvider = router.Get(activeEntry);
         var capability = capabilities.Get(activeModelId);
         var resolvedSkills = ResolveSkills(agent, capability, callbacks.OnToolUnavailable);
+
+        // Hermes-style skill injection: resolve active skills for this agent and
+        // collect their required tools + system prompt contributions.
+        var activeSkills    = ResolveActiveSkills(agent);
+        var skillPromptPart = BuildSkillSystemPrompt(activeSkills);
+
+        // Merge skill-required tools into the resolved tool list (if not already present).
+        foreach (var skill in activeSkills)
+        {
+            foreach (var toolId in skill.RequiredToolIds)
+            {
+                if (skills.TryGet(toolId, out var extraTool)
+                    && skills.IsEnabled(toolId)
+                    && !resolvedSkills.Any(s => s.Id == extraTool.Id))
+                {
+                    resolvedSkills.Add(extraTool);
+                }
+            }
+        }
+
         var toolMode = resolvedSkills.Count > 0;
         var workDir = await ResolveWorkDirectoryAsync(principal.UserId, callbacks.ConversationId, ct);
         Directory.CreateDirectory(workDir);
@@ -114,7 +136,8 @@ public sealed class ChatService(
             retrieval.Chunks,
             history,
             resolvedSkills,
-            maxToolCalls);
+            maxToolCalls,
+            skillPromptPart);
 
         log.LogDebug("Chat: agent={AgentId}, user={User}, ragChunks={Chunks}, history={Hist}, promptChars={Chars}, model={Model}, tools={Tools}/{Bound}",
             agent.Id, principal.Username ?? principal.UserId.ToString(),
@@ -369,8 +392,49 @@ public sealed class ChatService(
         return resolved;
     }
 
-    private static (bool ok, string? error, ITool? skill) LookupAllowedSkill(string toolName, IReadOnlyList<ITool> allowed)
+    /// <summary>
+    /// Resolve active skills for an agent.
+    /// Skills are matched by id from the agent's SkillIds field.
+    /// If SkillIds is not set, skills are matched by category against toolsets.
+    /// Mirrors Hermes's skill injection mechanism.
+    /// </summary>
+    private List<Skills.ISkill> ResolveActiveSkills(Agent agent)
     {
+        var result = new List<Skills.ISkill>();
+        if (skillRegistry is null) return result;
+
+        // If the agent declares explicit skill ids, use those.
+        // Otherwise, auto-include all registered skills whose RequiredToolIds
+        // are a subset of what the agent already has — same as Hermes's posture toolsets.
+        var bound = ToolRegistry.ParseToolIds(agent.ToolIds);
+        var boundSet = new HashSet<string>(bound, StringComparer.OrdinalIgnoreCase);
+
+        foreach (var skill in skillRegistry.All())
+        {
+            // Include skill if all its required tools are bound to the agent
+            if (skill.RequiredToolIds.All(id => boundSet.Contains(id)))
+                result.Add(skill);
+        }
+        return result;
+    }
+
+    /// <summary>Build the combined system prompt contribution from active skills.</summary>
+    private static string BuildSkillSystemPrompt(IReadOnlyList<Skills.ISkill> activeSkills)
+    {
+        if (activeSkills.Count == 0) return string.Empty;
+        var sb = new StringBuilder();
+        sb.Append("## Active workflow skills\n");
+        sb.Append("The following specialized workflows are available for this agent:\n\n");
+        foreach (var skill in activeSkills)
+        {
+            sb.Append($"### {skill.Name} (`{skill.Id}`)\n");
+            sb.Append(skill.SystemPrompt.Trim());
+            sb.Append("\n\n");
+        }
+        return sb.ToString().TrimEnd();
+    }
+
+    private static (bool ok, string? error, ITool? skill) LookupAllowedSkill(string toolName, IReadOnlyList<ITool> allowed)    {
         foreach (var s in allowed)
         {
             if (string.Equals(s.Id, toolName, StringComparison.OrdinalIgnoreCase)) return (true, null, s);
@@ -494,7 +558,8 @@ public sealed class ChatService(
         IReadOnlyList<RagContextChunk> chunks,
         IReadOnlyList<HistoryTurn> history,
         IReadOnlyList<ITool> tools,
-        int maxToolCalls = DefaultMaxToolCallsPerTurn)
+        int maxToolCalls = DefaultMaxToolCallsPerTurn,
+        string? skillSystemPrompt = null)
     {
         var sb = new StringBuilder();
         // Always inject current date so the model knows "today" without needing a tool call.
@@ -505,6 +570,13 @@ public sealed class ChatService(
             sb.Append("\n\n");
         }
         sb.Append(systemPrompt.Trim());
+
+        // Inject skill system prompts (Hermes-style: active skills contribute instructions)
+        if (!string.IsNullOrWhiteSpace(skillSystemPrompt))
+        {
+            sb.Append("\n\n");
+            sb.Append(skillSystemPrompt!.Trim());
+        }
         sb.Append("\n\nAgent execution loop (always follow):\n");
         sb.Append("• Thought: decide the next best step based on the user goal and current evidence.\n");
         sb.Append("• Act: when a tool materially helps, call the most relevant tool with precise arguments.\n");
