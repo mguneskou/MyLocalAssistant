@@ -15,7 +15,8 @@
       "launchBrowser": true,
       "applicationUrl": "http://localhost:5014",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "MYLOCALASSISTANT_STATE_DIR": "%LOCALAPPDATA%\\MyLocalAssistant\\state"
       }
     },
     "https": {
@@ -24,7 +25,8 @@
       "launchBrowser": true,
       "applicationUrl": "https://localhost:7177;http://localhost:5014",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "MYLOCALASSISTANT_STATE_DIR": "%LOCALAPPDATA%\\MyLocalAssistant\\state"
       }
     },
     "IIS Express": {

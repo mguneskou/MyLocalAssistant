@@ -9,13 +9,26 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>MyLocalAssistant.ServerHost</AssemblyName>
     <RootNamespace>MyLocalAssistant.ServerHost</RootNamespace>
-    <Version>2.21.24.0</Version>
+    <Version>2.21.25.0</Version>
 
     <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Velopack" Version="0.0.1298" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Build-order dependency ONLY. ServerHost launches MyLocalAssistant.Server.exe as a
+         separate process (it does not link against it), so ReferenceOutputAssembly=false keeps
+         the ASP.NET/Web SDK output out of this WinForms app. This guarantees that hitting F5 on
+         ServerHost in Visual Studio first (re)builds the server, and the DEBUG fallback in
+         Program.cs then locates the freshly-built exe under the server's own bin\ folder. -->
+    <ProjectReference Include="..\MyLocalAssistant.Server\MyLocalAssistant.Server.csproj"
+                      ReferenceOutputAssembly="false"
+                      SkipGetTargetFrameworkProperties="true"
+                      Private="false"
+                      OutputItemType="" />
   </ItemGroup>
 
 </Project>

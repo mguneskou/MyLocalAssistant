@@ -40,6 +40,8 @@ internal sealed class TrayContext : ApplicationContext
 {
     private const string ServerExeName = "MyLocalAssistant.Server.exe";
     private const string DefaultListenUrl = "http://127.0.0.1:8080";
+    // Must match MyLocalAssistant.Server.ServerPaths.StateDirEnvVar.
+    private const string StateDirEnvVar = "MYLOCALASSISTANT_STATE_DIR";
 
     private readonly NotifyIcon _icon;
     private readonly ToolStripMenuItem _statusItem;
@@ -118,30 +120,69 @@ internal sealed class TrayContext : ApplicationContext
         _updateTimer.Start();
     }
 
+    /// <summary>
+    /// Locate MyLocalAssistant.Server.exe. In a packaged install it sits right next to this app.
+    /// For a from-source run (Visual Studio F5) each project builds to its own bin\, so under a
+    /// DEBUG build we walk up to the solution and pick the server's freshly-built exe, preferring
+    /// the matching configuration and newest timestamp. Returns (exePath, exeDir) or null.
+    /// </summary>
+    private static (string exe, string dir)? ResolveServerExe()
+    {
+        var hostDir = AppContext.BaseDirectory;
+        var next = Path.Combine(hostDir, ServerExeName);
+        if (File.Exists(next)) return (next, hostDir);
+#if DEBUG
+        for (var d = new DirectoryInfo(hostDir); d is not null; d = d.Parent)
+        {
+            var binDir = Path.Combine(d.FullName, "MyLocalAssistant.Server", "bin");
+            if (!Directory.Exists(binDir)) continue;
+            var configMarker = $"{Path.DirectorySeparatorChar}Debug{Path.DirectorySeparatorChar}";
+            var match = Directory.EnumerateFiles(binDir, ServerExeName, SearchOption.AllDirectories)
+                .OrderByDescending(p => p.Contains(configMarker, StringComparison.OrdinalIgnoreCase))
+                .ThenByDescending(File.GetLastWriteTimeUtc)
+                .FirstOrDefault();
+            if (match is not null) return (match, Path.GetDirectoryName(match)!);
+        }
+#endif
+        return null;
+    }
+
     private void StartServer()
     {
         try
         {
-            var dir = AppContext.BaseDirectory;
-            var exe = Path.Combine(dir, ServerExeName);
-            if (!File.Exists(exe))
+            var resolved = ResolveServerExe();
+            if (resolved is null)
             {
-                MessageBox.Show($"{ServerExeName} not found next to ServerHost.\nLooked in: {dir}",
+                MessageBox.Show($"{ServerExeName} not found next to ServerHost.\nLooked in: {AppContext.BaseDirectory}",
                     "MyLocalAssistant", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 Quit();
                 return;
             }
+            var (exe, dir) = resolved.Value;
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = exe,
+                WorkingDirectory = dir,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+            };
+#if DEBUG
+            // From-source runs: pin the server's persistent state (config, DB, downloaded models,
+            // vectors) to a stable folder so it is NOT stored inside bin\ and therefore survives
+            // a Visual Studio Clean/Rebuild. Only set it if the developer hasn't overridden it.
+            if (string.IsNullOrEmpty(Environment.GetEnvironmentVariable(StateDirEnvVar)))
+            {
+                startInfo.Environment[StateDirEnvVar] = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                    "MyLocalAssistant", "state");
+            }
+#endif
             _server = new Process
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = exe,
-                    WorkingDirectory = dir,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                },
+                StartInfo = startInfo,
                 EnableRaisingEvents = true,
             };
             _server.Exited += (_, _) => OnServerExited();

@@ -7,6 +7,28 @@ internal sealed class ChangelogForm : Form
     // ── Changelog ─────────────────────────────────────────────────────────────
     // Keep this in reverse-chronological order (newest first).
     private const string ChangelogText = """
+        v2.21.25
+        ───────────────────────────────────────────────────────────
+        • Fix: Anthropic (Claude) models now use Claude's own native tool-calling
+          API instead of the shared text-tag prompt convention. Previously a
+          Claude model could drift to its own trained tool-call format, in
+          which case its tool call — and even its "tool result" — never
+          actually ran and was instead invented outright, while still
+          reporting success. Tool calls for Claude models are now structured
+          API calls that always execute for real.
+        • Fix: cloud tool calls to Claude could fail with "tools.0.custom.name:
+          String should match pattern" — tool names containing a "." (e.g.
+          excel.create, client.fs.copyToWorkDir) are now translated to a
+          Claude-compatible name automatically.
+        • Improved: refreshed the model catalog. Removed several retired or
+          deprecated cloud models (old Claude 3.5 models, old Gemini 2.0
+          models, expired free-tier Groq/Cerebras models, retiring Mistral
+          Nemo); added current cloud models (Claude Sonnet 5, Claude Fable 5,
+          GPT-4.1/GPT-4.1 mini, newer Gemini/Groq/Cerebras/Mistral entries).
+        • New: added 9 additional fully open-source local models (Apache-2.0
+          or MIT licensed, no commercial-use restrictions), including
+          Qwen2.5-Coder in three sizes, Qwen3 30B MoE, and OpenAI's gpt-oss-20b.
+
         v2.21.21
         ───────────────────────────────────────────────────────────
         • New: Added three cloud chat models to the built-in catalog:

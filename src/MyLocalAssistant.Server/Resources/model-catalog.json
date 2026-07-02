@@ -450,6 +450,186 @@
     ]
   },
   {
+    "id": "smollm2-1.7b-instruct-q4km",
+    "displayName": "SmolLM2 1.7B Instruct",
+    "tier": "lightweight",
+    "huggingFaceRepo": "bartowski/SmolLM2-1.7B-Instruct-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+    "recommendedContextSize": 8192,
+    "minRamGb": 3,
+    "description": "Hugging Face SmolLM2 1.7B. Tiny, fast, fully-open (Apache-2.0) general chat for low-end hardware. Limited tool-calling.",
+    "files": [
+      {
+        "fileName": "SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
+        "url": "https://huggingface.co/bartowski/SmolLM2-1.7B-Instruct-GGUF/resolve/main/SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
+        "sizeBytes": 1060000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "granite-4.1-3b-q4km",
+    "displayName": "Granite 4.1 3B Instruct",
+    "tier": "lightweight",
+    "huggingFaceRepo": "unsloth/granite-4.1-3b-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+    "recommendedContextSize": 32768,
+    "minRamGb": 4,
+    "description": "IBM Granite 4.1 3B (Apache-2.0). Hybrid-Mamba, long context, tuned for agentic/tool use.",
+    "files": [
+      {
+        "fileName": "granite-4.1-3b-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/granite-4.1-3b-GGUF/resolve/main/granite-4.1-3b-Q4_K_M.gguf",
+        "sizeBytes": 2100000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "qwen25-coder-7b-instruct-q4km",
+    "displayName": "Qwen2.5-Coder 7B Instruct",
+    "tier": "mid",
+    "huggingFaceRepo": "bartowski/Qwen2.5-Coder-7B-Instruct-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+    "recommendedContextSize": 32768,
+    "minRamGb": 8,
+    "description": "Alibaba Qwen2.5-Coder 7B (Apache-2.0). Strong coding + general chat with Hermes-style tool calling.",
+    "files": [
+      {
+        "fileName": "Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
+        "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-7B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
+        "sizeBytes": 4680000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "olmo-2-1124-13b-instruct-q4km",
+    "displayName": "OLMo-2 1124 13B Instruct",
+    "tier": "mid",
+    "huggingFaceRepo": "allenai/OLMo-2-1124-13B-Instruct-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+    "recommendedContextSize": 4096,
+    "minRamGb": 12,
+    "description": "AllenAI OLMo-2 13B (Apache-2.0). Fully open (open data + weights). Native context 4k; no native tool template.",
+    "files": [
+      {
+        "fileName": "olmo-2-1124-13B-instruct-Q4_K_M.gguf",
+        "url": "https://huggingface.co/allenai/OLMo-2-1124-13B-Instruct-GGUF/resolve/main/olmo-2-1124-13B-instruct-Q4_K_M.gguf",
+        "sizeBytes": 8350000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "qwen25-14b-instruct-q4km",
+    "displayName": "Qwen2.5 14B Instruct",
+    "tier": "mid",
+    "huggingFaceRepo": "bartowski/Qwen2.5-14B-Instruct-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+    "recommendedContextSize": 32768,
+    "minRamGb": 12,
+    "description": "Alibaba Qwen2.5 14B (Apache-2.0). Well-rounded general instruct model with tool calling.",
+    "files": [
+      {
+        "fileName": "Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+        "url": "https://huggingface.co/bartowski/Qwen2.5-14B-Instruct-GGUF/resolve/main/Qwen2.5-14B-Instruct-Q4_K_M.gguf",
+        "sizeBytes": 8990000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "qwen25-coder-14b-instruct-q4km",
+    "displayName": "Qwen2.5-Coder 14B Instruct",
+    "tier": "mid",
+    "huggingFaceRepo": "bartowski/Qwen2.5-Coder-14B-Instruct-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+    "recommendedContextSize": 32768,
+    "minRamGb": 12,
+    "description": "Alibaba Qwen2.5-Coder 14B (Apache-2.0). Best-in-class open coding model at this size; tool calling.",
+    "files": [
+      {
+        "fileName": "Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf",
+        "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-14B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf",
+        "sizeBytes": 8990000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "gpt-oss-20b-q4km",
+    "displayName": "OpenAI gpt-oss-20b",
+    "tier": "heavy",
+    "huggingFaceRepo": "unsloth/gpt-oss-20b-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/openai/gpt-oss-20b",
+    "recommendedContextSize": 32768,
+    "minRamGb": 16,
+    "description": "OpenAI open MoE (~21B, 3.6B active), Apache-2.0. Strong tool calling (harmony format). ~11.5 GB.",
+    "files": [
+      {
+        "fileName": "gpt-oss-20b-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/gpt-oss-20b-GGUF/resolve/main/gpt-oss-20b-Q4_K_M.gguf",
+        "sizeBytes": 11600000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "qwen3-30b-a3b-q4km",
+    "displayName": "Qwen3 30B A3B (MoE)",
+    "tier": "heavy",
+    "huggingFaceRepo": "unsloth/Qwen3-30B-A3B-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+    "recommendedContextSize": 32768,
+    "minRamGb": 24,
+    "description": "Alibaba Qwen3 30B MoE (3B active), Apache-2.0. Near-14B-dense quality at faster speed; hybrid thinking; tool calling.",
+    "files": [
+      {
+        "fileName": "Qwen3-30B-A3B-Q4_K_M.gguf",
+        "url": "https://huggingface.co/unsloth/Qwen3-30B-A3B-GGUF/resolve/main/Qwen3-30B-A3B-Q4_K_M.gguf",
+        "sizeBytes": 18600000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
+    "id": "qwen25-coder-32b-instruct-q4km",
+    "displayName": "Qwen2.5-Coder 32B Instruct",
+    "tier": "heavy",
+    "huggingFaceRepo": "bartowski/Qwen2.5-Coder-32B-Instruct-GGUF",
+    "quantization": "Q4_K_M",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://www.apache.org/licenses/LICENSE-2.0",
+    "recommendedContextSize": 32768,
+    "minRamGb": 26,
+    "description": "Alibaba Qwen2.5-Coder 32B (Apache-2.0). Top open coding model; competitive with proprietary coders; tool calling.",
+    "files": [
+      {
+        "fileName": "Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
+        "url": "https://huggingface.co/bartowski/Qwen2.5-Coder-32B-Instruct-GGUF/resolve/main/Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
+        "sizeBytes": 19900000000,
+        "sha256": ""
+      }
+    ]
+  },
+  {
     "id": "openai-gpt-4o-mini",
     "displayName": "OpenAI GPT-4o mini (cloud)",
     "tier": "lightweight",
@@ -459,67 +639,31 @@
     "licenseUrl": "https://openai.com/policies/terms-of-use/",
     "recommendedContextSize": 128000,
     "minRamGb": 0,
-    "description": "OpenAI GPT-4o mini, served via the OpenAI API. Fast, cheap, 128k context. Requires the OpenAI key configured in Server Settings. Conversations sent to a cloud model leave your network."
+    "description": "OpenAI GPT-4o mini via the OpenAI API. Fast, cheap, 128k context, still active. Requires the OpenAI key in Server Settings. Conversations leave your network."
   },
   {
-    "id": "openai-gpt-4o",
-    "displayName": "OpenAI GPT-4o (cloud)",
+    "id": "openai-gpt-4.1-mini",
+    "displayName": "OpenAI GPT-4.1 mini (cloud)",
     "tier": "mid",
     "source": "openAi",
-    "remoteModel": "gpt-4o",
+    "remoteModel": "gpt-4.1-mini",
     "license": "OpenAI Terms of Use",
     "licenseUrl": "https://openai.com/policies/terms-of-use/",
-    "recommendedContextSize": 128000,
+    "recommendedContextSize": 1000000,
     "minRamGb": 0,
-    "description": "OpenAI GPT-4o, served via the OpenAI API. Strongest general-purpose OpenAI model in this catalog, 128k context. Requires the OpenAI key configured in Server Settings."
+    "description": "OpenAI GPT-4.1 mini via the OpenAI API. Fast non-reasoning model with a 1M-token context; good value for coding and chat. Requires the OpenAI key in Server Settings. Conversations leave your network."
   },
   {
-    "id": "anthropic-claude-3-5-haiku",
-    "displayName": "Anthropic Claude 3.5 Haiku (cloud)",
-    "tier": "lightweight",
-    "source": "anthropic",
-    "remoteModel": "claude-3-5-haiku-latest",
-    "license": "Anthropic Usage Policies",
-    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
-    "recommendedContextSize": 200000,
+    "id": "openai-gpt-4.1",
+    "displayName": "OpenAI GPT-4.1 (cloud)",
+    "tier": "heavy",
+    "source": "openAi",
+    "remoteModel": "gpt-4.1",
+    "license": "OpenAI Terms of Use",
+    "licenseUrl": "https://openai.com/policies/terms-of-use/",
+    "recommendedContextSize": 1000000,
     "minRamGb": 0,
-    "description": "Anthropic Claude 3.5 Haiku, served via the Anthropic API. Fast and inexpensive, 200k context. Requires the Anthropic key configured in Server Settings."
-  },
-  {
-    "id": "anthropic-claude-3-5-sonnet",
-    "displayName": "Anthropic Claude 3.5 Sonnet (cloud)",
-    "tier": "mid",
-    "source": "anthropic",
-    "remoteModel": "claude-3-5-sonnet-latest",
-    "license": "Anthropic Usage Policies",
-    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
-    "recommendedContextSize": 200000,
-    "minRamGb": 0,
-    "description": "Anthropic Claude 3.5 Sonnet, served via the Anthropic API. Strongest Anthropic model in this catalog, 200k context. Requires the Anthropic key configured in Server Settings."
-  },
-  {
-    "id": "anthropic-claude-opus-4-8",
-    "displayName": "Claude Opus 4.8 (cloud)",
-    "tier": "workstation",
-    "source": "anthropic",
-    "remoteModel": "claude-opus-4-8",
-    "license": "Anthropic Usage Policies",
-    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
-    "recommendedContextSize": 200000,
-    "minRamGb": 0,
-    "description": "Anthropic Claude Opus 4.8, served via the Anthropic API. High-end reasoning and coding performance with a large context window. Requires the Anthropic key configured in Server Settings."
-  },
-  {
-    "id": "anthropic-claude-sonnet-4-6",
-    "displayName": "Claude Sonnet 4.6 (cloud)",
-    "tier": "mid",
-    "source": "anthropic",
-    "remoteModel": "claude-sonnet-4-6",
-    "license": "Anthropic Usage Policies",
-    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
-    "recommendedContextSize": 200000,
-    "minRamGb": 0,
-    "description": "Anthropic Claude Sonnet 4.6, served via the Anthropic API. Balanced speed and quality for everyday chat, coding, and analysis. Requires the Anthropic key configured in Server Settings."
+    "description": "OpenAI GPT-4.1 via the OpenAI API. Strongest non-reasoning OpenAI model here, 1M context, excellent coding. Requires the OpenAI key in Server Settings. Conversations leave your network."
   },
   {
     "id": "anthropic-claude-haiku-4-5",
@@ -531,79 +675,79 @@
     "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
     "recommendedContextSize": 200000,
     "minRamGb": 0,
-    "description": "Anthropic Claude Haiku 4.5, served via the Anthropic API. Fast and inexpensive for lightweight requests and high-volume workloads. Requires the Anthropic key configured in Server Settings."
+    "description": "Anthropic Claude Haiku 4.5 via the Anthropic API. Fast and inexpensive, 200k context. Requires the Anthropic key in Server Settings. Conversations leave your network."
   },
   {
-    "id": "groq-llama-3.3-70b",
-    "displayName": "Llama 3.3 70B Versatile — Groq (free cloud)",
-    "tier": "workstation",
-    "source": "groq",
-    "remoteModel": "llama-3.3-70b-versatile",
-    "license": "Llama 3.3 Community",
-    "licenseUrl": "https://www.llama.com/llama3_3/license/",
-    "recommendedContextSize": 128000,
-    "minRamGb": 0,
-    "description": "Meta Llama 3.3 70B served on Groq's LPU hardware. Near GPT-4 quality at blazing speed. Free tier: 30 req/min, 6 000 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
-  },
-  {
-    "id": "gemini-2.0-flash",
-    "displayName": "Gemini 2.0 Flash — Google (free cloud)",
+    "id": "anthropic-claude-sonnet-5",
+    "displayName": "Claude Sonnet 5 (cloud)",
     "tier": "mid",
-    "source": "gemini",
-    "remoteModel": "gemini-2.0-flash",
-    "license": "Google Terms of Service",
-    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
+    "source": "anthropic",
+    "remoteModel": "claude-sonnet-5",
+    "license": "Anthropic Usage Policies",
+    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
     "recommendedContextSize": 1000000,
     "minRamGb": 0,
-    "description": "Google Gemini 2.0 Flash. High quality, 1M token context, multimodal (text only via this API). Free tier: 15 req/min, 1 500 req/day. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
+    "description": "Anthropic Claude Sonnet 5 via the Anthropic API. Near-Opus quality on coding and agentic work at Sonnet cost; 1M context. Requires the Anthropic key in Server Settings. Conversations leave your network."
   },
   {
-    "id": "gemini-2.0-flash-lite",
-    "displayName": "Gemini 2.0 Flash-Lite — Google (free cloud)",
+    "id": "anthropic-claude-opus-4-8",
+    "displayName": "Claude Opus 4.8 (cloud)",
+    "tier": "heavy",
+    "source": "anthropic",
+    "remoteModel": "claude-opus-4-8",
+    "license": "Anthropic Usage Policies",
+    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
+    "recommendedContextSize": 1000000,
+    "minRamGb": 0,
+    "description": "Anthropic Claude Opus 4.8 via the Anthropic API. High-end reasoning and coding, 1M context. Requires the Anthropic key in Server Settings. Conversations leave your network."
+  },
+  {
+    "id": "anthropic-claude-fable-5",
+    "displayName": "Claude Fable 5 (cloud)",
+    "tier": "workstation",
+    "source": "anthropic",
+    "remoteModel": "claude-fable-5",
+    "license": "Anthropic Usage Policies",
+    "licenseUrl": "https://www.anthropic.com/legal/usage-policy",
+    "recommendedContextSize": 1000000,
+    "minRamGb": 0,
+    "description": "Anthropic Claude Fable 5 via the Anthropic API. Most capable model for demanding reasoning and long-horizon agentic work; 1M context. Premium pricing; requires 30-day data retention on the account. Requires the Anthropic key in Server Settings. Conversations leave your network."
+  },
+  {
+    "id": "groq-gpt-oss-20b",
+    "displayName": "GPT-OSS 20B — Groq (free cloud)",
+    "tier": "mid",
+    "source": "groq",
+    "remoteModel": "openai/gpt-oss-20b",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/openai/gpt-oss-20b",
+    "recommendedContextSize": 131072,
+    "minRamGb": 0,
+    "description": "OpenAI gpt-oss 20B on Groq LPUs. Fast open MoE, Groq's go-to free model (replaces Llama 3.1 8B Instant). Requires a Groq API key (free at console.groq.com). Conversations leave your network."
+  },
+  {
+    "id": "groq-gpt-oss-120b",
+    "displayName": "GPT-OSS 120B — Groq (free cloud)",
+    "tier": "workstation",
+    "source": "groq",
+    "remoteModel": "openai/gpt-oss-120b",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/openai/gpt-oss-120b",
+    "recommendedContextSize": 131072,
+    "minRamGb": 0,
+    "description": "OpenAI gpt-oss 120B on Groq LPUs. Groq's current recommended production model. Free tier: 30 req/min, 1000 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
+  },
+  {
+    "id": "gemini-2.5-flash-lite",
+    "displayName": "Gemini 2.5 Flash-Lite — Google (free cloud)",
     "tier": "lightweight",
     "source": "gemini",
-    "remoteModel": "gemini-2.0-flash-lite",
+    "remoteModel": "gemini-2.5-flash-lite",
     "license": "Google Terms of Service",
     "licenseUrl": "https://ai.google.dev/gemini-api/terms",
-    "recommendedContextSize": 1000000,
+    "recommendedContextSize": 1048576,
     "minRamGb": 0,
-    "description": "Google Gemini 2.0 Flash-Lite. Fastest and cheapest Gemini model, 1M context. Free tier: 30 req/min, 1 500 req/day. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
-  },
-  {
-    "id": "mistral-nemo",
-    "displayName": "Mistral NeMo — Mistral AI (free cloud)",
-    "tier": "mid",
-    "source": "mistral",
-    "remoteModel": "open-mistral-nemo",
-    "license": "Apache-2.0",
-    "licenseUrl": "https://huggingface.co/mistralai/Mistral-Nemo-Instruct-2407",
-    "recommendedContextSize": 128000,
-    "minRamGb": 0,
-    "description": "Mistral NeMo 12B (open-weight). Strong multilingual model with 128k context; free tier on Mistral API. Requires a Mistral API key (free at console.mistral.ai). Conversations leave your network."
-  },
-  {
-    "id": "mistral-small",
-    "displayName": "Mistral Small — Mistral AI (free cloud)",
-    "tier": "mid",
-    "source": "mistral",
-    "remoteModel": "mistral-small-latest",
-    "license": "Mistral AI Terms",
-    "licenseUrl": "https://mistral.ai/terms/",
-    "recommendedContextSize": 32000,
-    "minRamGb": 0,
-    "description": "Mistral Small Latest. Compact frontier model; capable coding and reasoning, free tier available. Requires a Mistral API key (free at console.mistral.ai). Conversations leave your network."
-  },
-  {
-    "id": "groq-qwen3-32b",
-    "displayName": "Qwen3 32B — Groq (free cloud)",
-    "tier": "workstation",
-    "source": "groq",
-    "remoteModel": "qwen/qwen3-32b",
-    "license": "Apache-2.0",
-    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-32B",
-    "recommendedContextSize": 32768,
-    "minRamGb": 0,
-    "description": "Alibaba Qwen3 32B on Groq LPUs. Strong reasoning, math and coding. Free tier (preview). Requires a Groq API key. Conversations leave your network."
+    "description": "Google Gemini 2.5 Flash-Lite. Cheapest, highest-quota Gemini, ~1M context. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
   },
   {
     "id": "gemini-2.5-flash",
@@ -615,79 +759,7 @@
     "licenseUrl": "https://ai.google.dev/gemini-api/terms",
     "recommendedContextSize": 1048576,
     "minRamGb": 0,
-    "description": "Google Gemini 2.5 Flash. Frontier quality with 1M token context and built-in reasoning. Free tier: 10 req/min, 250 req/day. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
-  },
-  {
-    "id": "gemini-3.1-flash",
-    "displayName": "Gemini 3.1 Flash — Google (cloud)",
-    "tier": "mid",
-    "source": "gemini",
-    "remoteModel": "gemini-3.1-flash",
-    "license": "Google Terms of Service",
-    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
-    "recommendedContextSize": 1048576,
-    "minRamGb": 0,
-    "description": "Google Gemini 3.1 Flash via Gemini API. Fast, high-context cloud model for general chat and tool workflows. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemini-3.1-pro",
-    "displayName": "Gemini 3.1 Pro — Google (cloud)",
-    "tier": "heavy",
-    "source": "gemini",
-    "remoteModel": "gemini-3.1-pro",
-    "license": "Google Terms of Service",
-    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
-    "recommendedContextSize": 1048576,
-    "minRamGb": 0,
-    "description": "Google Gemini 3.1 Pro via Gemini API. Higher-capability cloud model for complex analysis and long-context workflows. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemini-3.1-flash-lite",
-    "displayName": "Gemini 3.1 Flash Lite — Google (cloud)",
-    "tier": "lightweight",
-    "source": "gemini",
-    "remoteModel": "gemini-3.1-flash-lite",
-    "license": "Google Terms of Service",
-    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
-    "recommendedContextSize": 1048576,
-    "minRamGb": 0,
-    "description": "Google Gemini 3.1 Flash Lite via Gemini API. Cost-optimized, low-latency cloud model for fast conversational and tool tasks. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemini-3.1-flash-tts",
-    "displayName": "Gemini 3.1 Flash TTS — Google (cloud)",
-    "tier": "lightweight",
-    "source": "gemini",
-    "remoteModel": "gemini-3.1-flash-tts",
-    "license": "Google Terms of Service",
-    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
-    "recommendedContextSize": 1048576,
-    "minRamGb": 0,
-    "description": "Google Gemini 3.1 Flash TTS via Gemini API. Voice-focused cloud model family entry exposed in the unified model list. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemini-3.1-flash-live",
-    "displayName": "Gemini 3.1 Flash Live — Google (cloud)",
-    "tier": "mid",
-    "source": "gemini",
-    "remoteModel": "gemini-3.1-flash-live",
-    "license": "Google Terms of Service",
-    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
-    "recommendedContextSize": 1048576,
-    "minRamGb": 0,
-    "description": "Google Gemini 3.1 Flash Live via Gemini API. Real-time oriented model family entry available in the cloud model catalog. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemini-3-flash",
-    "displayName": "Gemini 3 Flash — Google (cloud)",
-    "tier": "mid",
-    "source": "gemini",
-    "remoteModel": "gemini-3-flash",
-    "license": "Google Terms of Service",
-    "licenseUrl": "https://ai.google.dev/gemini-api/terms",
-    "recommendedContextSize": 1048576,
-    "minRamGb": 0,
-    "description": "Google Gemini 3 Flash via Gemini API. General-purpose high-throughput cloud model for chat and tool workflows. Requires a Google AI Studio API key. Conversations leave your network."
+    "description": "Google Gemini 2.5 Flash. Balanced default, ~1M context, built-in reasoning. Free tier available. Requires a Google AI Studio key (free at aistudio.google.com). Conversations leave your network."
   },
   {
     "id": "gemini-3.5-flash",
@@ -699,162 +771,66 @@
     "licenseUrl": "https://ai.google.dev/gemini-api/terms",
     "recommendedContextSize": 1048576,
     "minRamGb": 0,
-    "description": "Google Gemini 3.5 Flash via Gemini API. Next-generation flash-tier cloud model for fast, high-context assistant tasks. Requires a Google AI Studio API key. Conversations leave your network."
+    "description": "Google Gemini 3.5 Flash (GA, May 2026). Newest flash-tier model, 1M context. Requires a Google AI Studio key. Conversations leave your network."
   },
   {
-    "id": "gemini-3-flash-preview",
-    "displayName": "Gemini 3 Flash Preview — Google (cloud)",
-    "tier": "mid",
+    "id": "gemini-2.5-pro",
+    "displayName": "Gemini 2.5 Pro — Google (cloud)",
+    "tier": "heavy",
     "source": "gemini",
-    "remoteModel": "gemini-3-flash-preview",
+    "remoteModel": "gemini-2.5-pro",
     "license": "Google Terms of Service",
     "licenseUrl": "https://ai.google.dev/gemini-api/terms",
     "recommendedContextSize": 1048576,
     "minRamGb": 0,
-    "description": "Google Gemini 3 Flash Preview via Gemini API. Preview-tier cloud model for early access testing. Requires a Google AI Studio API key. Conversations leave your network."
+    "description": "Google Gemini 2.5 Pro. High-reasoning tier, ~1M context (mostly paid tier as of 2026). Requires a Google AI Studio key. Conversations leave your network."
   },
   {
-    "id": "gemma-4-31b-it",
-    "displayName": "Gemma 4 31B — Google (cloud)",
-    "tier": "workstation",
-    "source": "gemini",
-    "remoteModel": "gemma-4-31b-it",
-    "license": "Gemma Terms of Use",
-    "licenseUrl": "https://ai.google.dev/gemma/terms",
-    "recommendedContextSize": 131072,
-    "minRamGb": 0,
-    "description": "Google Gemma 4 31B served as a cloud model via Gemini API integration. Strong larger-model option for instruction-following and analysis tasks. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemma-4-26b-it",
-    "displayName": "Gemma 4 26B — Google (cloud)",
-    "tier": "heavy",
-    "source": "gemini",
-    "remoteModel": "gemma-4-26b-it",
-    "license": "Gemma Terms of Use",
-    "licenseUrl": "https://ai.google.dev/gemma/terms",
-    "recommendedContextSize": 131072,
-    "minRamGb": 0,
-    "description": "Google Gemma 4 26B via Gemini API integration. High-capability cloud model for analysis, reasoning and multilingual assistant tasks. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemma-3-27b-it",
-    "displayName": "Gemma 3 27B — Google (cloud)",
-    "tier": "heavy",
-    "source": "gemini",
-    "remoteModel": "gemma-3-27b-it",
-    "license": "Gemma Terms of Use",
-    "licenseUrl": "https://ai.google.dev/gemma/terms",
-    "recommendedContextSize": 131072,
-    "minRamGb": 0,
-    "description": "Google Gemma 3 27B via Gemini API integration. Larger Gemma 3 cloud option for complex instruction and reasoning workloads. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemma-3-12b-it",
-    "displayName": "Gemma 3 12B — Google (cloud)",
-    "tier": "mid",
-    "source": "gemini",
-    "remoteModel": "gemma-3-12b-it",
-    "license": "Gemma Terms of Use",
-    "licenseUrl": "https://ai.google.dev/gemma/terms",
-    "recommendedContextSize": 131072,
-    "minRamGb": 0,
-    "description": "Google Gemma 3 12B via Gemini API integration. Balanced cloud model for quality and latency across everyday assistant tasks. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemma-3-4b-it",
-    "displayName": "Gemma 3 4B — Google (cloud)",
+    "id": "mistral-ministral-8b",
+    "displayName": "Ministral 8B — Mistral AI (free cloud)",
     "tier": "lightweight",
-    "source": "gemini",
-    "remoteModel": "gemma-3-4b-it",
-    "license": "Gemma Terms of Use",
-    "licenseUrl": "https://ai.google.dev/gemma/terms",
-    "recommendedContextSize": 131072,
-    "minRamGb": 0,
-    "description": "Google Gemma 3 4B via Gemini API integration. Lightweight cloud model for fast turnaround and lower-cost assistant workflows. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemma-3-2b-it",
-    "displayName": "Gemma 3 2B — Google (cloud)",
-    "tier": "lightweight",
-    "source": "gemini",
-    "remoteModel": "gemma-3-2b-it",
-    "license": "Gemma Terms of Use",
-    "licenseUrl": "https://ai.google.dev/gemma/terms",
-    "recommendedContextSize": 131072,
-    "minRamGb": 0,
-    "description": "Google Gemma 3 2B via Gemini API integration. Small cloud model option for simple prompts and high-volume automation scenarios. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "gemma-3-1b-it",
-    "displayName": "Gemma 3 1B — Google (cloud)",
-    "tier": "lightweight",
-    "source": "gemini",
-    "remoteModel": "gemma-3-1b-it",
-    "license": "Gemma Terms of Use",
-    "licenseUrl": "https://ai.google.dev/gemma/terms",
-    "recommendedContextSize": 131072,
-    "minRamGb": 0,
-    "description": "Google Gemma 3 1B via Gemini API integration. Ultra-light cloud model entry for fast and economical assistant tasks. Requires a Google AI Studio API key. Conversations leave your network."
-  },
-  {
-    "id": "cerebras-llama3.1-8b",
-    "displayName": "Llama 3.1 8B — Cerebras (free cloud)",
-    "tier": "lightweight",
-    "source": "cerebras",
-    "remoteModel": "llama3.1-8b",
-    "license": "Llama 3.1 Community",
-    "licenseUrl": "https://www.llama.com/llama3_1/license/",
-    "recommendedContextSize": 8192,
-    "minRamGb": 0,
-    "description": "Meta Llama 3.1 8B on Cerebras CS-3 wafer-scale chips. Extremely fast (~2000 tokens/sec). Free tier ~20 req/min. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
-  },
-  {
-    "id": "cerebras-qwen3-235b",
-    "displayName": "Qwen3 235B A22B — Cerebras (preview cloud)",
-    "tier": "workstation",
-    "source": "cerebras",
-    "remoteModel": "qwen-3-235b-a22b-instruct-2507",
-    "license": "Apache-2.0",
-    "licenseUrl": "https://huggingface.co/Qwen/Qwen3-235B-A22B",
-    "recommendedContextSize": 32768,
-    "minRamGb": 0,
-    "description": "Alibaba Qwen3 235B MoE (22B active) on Cerebras CS-3 chips. Frontier reasoning and coding at extreme speed. Preview tier. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
-  },
-  {
-    "id": "groq-llama-3.1-8b-instant",
-    "displayName": "Llama 3.1 8B Instant — Groq (free cloud)",
-    "tier": "lightweight",
-    "source": "groq",
-    "remoteModel": "llama-3.1-8b-instant",
-    "license": "Llama 3.1 Community",
-    "licenseUrl": "https://www.llama.com/llama3_1/license/",
-    "recommendedContextSize": 131072,
-    "minRamGb": 0,
-    "description": "Meta Llama 3.1 8B on Groq LPUs. Highest free tier of any Groq model: 30 req/min, 14 400 req/day. Great for high-volume tasks. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
-  },
-  {
-    "id": "groq-gemma-2-9b",
-    "displayName": "Gemma 2 9B — Groq (free cloud)",
-    "tier": "lightweight",
-    "source": "groq",
-    "remoteModel": "gemma2-9b-it",
-    "license": "Gemma Terms of Use",
-    "licenseUrl": "https://ai.google.dev/gemma/terms",
-    "recommendedContextSize": 8192,
-    "minRamGb": 0,
-    "description": "Google Gemma 2 9B on Groq LPUs. High quality for its size with strong multilingual support. Free tier: 30 req/min, 14 400 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
-  },
-  {
-    "id": "groq-deepseek-r1-70b",
-    "displayName": "DeepSeek R1 70B (distill) — Groq (free cloud)",
-    "tier": "workstation",
-    "source": "groq",
-    "remoteModel": "deepseek-r1-distill-llama-70b",
-    "license": "MIT",
-    "licenseUrl": "https://huggingface.co/deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
+    "source": "mistral",
+    "remoteModel": "ministral-8b-latest",
+    "license": "Mistral AI Terms",
+    "licenseUrl": "https://mistral.ai/terms/",
     "recommendedContextSize": 128000,
     "minRamGb": 0,
-    "description": "DeepSeek R1 reasoning model distilled into Llama 3.3 70B, served on Groq LPUs. Excellent for step-by-step reasoning and math. Free tier: 30 req/min, 1 000 req/day. Requires a Groq API key (free at console.groq.com). Conversations leave your network."
+    "description": "Mistral Ministral 8B via the Mistral API. Compact model, 128k context, on the free Experiment tier (rate-limited). Requires a Mistral API key (free at console.mistral.ai). Conversations leave your network."
+  },
+  {
+    "id": "mistral-small",
+    "displayName": "Mistral Small — Mistral AI (free cloud)",
+    "tier": "mid",
+    "source": "mistral",
+    "remoteModel": "mistral-small-latest",
+    "license": "Mistral AI Terms",
+    "licenseUrl": "https://mistral.ai/terms/",
+    "recommendedContextSize": 256000,
+    "minRamGb": 0,
+    "description": "Mistral Small (latest, v26.03) via the Mistral API. Hybrid instruct/reasoning/coding, 256k context; free Experiment tier (rate-limited). Requires a Mistral API key (free at console.mistral.ai). Conversations leave your network."
+  },
+  {
+    "id": "cerebras-gpt-oss-120b",
+    "displayName": "GPT-OSS 120B — Cerebras (free cloud)",
+    "tier": "heavy",
+    "source": "cerebras",
+    "remoteModel": "gpt-oss-120b",
+    "license": "Apache-2.0",
+    "licenseUrl": "https://huggingface.co/openai/gpt-oss-120b",
+    "recommendedContextSize": 131072,
+    "minRamGb": 0,
+    "description": "OpenAI gpt-oss 120B on Cerebras CS-3 chips. Frontier open MoE at extreme speed. Free tier: 5 req/min, 1M tokens/day (free context may be capped — verify on your account). Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
+  },
+  {
+    "id": "cerebras-glm-4.7",
+    "displayName": "GLM 4.7 — Cerebras (free cloud)",
+    "tier": "workstation",
+    "source": "cerebras",
+    "remoteModel": "zai-glm-4.7",
+    "license": "MIT",
+    "licenseUrl": "https://huggingface.co/zai-org",
+    "recommendedContextSize": 131072,
+    "minRamGb": 0,
+    "description": "Z.ai GLM 4.7 on Cerebras CS-3 chips. Strong reasoning/coding model (now behind Cerebras Code). Free tier: 5 req/min, 1M tokens/day. Requires a Cerebras API key (free at cloud.cerebras.ai). Conversations leave your network."
   }
 ]

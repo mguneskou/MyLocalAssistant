@@ -13,14 +13,24 @@ public static class ToolSources
 /// <summary>
 /// Tool-calling protocol a tool needs the LLM to support.
 /// <c>none</c> = no tool-calling needed (rare; informational only).
-/// <c>tags</c> = XML-tag protocol (works on most local models, see ChatService).
+/// <c>tags</c> = XML-tag protocol: a custom <c>&lt;tool_call&gt;{...}&lt;/tool_call&gt;</c> grammar
+/// injected into a single flattened prompt (works on most local models, see ChatService).
 /// <c>json</c> = OpenAI-style JSON function calling (Llama 3.1+, Qwen 2.5, ...).
+/// <c>native</c> = the provider's own structured tool-calling API (e.g. Anthropic's
+/// <c>tools</c>/<c>tool_use</c> content blocks). Requires the chat provider to implement
+/// <c>INativeToolChatProvider</c> (server-side); ChatService drives a typed message/tool_result
+/// loop instead of text-tag scraping. Chosen over <c>tags</c> specifically because strong
+/// models (Claude included) can drift to their own trained tool-call conventions and never
+/// emit the literal <c>&lt;tool_call&gt;</c> string — with <c>tags</c> that drift is silent
+/// (the model's fabricated tool call and result stream straight through as ordinary visible
+/// text, and the real tool never runs).
 /// </summary>
 public static class ToolCallProtocols
 {
     public const string None = "none";
     public const string Tags = "tags";
     public const string Json = "json";
+    public const string Native = "native";
 }
 
 /// <summary>One tool exposed by a tool. Multiple tools may each expose several tools.</summary>

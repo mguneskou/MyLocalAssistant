@@ -127,6 +127,36 @@ public sealed class ChatService(
         Directory.CreateDirectory(workDir);
 
         var maxToolCalls = Math.Clamp(agent.MaxToolCalls ?? DefaultMaxToolCallsPerTurn, 1, 20);
+
+        // Native tool-calling providers (currently Anthropic) never see the text-tag prompt
+        // below — they get tool definitions and history as structured API fields instead, so
+        // there is no custom grammar for the model to imitate (and potentially drift from).
+        if (capability.Tools == ToolCallProtocols.Native && chatProvider is INativeToolChatProvider nativeProvider)
+        {
+            var waitingNative = queue.Waiting;
+            if (waitingNative > 0)
+                callbacks.OnQueued?.Invoke(waitingNative + 1);
+            using var nativeLease = await queue.AcquireAsync(ct);
+
+            var nativeCtx = new ToolContext(
+                principal.UserId,
+                principal.Username ?? string.Empty,
+                principal.IsAdmin,
+                principal.IsGlobalAdmin,
+                agent.Id,
+                callbacks.ConversationId,
+                workDir,
+                ct);
+
+            await foreach (var chunk in StreamNativeAsync(
+                agent, userMessage, maxTokens, history, callbacks, nativeProvider, activeEntry,
+                retrieval.Chunks, resolvedSkills, skillPromptPart, workDir, maxToolCalls, nativeCtx, ct).ConfigureAwait(false))
+            {
+                yield return chunk;
+            }
+            yield break;
+        }
+
         var basePrompt = BuildPrompt(
             settings.GlobalSystemPrompt,
             agent.SystemPrompt,
@@ -319,6 +349,228 @@ public sealed class ChatService(
     }
 
     /// <summary>
+    /// Drives a chat turn for a provider whose model capability is
+    /// <see cref="ToolCallProtocols.Native"/> — tool definitions and tool results are sent as
+    /// structured API fields via <see cref="INativeToolChatProvider"/> instead of a text grammar,
+    /// so the model can never drift to a different tag and silently bypass tool execution.
+    /// Text deltas are yielded to the caller as soon as they arrive; there is no tag-buffering
+    /// step because there is no tag to hide.
+    /// </summary>
+    private async IAsyncEnumerable<string> StreamNativeAsync(
+        Agent agent,
+        string userMessage,
+        int maxTokens,
+        IReadOnlyList<HistoryTurn> history,
+        ChatStreamCallbacks callbacks,
+        INativeToolChatProvider nativeProvider,
+        MyLocalAssistant.Core.Models.CatalogEntry activeEntry,
+        IReadOnlyList<RagContextChunk> ragChunks,
+        IReadOnlyList<ITool> resolvedSkills,
+        string? skillPromptPart,
+        string workDir,
+        int maxToolCalls,
+        ToolContext toolCtx,
+        [EnumeratorCancellation] CancellationToken ct)
+    {
+        var systemPrompt = BuildSystemPromptCore(
+            settings.GlobalSystemPrompt,
+            agent.SystemPrompt,
+            agent.ScenarioNotes,
+            workDir,
+            ragChunks,
+            resolvedSkills,
+            skillPromptPart);
+
+        var messages = new List<NativeChatMessage>();
+        foreach (var turn in history)
+        {
+            if (string.IsNullOrWhiteSpace(turn.Body)) continue;
+            var role = turn.Role == MessageRole.Assistant ? "assistant" : "user";
+            messages.Add(new NativeChatMessage(role, new List<NativeContentBlock> { new NativeTextBlock(turn.Body.Trim()) }));
+        }
+        messages.Add(new NativeChatMessage("user", new List<NativeContentBlock> { new NativeTextBlock(userMessage.Trim()) }));
+
+        var tools = new List<ToolFunctionDto>();
+        foreach (var skill in resolvedSkills)
+            tools.AddRange(skill.Tools);
+
+        var visibleAssistant = new StringBuilder();
+
+        for (var iteration = 0; iteration <= maxToolCalls; iteration++)
+        {
+            NativeChatMessage? finalMessage = null;
+            var stopReason = "end_turn";
+
+            await foreach (var ev in nativeProvider.GenerateWithToolsAsync(activeEntry, systemPrompt, messages, tools, maxTokens, ct).ConfigureAwait(false))
+            {
+                switch (ev)
+                {
+                    case NativeTextDeltaEvent textDelta:
+                        visibleAssistant.Append(textDelta.Text);
+                        yield return textDelta.Text;
+                        break;
+                    case NativeMessageCompleteEvent complete:
+                        finalMessage = complete.Message;
+                        stopReason = complete.StopReason;
+                        break;
+                }
+            }
+
+            if (finalMessage is null)
+            {
+                // Stream ended (connection dropped, provider error swallowed upstream) without
+                // ever completing the turn. Nothing more to say.
+                yield break;
+            }
+
+            var toolUseBlocks = finalMessage.Content.OfType<NativeToolUseBlock>().ToList();
+
+            if (stopReason != "tool_use" || toolUseBlocks.Count == 0)
+            {
+                var supplement = BuildCeoModeAComplianceSupplementIfNeeded(agent.Id, visibleAssistant.ToString());
+                if (supplement.Length > 0) yield return supplement;
+                yield break;
+            }
+
+            if (iteration == maxToolCalls)
+            {
+                callbacks.OnToolUnavailable?.Invoke("(loop)",
+                    $"Tool-call limit reached ({maxToolCalls}). Aborting further calls.");
+                var supplement = BuildCeoModeAComplianceSupplementIfNeeded(agent.Id, visibleAssistant.ToString());
+                if (supplement.Length > 0) yield return supplement;
+                yield break;
+            }
+
+            var toolResults = new List<NativeContentBlock>();
+            foreach (var toolUse in toolUseBlocks)
+            {
+                callbacks.OnToolCall?.Invoke(toolUse.Name, toolUse.ArgumentsJson);
+                var (lookupOk, lookupError, skill) = LookupAllowedSkill(toolUse.Name, resolvedSkills);
+                string resultJson;
+                bool isError;
+                if (!lookupOk)
+                {
+                    resultJson = JsonSerializer.Serialize(new { error = lookupError });
+                    isError = true;
+                }
+                else
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    try
+                    {
+                        var inv = new ToolInvocation(toolUse.Name, toolUse.ArgumentsJson);
+                        var result = await skill!.InvokeAsync(inv, toolCtx).ConfigureAwait(false);
+                        sw.Stop();
+                        resultJson = result.StructuredJson ?? JsonSerializer.Serialize(new { content = result.Content });
+                        isError = result.IsError;
+                        if (isError) toolStats.RecordError(skill.Id, toolUse.Name, sw.Elapsed.TotalMilliseconds);
+                        else toolStats.RecordSuccess(skill.Id, toolUse.Name, sw.Elapsed.TotalMilliseconds);
+                    }
+                    catch (Exception ex)
+                    {
+                        sw.Stop();
+                        log.LogWarning(ex, "Skill {Tool} threw during invocation.", toolUse.Name);
+                        resultJson = JsonSerializer.Serialize(new { error = ex.Message });
+                        isError = true;
+                        toolStats.RecordError(skill?.Id ?? toolUse.Name, toolUse.Name, sw.Elapsed.TotalMilliseconds);
+                    }
+                }
+                callbacks.OnToolResult?.Invoke(toolUse.Name, resultJson, isError);
+                toolResults.Add(new NativeToolResultBlock(toolUse.Id, resultJson, isError));
+            }
+
+            // Replay the model's own turn (text + tool_use blocks) back verbatim, then hand it
+            // every tool result in a single follow-up message — required when the model asked
+            // for more than one tool in the same turn (parallel tool calls).
+            messages.Add(finalMessage);
+            messages.Add(new NativeChatMessage("user", toolResults));
+        }
+    }
+
+    /// <summary>
+    /// Builds the system-prompt text shared by both tool-calling paths: global/agent prompts,
+    /// active skill instructions, the execution-loop reminder, filesystem context, RAG context,
+    /// office/tool-chaining behavior rules, and scenario notes. Unlike <see cref="BuildPrompt"/>,
+    /// this never mentions the text-tag calling grammar — native-mode tools are declared to the
+    /// provider as structured fields, not described in prose.
+    /// </summary>
+    private static string BuildSystemPromptCore(
+        string? globalSystemPrompt,
+        string systemPrompt,
+        string? scenarioNotes,
+        string? workDirectory,
+        IReadOnlyList<RagContextChunk> chunks,
+        IReadOnlyList<ITool> tools,
+        string? skillSystemPrompt)
+    {
+        var sb = new StringBuilder();
+        sb.Append($"Today's date is {DateTime.Now:dddd, MMMM d, yyyy}.\n\n");
+        if (!string.IsNullOrWhiteSpace(globalSystemPrompt))
+        {
+            sb.Append(globalSystemPrompt!.Trim());
+            sb.Append("\n\n");
+        }
+        sb.Append(systemPrompt.Trim());
+
+        if (!string.IsNullOrWhiteSpace(skillSystemPrompt))
+        {
+            sb.Append("\n\n");
+            sb.Append(skillSystemPrompt!.Trim());
+        }
+        sb.Append("\n\nAgent execution loop (always follow):\n");
+        sb.Append("• Thought: decide the next best step based on the user goal and current evidence.\n");
+        sb.Append("• Act: when a tool materially helps, call the most relevant tool with precise arguments.\n");
+        sb.Append("• Observe: inspect the tool result, update your plan, and either continue the loop or produce the final answer.\n");
+        sb.Append("• You should think step by step in order to fulfill the objective with reasoning divided into Thought/Action/Observation steps that can be repeated multiple times when needed.\n");
+        sb.Append("• Keep this loop internal; provide concise user-facing outputs.\n");
+        sb.Append("• Never invent tool outputs, files, or facts. If evidence is missing after available actions, state the gap clearly.\n");
+        sb.Append("• Never claim a tool call succeeded, describe a tool result, or state that a file/action was completed unless you actually called the tool and are reporting its real returned result.\n");
+        sb.Append("• If a request requires a tool that is not enabled, unavailable, or failed at runtime, explicitly state the exact tool name and the reason.\n");
+        if (!string.IsNullOrWhiteSpace(workDirectory))
+        {
+            var resolvedWorkDir = workDirectory.Replace("\r", "").Replace("\n", " ");
+            sb.Append("\n\nFilesystem context:\n");
+            sb.Append("• You have a writable per-conversation work directory on the server.\n");
+            sb.Append("• For this conversation, the exact directory is: ").Append(resolvedWorkDir).Append('\n');
+            sb.Append("• If the user configured a Work folder, this conversation directory lives under that root as a subfolder created automatically for this conversation.\n");
+            sb.Append("• Word, Excel, PDF, report, image, and code tools read from or save to this directory automatically, usually by filename only.\n");
+            sb.Append("• This work directory is explicitly authorized by the signed-in user and is in scope for this conversation.\n");
+            sb.Append("• You may read, create, update, move, rename, summarize, and delete files in this directory when the user's request requires it.\n");
+            sb.Append("• If client.fs tools are available, files exposed through the user's shared folder or copied into the work directory are also explicitly user-authorized for this conversation.\n");
+            sb.Append("• Do not refuse or warn about privacy, consent, or permission concerns for files that are already in this authorized work directory or exposed through the available file tools.\n");
+            sb.Append("• Only refuse filesystem actions that are outside the available tools, outside the authorized work directory/shared folder scope, or clearly unrelated to the user's request.\n");
+        }
+        if (chunks.Count > 0)
+        {
+            sb.Append("\n\nUse the following context to answer the user. Cite sources inline as [source:page] when relevant. If the context does not contain the answer, say so.\n\nContext:\n");
+            for (var i = 0; i < chunks.Count; i++)
+            {
+                var c = chunks[i];
+                sb.Append($"[{i + 1}] ({c.Source}:p{c.Page})\n");
+                sb.Append(c.Text.Trim());
+                sb.Append("\n\n");
+            }
+        }
+        if (tools.Count > 0)
+        {
+            sb.Append("\n\nTools are available for this conversation. Call a tool only when it materially helps.\n");
+            sb.Append("• If the user asks for a concrete file deliverable (for example Excel, Word, PowerPoint, or PDF) and the matching tool is available, you must call that tool before your final answer.\n");
+            sb.Append("• Do not claim a file was created, modified, or analyzed unless the corresponding tool call succeeded.\n");
+            var officeRules = BuildOfficeWorkflowRules(tools);
+            if (officeRules.Length > 0) sb.Append(officeRules);
+            var chainingHints = BuildToolChainingHints(tools);
+            if (chainingHints.Length > 0) sb.Append(chainingHints);
+        }
+        if (!string.IsNullOrWhiteSpace(scenarioNotes))
+        {
+            sb.Append("\n\nScenario notes for this agent:\n");
+            sb.Append(scenarioNotes.Trim());
+            sb.Append('\n');
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
     /// Resolve the per-conversation work directory passed to skills as <c>workDirectory</c>.
     /// Honors <see cref="User.WorkRoot"/> when set, falling back to <c>state\\output\\</c>.
     /// Best-effort: any I/O failure on the user's WorkRoot (path missing, permission denied,
@@ -361,7 +613,7 @@ public sealed class ChatService(
                 onUnavailable?.Invoke(id, "Active model does not support tool calling.");
             return new List<ITool>(0);
         }
-        if (capability.Tools != ToolCallProtocols.Tags)
+        if (capability.Tools != ToolCallProtocols.Tags && capability.Tools != ToolCallProtocols.Native)
         {
             foreach (var id in bound)
                 onUnavailable?.Invoke(id, $"Tool protocol '{capability.Tools}' is not yet implemented.");
@@ -584,6 +836,7 @@ public sealed class ChatService(
         sb.Append("• You should think step by step in order to fulfill the objective with reasoning divided into Thought/Action/Observation steps that can be repeated multiple times when needed.\n");
         sb.Append("• Keep this loop internal; provide concise user-facing outputs.\n");
         sb.Append("• Never invent tool outputs, files, or facts. If evidence is missing after available actions, state the gap clearly.\n");
+        sb.Append("• Never claim a tool call succeeded, write out a fabricated <tool_result>, or state that a file/action was completed unless you actually emitted the tool call and the system gave you back a real result to report.\n");
         sb.Append("• If a request requires a tool that is not enabled, unavailable, or failed at runtime, explicitly state the exact tool name and the reason.\n");
         if (!string.IsNullOrWhiteSpace(workDirectory))
         {

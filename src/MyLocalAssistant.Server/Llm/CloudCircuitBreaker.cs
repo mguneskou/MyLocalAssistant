@@ -56,9 +56,12 @@ public sealed class CloudCircuitBreaker
     /// Wraps an async enumerable producer with circuit breaker logic.
     /// Throws <see cref="CircuitOpenException"/> immediately if the circuit is Open.
     /// On success the circuit closes; on failure the failure counter advances.
+    /// Generic over the yielded item so both plain-text streaming providers and
+    /// structured native-tool-calling providers (see <see cref="INativeToolChatProvider"/>)
+    /// share the same failure tracking.
     /// </summary>
-    public async IAsyncEnumerable<string> ExecuteAsync(
-        Func<IAsyncEnumerable<string>> producer,
+    public async IAsyncEnumerable<T> ExecuteAsync<T>(
+        Func<IAsyncEnumerable<T>> producer,
         [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken ct)
     {
         var s = CurrentState;
@@ -67,7 +70,7 @@ public sealed class CloudCircuitBreaker
 
         var yieldedAny = false;
         Exception? failure = null;
-        IAsyncEnumerable<string>? stream = null;
+        IAsyncEnumerable<T>? stream = null;
 
         try
         {
@@ -84,10 +87,10 @@ public sealed class CloudCircuitBreaker
             System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(failure).Throw();
         }
 
-        await foreach (var token in stream!.WithCancellation(ct))
+        await foreach (var item in stream!.WithCancellation(ct))
         {
             yieldedAny = true;
-            yield return token;
+            yield return item;
         }
 
         if (yieldedAny || failure is null)

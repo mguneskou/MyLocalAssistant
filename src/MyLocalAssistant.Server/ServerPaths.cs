@@ -66,8 +66,22 @@ public static class ServerPaths
         return string.Equals(Path.GetFileName(trimmed), "current", StringComparison.OrdinalIgnoreCase);
     }
 
+    /// <summary>
+    /// Environment variable that, when set, overrides where persistent state lives.
+    /// Used by dev / F5 runs so state (config, DB, downloaded models, vectors) lands in a
+    /// stable folder OUTSIDE <c>bin\</c> and therefore survives a Visual Studio Clean/Rebuild.
+    /// Supports embedded <c>%VAR%</c> tokens (e.g. <c>%LOCALAPPDATA%\MyLocalAssistant\state</c>).
+    /// </summary>
+    public const string StateDirEnvVar = "MYLOCALASSISTANT_STATE_DIR";
+
     private static string ResolveStateDirectory(string appDir, bool isVelopack)
     {
+        // Explicit override always wins — this is how a from-source run keeps its state
+        // in a fixed location instead of next to the exe inside bin\.
+        var overrideDir = Environment.GetEnvironmentVariable(StateDirEnvVar);
+        if (!string.IsNullOrWhiteSpace(overrideDir))
+            return Environment.ExpandEnvironmentVariables(overrideDir.Trim());
+
         if (!isVelopack) return appDir;
         var trimmed = appDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
         var parent = Directory.GetParent(trimmed)?.FullName;
